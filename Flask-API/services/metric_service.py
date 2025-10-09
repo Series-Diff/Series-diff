@@ -4,16 +4,13 @@ from scipy.stats import pearsonr
 from statsmodels.tsa.stattools import acf
 
 
-def extract_series_from_dict(data:dict, time:str, category:str, filename:str, start:str, end:str) -> dict:
+def extract_series_from_dict(data:dict, category:str, filename:str) -> dict:
     """Extracts a time series from a nested dictionary structure.
 
     Args:
         data (dict): The input data dictionary.
-        time (str): The specific time key to extract the series from.
         category (str): The category under which the time series is stored.
         filename (str): The specific filename (or key) for the time series.
-        start (str): The start of the time interval.
-        end (str): The end of the time interval.
 
     Returns:
         dict: A dictionary containing the extracted time series.
