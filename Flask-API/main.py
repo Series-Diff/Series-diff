@@ -21,16 +21,19 @@ def get_timeseries():
     Returns:
         JSON response with timeseries data or error message.
     """
-
+    time = request.args.get("time")
     filename = request.args.get("filename")
     category = request.args.get("category")
     start = request.args.get("start")
     end = request.args.get("end")
     try:
-        data = timeseries_manager.get_timeseries(filename, category, start, end)
+        data = timeseries_manager.get_timeseries(time = time, filename=filename, category=category, start=start, end=end)
     except (KeyError, ValueError) as e:
         logger.error("Error fetching timeseries for filename '%s' and category '%s' and time interval '%s - %s': %s", filename, category, start, end, e)
         return jsonify({"error": str(e)}), 400
+    except Exception as e:
+        logger.error("Unexpected error fetching timeseries for filename '%s' and category '%s' and time interval '%s - %s': %s", filename, category, start, end, e)
+        return jsonify({"error": "Unexpected error occurred"}), 500
     if data is None:
         logger.warning("Timeseries not found for filename '%s' and category '%s' and time interval '%s - %s'", filename, category, start, end)
         return jsonify({"error": "Timeseries not found"}), 404
@@ -233,6 +236,7 @@ def get_pearson_correlation():
     Returns:
         JSON response with the Pearson correlation value or error message.
     """
+    time = request.args.get("time")
     filename1 = request.args.get("filename1")
     filename2 = request.args.get("filename2")
     category = request.args.get("category")
