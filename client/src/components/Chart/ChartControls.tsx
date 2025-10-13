@@ -31,20 +31,20 @@ const ChartControls: React.FC<ChartControlsProps> = ({
 }) => {
     return (
         <div className="text-center mt-4">
-            <Form className="d-flex justify-content-center mb-3">
-                <Form.Label className="me-2">Y Min:</Form.Label>
+            <Form className="d-flex justify-content-center align-items-center mb-3">
+                <Form.Label className="me-2 m-0 text-center">Y Min:</Form.Label>
                 <Form.Control type="number" value={customYMin} onChange={(e) => setCustomYMin(e.target.value)} className="me-2" style={{ width: '60px' }} />
-                <Form.Label className="me-2">Y Max:</Form.Label>
+                <Form.Label className="me-2 m-0 text-center">Y Max:</Form.Label>
                 <Form.Control type="number" value={customYMax} onChange={(e) => setCustomYMax(e.target.value)} className="me-2" style={{ width: '60px' }} />
                 <Button variant="primary" onClick={() => setCustomRange(true)} className="me-2">Apply</Button>
                 <Button variant="secondary" onClick={() => { setCustomYMin(''); setCustomYMax(''); setCustomRange(false); }}>Reset</Button>
             </Form>
 
             {hasSecondary && (
-                <Form className="d-flex justify-content-center">
-                    <Form.Label className="me-2">Second Y Min:</Form.Label>
+                <Form className="d-flex justify-content-center align-items-center">
+                    <Form.Label className="me-2 m-0 text-center">Second Y Min:</Form.Label>
                     <Form.Control type="number" value={customY2Min} onChange={(e) => setCustomY2Min(e.target.value)} className="me-2" style={{ width: '60px' }} />
-                    <Form.Label className="me-2">Second Y Max:</Form.Label>
+                    <Form.Label className="me-2 m-0 text-center">Second Y Max:</Form.Label>
                     <Form.Control type="number" value={customY2Max} onChange={(e) => setCustomY2Max(e.target.value)} className="me-2" style={{ width: '60px' }} />
                     <Button variant="primary" onClick={() => setCustomRange2(true)} className="me-2">Apply</Button>
                     <Button variant="secondary" onClick={() => { setCustomY2Min(''); setCustomY2Max(''); setCustomRange2(false); }}>Reset</Button>
