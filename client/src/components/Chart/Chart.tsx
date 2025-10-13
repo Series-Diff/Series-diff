@@ -40,24 +40,8 @@ interface MyChartProps {
 export const MyChart: React.FC<MyChartProps> = ({ primaryData, secondaryData, title }) => {
     // Extract state and setters from hook
     const {
-        xaxisRange,
-        tickFormat,
-        showMarkers,
-        customRange,
-        setCustomRange,
-        customYMin,
-        setCustomYMin,
-        customYMax,
-        setCustomYMax,
-        customRange2,
-        setCustomRange2,
-        customY2Min,
-        setCustomY2Min,
-        customY2Max,
-        setCustomY2Max,
-        visibleMap,
-        setVisibleMap,
-        handleRelayout,
+        xaxisRange, tickFormat, showMarkers, customRange, setCustomRange, customYMin, setCustomYMin, customYMax, setCustomYMax,
+        customRange2, setCustomRange2, customY2Min, setCustomY2Min, customY2Max, setCustomY2Max, visibleMap, setVisibleMap, handleRelayout,
     } = useChartState(primaryData, secondaryData);
 
     // Extract interaction handlers from hook
@@ -139,16 +123,8 @@ export const MyChart: React.FC<MyChartProps> = ({ primaryData, secondaryData, ti
                 />
             </div>
             <ChartControls
-                customYMin={customYMin}
-                setCustomYMin={setCustomYMin}
-                customYMax={customYMax}
-                setCustomYMax={setCustomYMax}
-                setCustomRange={setCustomRange}
-                customY2Min={customY2Min}
-                setCustomY2Min={setCustomY2Min}
-                customY2Max={customY2Max}
-                setCustomY2Max={setCustomY2Max}
-                setCustomRange2={setCustomRange2}
+                customYMin={customYMin} setCustomYMin={setCustomYMin} customYMax={customYMax} setCustomYMax={setCustomYMax} setCustomRange={setCustomRange}
+                customY2Min={customY2Min} setCustomY2Min={setCustomY2Min} customY2Max={customY2Max} setCustomY2Max={setCustomY2Max} setCustomRange2={setCustomRange2}
                 hasSecondary={!!secondaryData}
             />
         </>

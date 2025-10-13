@@ -1,4 +1,3 @@
-// src/components/Chart/useChartInteractions.ts
 import { useEffect, useRef } from "react";
 
 /**
@@ -24,10 +23,7 @@ export const useChartInteractions = (
         if (!event || !event.data || typeof event.curveNumber !== 'number') return false;
         const name = event.data[event.curveNumber]?.name;
         if (!name) return false;
-        setVisibleMap(prev => ({
-            ...prev,
-            [name]: !(prev[name] ?? true)
-        }));
+        setVisibleMap(prev => ({ ...prev, [name]: !(prev[name] ?? true) }));
         return false;
     };
 
@@ -35,7 +31,6 @@ export const useChartInteractions = (
     useEffect(() => {
         const container = containerRef.current;
         if (!container) return;
-
         const isAllowedPointerDown = (ev: PointerEvent) => {
             const isLeft = ev.button === 0;
             if (isLeft && !ev.ctrlKey && !ev.altKey && !ev.metaKey) return true;
@@ -57,7 +52,6 @@ export const useChartInteractions = (
 
         container.addEventListener('pointerdown', onPointerDown as EventListener, { capture: true });
         container.addEventListener('contextmenu', onContextMenu as EventListener, { capture: true });
-
         return () => {
             container.removeEventListener('pointerdown', onPointerDown as EventListener, { capture: true } as any);
             container.removeEventListener('contextmenu', onContextMenu as EventListener, { capture: true } as any);
@@ -74,7 +68,6 @@ export const useChartInteractions = (
                 ev.preventDefault();
             }
         };
-
         const onWindowError = (ev: ErrorEvent) => {
             const msg = ev.message || '';
             const stack = ev.error?.stack || '';
@@ -82,10 +75,8 @@ export const useChartInteractions = (
                 ev.preventDefault();
             }
         };
-
         window.addEventListener('unhandledrejection', onUnhandledRejection);
         window.addEventListener('error', onWindowError);
-
         return () => {
             window.removeEventListener('unhandledrejection', onUnhandledRejection);
             window.removeEventListener('error', onWindowError);

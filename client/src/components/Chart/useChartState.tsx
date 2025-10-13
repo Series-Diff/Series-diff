@@ -34,7 +34,6 @@ export const useChartState = (
     useEffect(() => {
         const allXValues = Object.values(allData).flat().map(d => new Date(d.x));
         if (allXValues.length === 0) return;
-
         const minDate = new Date(Math.min(...allXValues.map(d => d.getTime())));
         const maxDate = new Date(Math.max(...allXValues.map(d => d.getTime())));
 
