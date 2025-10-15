@@ -114,7 +114,7 @@ class TestCalculateBasicStatistics(unittest.TestCase):
             "2023-01-02": "b"
         }
         result = calculate_basic_statistics(series)
-        self.assertTrue(isinstance(result, str) or all(np.isnan(result[k]) for k in result))
+        self.assertTrue(isinstance(result, str) or "error" in result)
 
 class TestCalculateAutocorrelation(unittest.TestCase):
     def test_typical_series(self):
