@@ -1,5 +1,5 @@
 async function fetchStdDev(category: string, filename: string): Promise<number | null>{
-    const resp = await fetch(`/timeseries/standard_deviation?category=${category}&filename=${filename}`);
+    const resp = await fetch(`api/timeseries/standard_deviation?category=${category}&filename=${filename}`);
     if (!resp.ok) {
         console.error("Failed to fetch standard deviation:", await resp.text());
         return null;
