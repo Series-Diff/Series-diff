@@ -70,6 +70,12 @@ class TimeSeriesManager:
 
         if category and not isinstance(category, str):
             raise ValueError(f"Invalid category format: {category}. Expected a string.")
+        if start and not isinstance(start, str):
+            raise ValueError(f"Invalid start format: {start}. Expected a string.")
+        if end and not isinstance(end, str):
+            raise ValueError(f"Invalid end format: {end}. Expected a string.")
+        if start and end and start > end:
+            raise ValueError(f"Start date {start} is after end date {end}.")
         try:            
             datetime_start = datetime.fromisoformat(start) if start else None
             datetime_end = datetime.fromisoformat(end) if end else None
