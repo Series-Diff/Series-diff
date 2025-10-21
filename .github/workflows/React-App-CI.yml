@@ -52,6 +52,7 @@ jobs:
 
       - name: Run tests
         run: npm test -- --watchAll=false --passWithNoTests
+<<<<<<< HEAD
 =======
         run: npm run build
 =======
@@ -61,3 +62,5 @@ jobs:
       - name: Run tests
         run: npm test -- --watchAll=false
 >>>>>>> af53f7e (CT-74 - Add CI for frontend)
+=======
+>>>>>>> fec2dab (Update test command to allow passing with no tests)
