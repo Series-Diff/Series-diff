@@ -2,7 +2,7 @@ import React from 'react';
 import { Routes, Route, Navigate } from 'react-router-dom';
 import { NavigationMenu } from './components/Navbar/Navbar';
 import DataPage from './pages/DataPage';
-import DashboardPage from './pages/DashboardPage';
+import DashboardPage from './pages/Dashboard/DashboardPage';
 import AnomalyPage from './pages/AnomalyPage';
 import MetricsPage from './pages/MetricsPage';
 import SettingsPage from './pages/Settings/SettingsPage';
