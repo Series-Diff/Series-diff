@@ -4,20 +4,20 @@ import './DashboardPage.css';
 import '../components/Chart/Chart.css';
 import '../components/Metric/Metrics.css';
 import '../components/Dropdown/Dropdown.css';
-import { sendProcessedTimeSeriesData } from '../../services/uploadTimeSeries';
-import { MyChart } from '../../components/Chart/Chart';
-import { fetchTimeSeriesData, TimeSeriesEntry } from '../../services/fetchTimeSeries';
-import { DataImportPopup } from '../../components/DataImportPopup/DataImportPopup';
-import Metrics, {CombinedMetric} from "../../components/Metric/Metrics";
-import {fetchAllMeans} from "../../services/fetchAllMeans";
-import {extractFilenamesPerCategory} from "../../services/extractFilenamesPerCategory";
-import {fetchAllMedians} from "../../services/fetchAllMedians";
-import {fetchAllVariances} from "../../services/fetchAllVariances";
-import {fetchAllStdDevs} from "../../services/fetchAllStdDevs";
-import Select from'../../components/Select/Select';
-import Dropdown from '../../components/Dropdown/Dropdown';
-import {fetchAllAutoCorrelations} from "../../services/fetchAllAutoCorrelations";
-import metrics from "../../components/Metric/Metrics";
+import { sendProcessedTimeSeriesData } from '../services/uploadTimeSeries';
+import { MyChart } from '../components/Chart/Chart';
+import { fetchTimeSeriesData, TimeSeriesEntry } from '../services/fetchTimeSeries';
+import { DataImportPopup } from '../components/DataImportPopup/DataImportPopup';
+import Metrics, {CombinedMetric} from "../components/Metric/Metrics";
+import {fetchAllMeans} from "../services/fetchAllMeans";
+import {extractFilenamesPerCategory} from "../services/extractFilenamesPerCategory";
+import {fetchAllMedians} from "../services/fetchAllMedians";
+import {fetchAllVariances} from "../services/fetchAllVariances";
+import {fetchAllStdDevs} from "../services/fetchAllStdDevs";
+import Select from'../components/Select/Select';
+import Dropdown from '../components/Dropdown/Dropdown';
+import {fetchAllAutoCorrelations} from "../services/fetchAllAutoCorrelations";
+import metrics from "../components/Metric/Metrics";
 
 
 function DashboardPage() {
