@@ -25,6 +25,9 @@ jobs:
         with:
           node-version: 20
 <<<<<<< HEAD
+<<<<<<< HEAD
+=======
+>>>>>>> 8fa5a40 (CT- 74 - Implement caching for node modules in CI)
           
       - name: Cache node modules
         uses: actions/cache@v4
@@ -33,13 +36,17 @@ jobs:
           key: ${{ runner.os }}-node-${{ hashFiles('client/package-lock.json') }}
           restore-keys: |
             ${{ runner.os }}-node-
+<<<<<<< HEAD
 =======
 >>>>>>> af53f7e (CT-74 - Add CI for frontend)
+=======
+>>>>>>> 8fa5a40 (CT- 74 - Implement caching for node modules in CI)
 
       - name: Install dependencies
         run: npm ci
 
       - name: Build project
+<<<<<<< HEAD
 <<<<<<< HEAD
         run: CI=false npm run build
 
@@ -47,6 +54,9 @@ jobs:
         run: npm test -- --watchAll=false --passWithNoTests
 =======
         run: npm run build
+=======
+        run: CI=false npm run build
+>>>>>>> 8fa5a40 (CT- 74 - Implement caching for node modules in CI)
 
       - name: Run tests
         run: npm test -- --watchAll=false
