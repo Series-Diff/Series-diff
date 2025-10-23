@@ -14,7 +14,7 @@ import {extractFilenamesPerCategory} from "../services/extractFilenamesPerCatego
 import {fetchAllMedians} from "../services/fetchAllMedians";
 import {fetchAllVariances} from "../services/fetchAllVariances";
 import {fetchAllStdDevs} from "../services/fetchAllStdDevs";
-import Select from'../components/Select/select';
+import Select from'../components/Select/Select';
 import Dropdown from '../components/Dropdown/Dropdown';
 import {fetchAllAutoCorrelations} from "../services/fetchAllAutoCorrelations";
 import { fetchAllCrossCorrelations } from "../services/fetchAllCrossCorrelations";
@@ -280,7 +280,7 @@ setSecondaryCategory(null);
     localStorage.removeItem('chartData');
 
      try {
-      const resp = await fetch('/clear-timeseries', { method: 'DELETE' });
+      const resp = await fetch('/api/clear-timeseries', { method: 'DELETE' });
       if (!resp.ok) {
         const errorText = await resp.text();
         console.error("Failed to clear timeseries on backend:", errorText);

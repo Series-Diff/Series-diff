@@ -1,7 +1,7 @@
 // services/fetchAllMeans.ts
 
 async function fetchMean(category: string, filename: string): Promise<number | null>{
-    const resp = await fetch(`/timeseries/mean?category=${category}&filename=${filename}`);
+    const resp = await fetch(`api/timeseries/mean?category=${category}&filename=${filename}`);
     if (!resp.ok) {
         console.error("Failed to fetch mean:", await resp.text());
         return null;

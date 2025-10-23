@@ -142,7 +142,6 @@ class TestCalculateAutocorrelation(unittest.TestCase):
         acf_value = calculate_autocorrelation(series)
         
         #assert
-        print(acf_value)
         self.assertTrue(acf_value, np.nan)
 
     def test_non_dict_input(self):
