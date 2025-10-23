@@ -5,7 +5,7 @@ import './MetricsPage.css';
 import { fetchAllDifferences } from '../services/fetchAllDifferences';
 import { extractFilenamesPerCategory } from '../services/extractFilenamesPerCategory';
 import { fetchTimeSeriesData, TimeSeriesEntry } from '../services/fetchTimeSeries';
-import Select from '../components/Select/select';
+import Select from '../components/Select/Select';
 import Dropdown from "@/components/Dropdown/Dropdown";
 
 function MetricsPage() {
