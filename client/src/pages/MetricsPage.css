@@ -1,0 +1,91 @@
+.button {
+  background-color: #007bff;
+  color: white;
+  border: none;
+  padding: 10px 20px;
+  margin-left: 10px;
+  border-radius: 5px;
+  cursor: pointer;
+  font-size: 0.9rem;
+  transition: background-color 0.2s ease-in-out;
+  text-align: center;
+}
+
+.metrics-page-container {
+    padding: 16px;
+}
+
+.metrics-controls {
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+    margin-bottom: 1rem;
+    max-width: 700px;
+}
+
+.difference-checkboxes {
+    border: 1px solid #ccc;
+    border-radius: 8px;
+    padding: 8px;
+    max-height: 300px;
+    overflow-y: auto;
+    background: #f9f9f9;
+}
+
+.difference-checkboxes table {
+    width: 100%;
+    border-collapse: collapse;
+}
+
+.difference-checkboxes th,
+.difference-checkboxes td {
+    text-align: center;
+    padding: 4px;
+}
+
+.difference-checkboxes th {
+    border-bottom: 1px solid #ccc;
+}
+
+.difference-checkboxes tr {
+    border-bottom: 1px solid #eee;
+}
+
+.metrics-chart-container {
+    margin-top: 16px;
+}
+
+.button:hover {
+    background-color: #0056b3;
+}
+
+.text-center {
+    text-align: center;
+}
+
+.text-danger {
+    color: red;
+}
+
+.p-4 {
+    padding: 16px;
+}
+
+.mb-2 {
+    margin-bottom: 8px;
+}
+
+.mt-2 {
+    margin-top: 8px;
+}
+
+
+.group-menu {
+  width: 256px;
+  max-width: 256px;
+  gap: 10px;
+  flex-shrink: 0;
+  align-self: stretch;
+  background-color: #f8f9fa;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+}
