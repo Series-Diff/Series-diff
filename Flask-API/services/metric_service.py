@@ -153,3 +153,57 @@ def calculate_pearson_correlation(series1: dict, series2: dict) -> float:
         raise ValueError("could not convert series to pd.Series: " + str(e)) from e
     corr, _ = pearsonr(series1, series2)
     return corr
+
+def calculate_difference(series1: dict, series2: dict, tolerance: str | None = None) -> dict:
+    """
+    Calculates the difference between two time series by nearest timestamp matching.
+
+    Args:
+        series1 (dict): first time series
+        series2 (dict): second time series
+        tolerance (str): max time difference for matching points (pandas Timedelta, e.g. '1T')
+
+    Returns:
+        dict: timestamp-to-difference series
+    """
+    if not series1 or not series2:
+        raise ValueError("Both series must be non-empty dictionaries")
+
+
+    df1 = pd.DataFrame({
+        "time": pd.to_datetime(list(series1.keys())),
+        "value1": list(series1.values())
+    }).set_index("time")
+
+    df2 = pd.DataFrame({
+        "time": pd.to_datetime(list(series2.keys())),
+        "value2": list(series2.values())
+    }).set_index("time")
+
+    if tolerance is None:
+        delta1 = (df1.index[1:] - df1.index[:-1]).median()
+        delta2 = (df2.index[1:] - df2.index[:-1]).median()
+        tolerance = max(delta1, delta2)
+
+    else:
+        tolerance = pd.Timedelta(tolerance)
+
+
+    df1 = df1.sort_index()
+    df2 = df2.sort_index()
+
+
+
+    df_merged = pd.merge_asof(
+        df1, df2,
+        left_index=True,
+        right_index=True,
+        direction="nearest",
+        tolerance=pd.Timedelta(tolerance)
+    ).dropna()
+
+    if df_merged.empty:
+        raise ValueError("No overlapping timestamps within tolerance")
+
+    df_merged["diff"] = df_merged["value1"] - df_merged["value2"]
+    return {idx.isoformat(): float(val) for idx, val in df_merged["diff"].items()}

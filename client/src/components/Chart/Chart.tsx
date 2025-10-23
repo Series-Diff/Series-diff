@@ -82,7 +82,6 @@ export const MyChart: React.FC<MyChartProps> = ({ primaryData, secondaryData, ti
                         },
                         height: 600,
                         legend: { orientation: "h" },
-                        paper_bgcolor: '#f8f9fa',
                         plot_bgcolor: 'white',
                         dragmode: 'pan',
                     }}

@@ -1,4 +1,6 @@
 import sys
+
+
 from services.time_series_manager import TimeSeriesManager
 import services.metric_service as metric_service
 
@@ -22,7 +24,7 @@ def get_timeseries():
 
     """
     Get timeseries data for a specific filename, category and time interval.
-    
+
     Returns:
         JSON response with timeseries data or error message.
     """
@@ -53,7 +55,7 @@ def get_mean():
     Returns:
         JSON response with the mean value or error message.
     """
-    
+
     filename = request.args.get("filename")
     category = request.args.get("category")
     start = request.args.get("start")
@@ -80,7 +82,7 @@ def get_median():
     Returns:
         JSON response with the median value or error message.
     """
-    
+
     filename = request.args.get("filename")
     category = request.args.get("category")
     start = request.args.get("start")
@@ -214,7 +216,7 @@ def get_iqr():
     Returns:
         JSON response with the IQR value or error message.
     """
-    
+
     filename = request.args.get("filename")
     category = request.args.get("category")
     start = request.args.get("start")
@@ -261,6 +263,30 @@ def get_pearson_correlation():
         return jsonify({"error": "No valid timeseries data provided"}), 400
     logger.info("Successfully calculated Pearson correlation for provided timeseries data for filenames '%s' and '%s' in category '%s'", filename1, filename2, category)
     return jsonify({"pearson_correlation": correlation}), 200
+
+
+@app.route("/timeseries/difference", methods=["GET"])
+def get_difference():
+    filename1 = request.args.get("filename1")
+    filename2 = request.args.get("filename2")
+    category = request.args.get("category")
+    tolerance = request.args.get("tolerance")
+
+    try:
+        data1 = timeseries_manager.get_timeseries(filename=filename1, category=category)
+        serie1 = metric_service.extract_series_from_dict(data1, category, filename1)
+
+        data2 = timeseries_manager.get_timeseries(filename=filename2, category=category)
+        serie2 = metric_service.extract_series_from_dict(data2, category, filename2)
+
+        difference_series = metric_service.calculate_difference(serie1, serie2, tolerance)
+
+    except Exception as e:
+        return jsonify({"error": str(e)}), 400
+
+    return jsonify({"difference": difference_series}), 200
+
+
 
 @app.route("/api/upload-timeseries", methods=["POST"])
 def add_timeseries():
