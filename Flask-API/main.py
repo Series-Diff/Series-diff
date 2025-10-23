@@ -1,11 +1,10 @@
 import sys
 
-import pandas as pd
 
 from services.time_series_manager import TimeSeriesManager
 import services.metric_service as metric_service
 
-from flask import Flask, jsonify, request
+from flask import Flask, jsonify, redirect, request, url_for
 
 sys.stdout.reconfigure(line_buffering=True)
 
@@ -15,7 +14,12 @@ app = Flask(__name__)
 logger = app.logger
 logger.setLevel("DEBUG")
 
-@app.route("/timeseries", methods=["GET"])
+
+@app.route("/", methods=["GET"])
+def index():
+    return redirect(url_for("get_timeseries")) # set /api/timeseries as the default route
+
+@app.route("/api/timeseries", methods=["GET"])
 def get_timeseries():
 
     """
@@ -43,7 +47,7 @@ def get_timeseries():
     logger.info("Successfully fetched timeseries for filename '%s' and category '%s' and time interval '%s - %s'", filename, category, start, end)
     return jsonify(data), 200
 
-@app.route("/timeseries/mean", methods=["GET"])
+@app.route("/api/timeseries/mean", methods=["GET"])
 def get_mean():
     """
     Get the mean value of the timeseries for a specific filename, category and time interval.
@@ -70,7 +74,7 @@ def get_mean():
 
     return jsonify({"mean": mean}), 200
 
-@app.route("/timeseries/median", methods=["GET"])
+@app.route("/api/timeseries/median", methods=["GET"])
 def get_median():
     """
     Get the median value of the timeseries for a specific filename and category.
@@ -97,7 +101,7 @@ def get_median():
     logger.info("Successfully calculated median for provided timeseries data for filename '%s' and category '%s' and time interval '%s - %s'", filename, category, start, end)
 
     return jsonify({"median": median}), 200
-@app.route("/timeseries/variance", methods=["GET"])
+@app.route("/api/timeseries/variance", methods=["GET"])
 def get_variance():
     """
     Get the variance of the timeseries for a specific filename, category and time interval.
@@ -123,7 +127,7 @@ def get_variance():
     logger.info("Successfully calculated variance for provided timeseries data for filename '%s' and category '%s' and time interval '%s - %s'", filename, category, start, end)
 
     return jsonify({"variance": variance}), 200
-@app.route("/timeseries/standard_deviation", methods=["GET"])
+@app.route("/api/timeseries/standard_deviation", methods=["GET"])
 def get_standard_deviation():
     """
     Get the standard deviation of the timeseries for a specific filename, category and time interval.
@@ -150,7 +154,7 @@ def get_standard_deviation():
     return jsonify({"standard_deviation": std_dev}), 200
 
 
-@app.route("/timeseries/autocorrelation", methods=["GET"])
+@app.route("/api/timeseries/autocorrelation", methods=["GET"])
 def get_autocorrelation():
     """
     Get the autocorrelation of the timeseries for a specific filename, category and time interval.
@@ -178,7 +182,7 @@ def get_autocorrelation():
 
     return jsonify({"autocorrelation": acf_value}), 200
 
-@app.route("/timeseries/coefficient_of_variation", methods=["GET"])
+@app.route("/api/timeseries/coefficient_of_variation", methods=["GET"])
 def get_coefficient_of_variation():
     """
     Get the coefficient of variation of the timeseries for a specific filename, category and time interval.
@@ -204,7 +208,7 @@ def get_coefficient_of_variation():
 
     return jsonify({"coefficient_of_variation": cv}), 200
 
-@app.route("/timeseries/iqr", methods=["GET"])
+@app.route("/api/timeseries/iqr", methods=["GET"])
 def get_iqr():
     """
     Get the interquartile range (IQR) of the timeseries for a specific filename, category and time interval.
@@ -231,7 +235,7 @@ def get_iqr():
 
     return jsonify({"iqr": iqr}), 200
 
-@app.route("/timeseries/pearson_correlation", methods=["GET"])
+@app.route("/api/timeseries/pearson_correlation", methods=["GET"])
 def get_pearson_correlation():
     """
     Get the Pearson correlation between two timeseries for specific filenames, category and time interval.
@@ -284,7 +288,7 @@ def get_difference():
 
 
 
-@app.route("/upload-timeseries", methods=["POST"])
+@app.route("/api/upload-timeseries", methods=["POST"])
 def add_timeseries():
     """
     Upload new timeseries data.
@@ -311,8 +315,7 @@ def add_timeseries():
     logger.info("All timeseries data uploaded successfully")
     return jsonify({"status": "Data uploaded"}), 201
 
-
-@app.route("/clear-timeseries", methods=["DELETE"])
+@app.route("/api/clear-timeseries", methods=["DELETE"])
 def clear_timeseries():
     """
     Clear all timeseries data.
@@ -330,4 +333,4 @@ def clear_timeseries():
 
 
 if __name__ == "__main__":
-    app.run(host="0.0.0.0", port=5000, debug=True)
+    app.run(host="0.0.0.0", port=5000)
