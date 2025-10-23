@@ -18,7 +18,7 @@ export async function fetchAllAutoCorrelations(
   for (const category of Object.keys(filenamesPerCategory)) {
     for (const filename of filenamesPerCategory[category]) {
       try {
-        const autocorrelation = await fetchAutoCorrelation(category, filename);
+        const autocorrelation = await fetchAutocorrelation(category, filename);
         if (!autocorrelationsValues[category]) {
           autocorrelationsValues[category] = {};
         }
