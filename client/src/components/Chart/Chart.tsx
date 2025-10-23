@@ -69,38 +69,63 @@ export const MyChart: React.FC<MyChartProps> = ({primaryData, secondaryData, tit
             setShowMarkers(false); // Przywrócenie domyślnych markerów
         }
     };
+// Tworzymy mapę kolorów dla plików
+const fileColors: Record<string, string> = {};
+const availableColors = [
+    '#1f77b4', '#ff7f0e', '#2ca02c', '#d62728',
+    '#9467bd', '#8c564b', '#e377c2', '#7f7f7f',
+    '#bcbd22', '#17becf'
+];
+let colorIndex = 0;
 
-    const colors = [
-        '#1f77b4', '#ff7f0e', '#2ca02c', '#d62728',
-        '#9467bd', '#8c564b', '#e377c2', '#7f7f7f',
-        '#bcbd22', '#17becf'
-    ];
+// Funkcja do wyciągania "nazwy pliku" z nazwy serii
+const getFileName = (seriesName: string) => {
+    return seriesName.split('.')[1] || seriesName; // np. 'Sales.A' -> 'A'
+};
 
+const traces = [
+    ...Object.entries(primaryData).map(([name, series]) => {
+        const fileName = getFileName(name);
+        if (!fileColors[fileName]) {
+            fileColors[fileName] = availableColors[colorIndex % availableColors.length];
+            colorIndex += 1;
+        }
+        const color = fileColors[fileName];
+        return {
+            x: series.map(d => d.x),
+            y: series.map(d => d.y),
+            type: 'scattergl' as const,
+            mode: (showMarkers ? 'lines+markers' : 'lines') as 'lines' | 'lines+markers',
+            name: name,
+            line: { color },
+            marker: { size: 5, color },
+            yaxis: 'y1',
+            visible: (visibleMap[name] === false ? 'legendonly' : undefined) as 'legendonly' | undefined,
+        };
+    }),
+    ...(secondaryData
+        ? Object.entries(secondaryData).map(([name, series]) => {
+            const fileName = getFileName(name);
+            if (!fileColors[fileName]) {
+                fileColors[fileName] = availableColors[colorIndex % availableColors.length];
+                colorIndex += 1;
+            }
+            const color = fileColors[fileName];
+            return {
+                x: series.map(d => d.x),
+                y: series.map(d => d.y),
+                type: 'scattergl' as const,
+                mode: (showMarkers ? 'lines+markers' : 'lines') as 'lines' | 'lines+markers',
+                name: name,
+                line: { color },
+                marker: { size: 5, color },
+                yaxis: 'y2',
+                visible: (visibleMap[name] === false ? 'legendonly' : undefined) as 'legendonly' | undefined,
+            };
+        })
+        : [])
+];
 
-    const traces =  [...Object.entries(primaryData).map(([name, series], index) => ({
-      x: series.map(d => d.x),
-      y: series.map(d => d.y),
-      type: 'scattergl' as const,
-      mode: (showMarkers ? 'lines+markers' : 'lines') as 'lines' | 'lines+markers',
-      name: name,
-      line: { color: colors[index % colors.length] },
-      marker: { size: 5, color: colors[index % colors.length] },
-      yaxis: 'y1',
-visible: (visibleMap[name] === false ? 'legendonly' : undefined) as 'legendonly' | undefined,
-
-    })),
-    ...(secondaryData ? Object.entries(secondaryData).map(([name, series], index) => ({
-      x: series.map(d => d.x),
-      y: series.map(d => d.y),
-      type: 'scattergl' as const,
-      mode: (showMarkers ? 'lines+markers' : 'lines') as 'lines' | 'lines+markers',
-      name: name,
-      line: { color: colors[(index + Object.keys(primaryData).length) % colors.length] },
-      marker: { size: 5, color: colors[(index + Object.keys(primaryData).length) % colors.length] },
-      yaxis: 'y2',
-visible: (visibleMap[name] === false ? 'legendonly' : undefined) as 'legendonly' | undefined,
-
-    })):[])]
     return (
         <>
 
