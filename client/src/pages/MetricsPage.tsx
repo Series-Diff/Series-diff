@@ -7,6 +7,7 @@ import { extractFilenamesPerCategory } from '../services/extractFilenamesPerCate
 import { fetchTimeSeriesData, TimeSeriesEntry } from '../services/fetchTimeSeries';
 import Select from '../components/Select/Select';
 import Dropdown from "@/components/Dropdown/Dropdown";
+import {Button, Form} from "react-bootstrap";
 
 function MetricsPage() {
     const [allChartData, setAllChartData] = useState<Record<string, TimeSeriesEntry[]>>({});
@@ -270,35 +271,26 @@ const handleApplyTolerance = async () => {
                     }}
                 >
                     <div className="d-flex justify-content-between align-items-center mb-2">
-                            <span>Tolerance:</span>
-                            <input
-                                type="number"
-                                value={customToleranceValue}
-                                onChange={(e) => setCustomToleranceValue(e.target.value)}
-                                style={{margin: '0 4px', width: '40px'}}
-                            />
-                            <button
-                                onClick={handleApplyTolerance}
-                                className="button"
-                            >
-                                Apply
-                            </button>
-                            <button
-                                onClick={handleResetTolerance}
-                                className="button">
-                                Reset
-                            </button>
+                        <Form.Label className="me-2 m-0 text-center">Tolerance</Form.Label>
+                        <Form.Control type="number" value={customToleranceValue} onChange={(e) => setCustomToleranceValue(e.target.value)} className="me-2" style={{ width: '60px' }} />
+
+                        <Button variant="primary" onClick={handleApplyTolerance} className="me-2">Apply</Button>
+                        <Button variant="primary" onClick={handleResetTolerance} className="me-2">Reset</Button>
                         </div>
 
                     <div className="d-flex justify-content-between align-items-center mb-2">
                         <span>{selectedDifferences.length} selected</span>
-                        <button
-                            className="button"
-                            onClick={handleSelectAllToggle}>
-                            {getDifferenceOptions().every(opt => selectedDifferences.includes(opt.value))
-                                ? "Deselect All"
-                                : "Select All"}
-                        </button>
+                    <Button
+                      variant="primary"
+                      onClick={handleSelectAllToggle}
+                      className="me-2"
+                    >
+                      {getDifferenceOptions().every(opt => selectedDifferences.includes(opt.value))
+                        ? "Deselect All"
+                        : "Select All"}
+                    </Button>
+
+
                     </div>
                     <table style={{ width: "100%", borderCollapse: "collapse" }}>
                         <thead>
