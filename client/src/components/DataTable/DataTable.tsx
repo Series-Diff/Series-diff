@@ -1,5 +1,6 @@
 // src/components/DataTable/DataTable.tsx
 import React from 'react';
+import { Dropdown } from 'react-bootstrap';
 
 export interface DataTableProps {
   data: Record<string, any>[];
@@ -8,7 +9,8 @@ export interface DataTableProps {
 
 
 export const DataTable: React.FC<DataTableProps> = ({ data, title }) => {
-  const rows = data?.slice(0, 20) || [];
+  const [rowsNumber, setRowsNumber] = React.useState<number>(10);
+  const rows = data?.slice(0, rowsNumber) || [];
   const columns = rows.length > 0 ? Object.keys(rows[0]) : [];
 
   const columnHeaderNames: Record<string, string> = {
@@ -64,6 +66,30 @@ export const DataTable: React.FC<DataTableProps> = ({ data, title }) => {
           </table>
         </div>
       )}
+      {/* Pagination controls */}
+      <div className="mt-4">
+        <Dropdown>
+          <Dropdown.Toggle variant="light" id="dropdown-basic" size="sm" className="me-2">
+            {rowsNumber} rows
+          </Dropdown.Toggle>
+
+          <Dropdown.Menu>
+            <Dropdown.Item href="#" onClick={() => setRowsNumber(10)}>
+              10
+            </Dropdown.Item>
+            <Dropdown.Item href="#" onClick={() => setRowsNumber(20)}>
+              20
+            </Dropdown.Item>
+            <Dropdown.Item href="#" onClick={() => setRowsNumber(50)}>
+              50
+            </Dropdown.Item>
+            <Dropdown.Item href="#" onClick={() => setRowsNumber(100)}>
+              100
+            </Dropdown.Item>
+          </Dropdown.Menu>
+        </Dropdown>
+        <small className="text-muted">Showing first {rowsNumber} rows of {data.length} total.</small>
+      </div>
     </div>
   );
 };

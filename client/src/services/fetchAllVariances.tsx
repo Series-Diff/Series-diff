@@ -1,5 +1,5 @@
 async function fetchVariance(category: string, filename: string): Promise<number | null>{
-    const resp = await fetch(`/timeseries/variance?category=${category}&filename=${filename}`);
+    const resp = await fetch(`api/timeseries/variance?category=${category}&filename=${filename}`);
     if (!resp.ok) {
         console.error("Failed to fetch variance:", await resp.text());
         return null;
