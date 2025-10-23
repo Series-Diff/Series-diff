@@ -17,6 +17,7 @@ import {fetchAllStdDevs} from "../services/fetchAllStdDevs";
 import Select from'../components/Select/select';
 import Dropdown from '../components/Dropdown/Dropdown';
 import {fetchAllAutoCorrelations} from "../services/fetchAllAutoCorrelations";
+import { fetchAllCrossCorrelations } from "../services/fetchAllCrossCorrelations";
 import metrics from "../components/Metric/Metrics";
 
 
@@ -48,6 +49,8 @@ function DashboardPage() {
   });
 
   const [autoCorrelationValues, setAutoCorrelationValues] = useState<Record<string, Record<string, number>>>({});
+  const [crossCorrelationValues, setCrossCorrelationValues] = useState<Record<string, Record<string, Record<string, number>>>>({});
+
   const handleFetchData = useCallback(async (showLoadingIndicator = true) => {
   if (showLoadingIndicator) setIsLoading(true);
   setError(null);
@@ -75,6 +78,17 @@ function DashboardPage() {
     
     const autoCorrelations = await fetchAllAutoCorrelations(names);
     setAutoCorrelationValues(autoCorrelations);
+
+    const allCrossCorrelations: Record<string, Record<string, Record<string, number>>> = {};
+
+    for (const category of Object.keys(names)) {
+      const files = names[category];
+      allCrossCorrelations[category] = await fetchAllCrossCorrelations(files, category);
+    }
+
+    setCrossCorrelationValues(allCrossCorrelations);
+
+
    } catch (err: any) {
       setError(err.message || 'Failed to fetch data.');
       setChartData({}); // Wyczyść dane w przypadku błędu
@@ -91,6 +105,7 @@ function DashboardPage() {
     const storedStdDevsValues = localStorage.getItem('stdDevsValues');
     const storedAutoCorrelationsValues = localStorage.getItem('autoCorrelationValues');
     const storedFilenames = localStorage.getItem('filenamesPerCategory');
+    const storedCrossCorrelationsValues = localStorage.getItem('crossCorrelationValues');
     if (storedData && storedMeanValues && storedMedianValues && storedVarianceValues && storedStdDevsValues && storedAutoCorrelationsValues && storedFilenames) {
       try {
         const parsedData = JSON.parse(storedData);
@@ -99,6 +114,7 @@ function DashboardPage() {
         const parsedVarianceValues = JSON.parse(storedVarianceValues);
         const parsedStdDevsValues = JSON.parse(storedStdDevsValues);
         const parsedAutoCorrelations = JSON.parse(storedAutoCorrelationsValues);
+        const parsedCrossCorrelations = storedCrossCorrelationsValues ? JSON.parse(storedCrossCorrelationsValues) : {};
         const parsedFilenames = JSON.parse(storedFilenames);
 
         setChartData(parsedData);
@@ -107,6 +123,7 @@ function DashboardPage() {
         setVarianceValues(parsedVarianceValues);
         setStdDevsValues(parsedStdDevsValues);
         setAutoCorrelationValues(parsedAutoCorrelations)
+        setCrossCorrelationValues(parsedCrossCorrelations);
         setFilenamesPerCategory(parsedFilenames);
       } catch (e) {
         localStorage.removeItem('chartData');
@@ -182,14 +199,17 @@ function DashboardPage() {
     if (Object.keys(stdDevsValues).length > 0) {
       localStorage.setItem('stdDevsValues', JSON.stringify(stdDevsValues));
     }
-    if (Object.keys(stdDevsValues).length > 0) {
-      localStorage.setItem('autoCorrelationValues', JSON.stringify(autoCorrelationValues));
+    if (Object.keys(autoCorrelationValues).length > 0) {
+    localStorage.setItem('autoCorrelationValues', JSON.stringify(autoCorrelationValues));
+    }
+    if (Object.keys(crossCorrelationValues).length > 0) {
+    localStorage.setItem('crossCorrelationValues', JSON.stringify(crossCorrelationValues));
     }
     if (Object.keys(filenamesPerCategory).length > 0) {
       localStorage.setItem('filenamesPerCategory', JSON.stringify(filenamesPerCategory));
     }
 
-  }, [meanValues, medianValues, varianceValues, stdDevsValues, autoCorrelationValues, filenamesPerCategory]);
+  }, [meanValues, medianValues, varianceValues, stdDevsValues, autoCorrelationValues, crossCorrelationValues, filenamesPerCategory]);
 
     const handleDropdownChange = (event: React.ChangeEvent<HTMLSelectElement>) => {
     setSelectedCategory(event.target.value);
