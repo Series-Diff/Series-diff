@@ -3,13 +3,7 @@ import { Form, Button } from 'react-bootstrap';
 
 /**
  * Sub-component for Y-axis range controls.
- * 
  * Renders inputs and buttons for custom min/max on primary and secondary Y-axes using React-Bootstrap for consistent styling.
- * 
- * Props:
- * - customYMin, setCustomYMin, etc.: State and setters for primary axis.
- * - customY2Min, setCustomY2Min, etc.: For secondary axis.
- * - hasSecondary: Flag to show secondary controls.
  */
 interface ChartControlsProps {
     customYMin: string;

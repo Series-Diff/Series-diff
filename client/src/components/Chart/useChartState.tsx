@@ -9,15 +9,14 @@ import { TimeSeriesEntry } from "@/services/fetchTimeSeries";
  * - Tick formats and markers based on zoom level.
  * - Visibility map for traces.
  * - Initial X-range setup after data load.
- * 
- * Returns state values and setters for use in the main component.
  */
+
 export const useChartState = (
     primaryData: Record<string, TimeSeriesEntry[]>,
     secondaryData?: Record<string, TimeSeriesEntry[]>
 ) => {
     const [xaxisRange, setXaxisRange] = useState<[string | null, string | null]>([null, null]);
-    const [tickFormat, setTickFormat] = useState('%d.%m.%Y');
+    const [tickFormat, setTickFormat] = useState('%d.%m.%Y'); // Only day before zoom
     const [showMarkers, setShowMarkers] = useState(false);
     const [customRange, setCustomRange] = useState(false);
     const [customYMin, setCustomYMin] = useState<string>('');
@@ -31,6 +30,7 @@ export const useChartState = (
     const allData = useMemo(() => ({ ...primaryData, ...(secondaryData || {}) }), [primaryData, secondaryData]);
 
     // Set initial X-range based on data
+    // This hook allows for dynamic X-axis range right after loading data, without it you need to refresh the page first
     useEffect(() => {
         const allXValues = Object.values(allData).flat().map(d => new Date(d.x));
         if (allXValues.length === 0) return;
@@ -54,9 +54,9 @@ export const useChartState = (
             const diffHours = diffMs / (1000 * 60 * 60);
 
             if (diffHours < 24 * 3) {
-                setTickFormat('%d.%m %H:%M');
-                setShowMarkers(diffHours < 3);
-            } else if (diffHours < 24 * 5) {
+                setTickFormat('%d.%m %H:%M'); // Change format to day and hours
+                setShowMarkers(diffHours < 3); // If less than 3h, show markers
+            } else if (diffHours < 24 * 5) { // Less than 5 days
                 setTickFormat('%d.%m.%Y %H:%M');
                 setShowMarkers(false);
             } else {
@@ -65,9 +65,9 @@ export const useChartState = (
             }
             setXaxisRange([event['xaxis.range[0]'], event['xaxis.range[1]']]);
         } else if (event['xaxis.autorange'] === true) {
-            setXaxisRange([null, null]);
-            setTickFormat('%d.%m.%Y');
-            setShowMarkers(false);
+            setXaxisRange([null, null]); // Resetting X-axis range
+            setTickFormat('%d.%m.%Y'); // Restoring default format
+            setShowMarkers(false); // Restoring default markers
         }
     };
 

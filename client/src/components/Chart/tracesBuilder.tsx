@@ -6,15 +6,8 @@ import { Data } from "plotly.js";
  * 
  * Generates traces for primary and secondary data series, applying visibility and marker modes.
  * Uses a predefined color palette for series differentiation.
- * 
- * Parameters:
- * - primaryData: Main data series.
- * - secondaryData: Optional secondary series.
- * - visibleMap: Visibility state for each series.
- * - showMarkers: Flag to show markers on lines.
- * 
- * Returns: Array of Plotly trace objects.
  */
+
 export const buildTraces = (
   primaryData: Record<string, TimeSeriesEntry[]>,
   secondaryData: Record<string, TimeSeriesEntry[]> | undefined,

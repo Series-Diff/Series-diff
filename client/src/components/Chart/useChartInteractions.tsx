@@ -7,12 +7,8 @@ import { useEffect, useRef } from "react";
  * - Legend clicks for toggling visibility.
  * - Native event listeners to intercept unsupported mouse+keyboard combinations.
  * - Global error handlers to suppress Plotly-specific runtime errors.
- * 
- * Parameters:
- * - setVisibleMap: Setter for updating trace visibility.
- * 
- * Returns handlers and ref for the container.
  */
+
 export const useChartInteractions = (
     setVisibleMap: React.Dispatch<React.SetStateAction<Record<string, boolean>>>
 ) => {
@@ -23,40 +19,9 @@ export const useChartInteractions = (
         if (!event || !event.data || typeof event.curveNumber !== 'number') return false;
         const name = event.data[event.curveNumber]?.name;
         if (!name) return false;
-        setVisibleMap(prev => ({ ...prev, [name]: !(prev[name] ?? true) }));
-        return false;
+        setVisibleMap(prev => ({ ...prev, [name]: !(prev[name] ?? true) })); // Toggle visibility
+        return false; // Prevents default Plotly behavior
     };
-
-    // Native listeners for intercepting unsupported interactions
-    useEffect(() => {
-        const container = containerRef.current;
-        if (!container) return;
-        const isAllowedPointerDown = (ev: PointerEvent) => {
-            const isLeft = ev.button === 0;
-            if (isLeft && !ev.ctrlKey && !ev.altKey && !ev.metaKey) return true;
-            if (isLeft && ev.shiftKey) return true;
-            return false;
-        };
-
-        const onPointerDown = (ev: PointerEvent) => {
-            if (!isAllowedPointerDown(ev)) {
-                ev.preventDefault();
-                ev.stopImmediatePropagation();
-            }
-        };
-
-        const onContextMenu = (ev: Event) => {
-            ev.preventDefault();
-            ev.stopImmediatePropagation();
-        };
-
-        container.addEventListener('pointerdown', onPointerDown as EventListener, { capture: true });
-        container.addEventListener('contextmenu', onContextMenu as EventListener, { capture: true });
-        return () => {
-            container.removeEventListener('pointerdown', onPointerDown as EventListener, { capture: true } as any);
-            container.removeEventListener('contextmenu', onContextMenu as EventListener, { capture: true } as any);
-        };
-    }, []);
 
     // Global error suppression for Plotly issues
     useEffect(() => {

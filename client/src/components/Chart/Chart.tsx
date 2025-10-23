@@ -6,31 +6,6 @@ import { buildTraces } from "./tracesBuilder";
 import ChartControls from "./ChartControls";
 import { TimeSeriesEntry } from "@/services/fetchTimeSeries";
 
-/**
- * MyChart: Main chart component for rendering time series data with Plotly.
- * 
- * This component orchestrates the rendering of the Plotly chart by:
- * - Managing state for ranges, formats, and visibility via custom hooks.
- * - Building traces from primary and secondary data.
- * - Handling interactions like legend clicks, relayouts, and error-prone events.
- * - Rendering controls for custom Y-axis ranges.
- * 
- * Props:
- * - primaryData: Main time series data (required).
- * - secondaryData: Optional secondary data for dual Y-axis.
- * - title: Optional chart title.
- * 
- * Modularization:
- * - State logic extracted to useChartState hook.
- * - Interaction handlers in useChartInteractions hook.
- * - Traces generation in buildTraces utility.
- * - Controls UI in ChartControls sub-component.
- * 
- * Error Handling:
- * - Intercepts unsupported mouse+keyboard combinations to prevent Plotly runtime errors.
- * - Suppresses known Plotly issues (e.g., '_hoverlayer' undefined) via global listeners.
- * - All handlers wrapped in try-catch to swallow non-critical errors gracefully.
- */
 interface MyChartProps {
     primaryData: Record<string, TimeSeriesEntry[]>;
     secondaryData?: Record<string, TimeSeriesEntry[]>;
@@ -60,7 +35,7 @@ export const MyChart: React.FC<MyChartProps> = ({ primaryData, secondaryData, ti
                         xaxis: {
                             title: { text: 'Time' },
                             type: 'date',
-                            tickformat: tickFormat,
+                            tickformat: tickFormat, // Displaying date and time
                             fixedrange: false,
                             showspikes: true,
                             spikemode: 'across',
