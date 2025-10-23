@@ -18,6 +18,7 @@ import Select from'../components/Select/Select';
 import Dropdown from '../components/Dropdown/Dropdown';
 import {fetchAllAutoCorrelations} from "../services/fetchAllAutoCorrelations";
 import { fetchAllCrossCorrelations } from "../services/fetchAllCrossCorrelations";
+import CorrelationTable from "../components/CorrelationTable/CorrelationTable";
 import metrics from "../components/Metric/Metrics";
 
 
@@ -383,6 +384,25 @@ return (
         {Object.keys(groupedMetrics).length > 0 && (
           <div className="section-container" style={{ padding: "16px" }}>
             <Metrics groupedMetrics={groupedMetrics} />
+          </div>
+        )}
+        {/* Tabele korelacji – jedna lub dwie (dla wybranych osi) */}
+        {selectedCategory && crossCorrelationValues[selectedCategory] && (
+          <div className="section-container" style={{ padding: "16px" }}>
+            <CorrelationTable
+              data={crossCorrelationValues[selectedCategory]}
+              category={selectedCategory}
+            />
+
+            {/* Jeśli wybrano drugą kategorię, pokaż jej tabelę pod spodem */}
+            {secondaryCategory && crossCorrelationValues[secondaryCategory] && (
+              <div style={{ marginTop: "32px" }}>
+                <CorrelationTable
+                  data={crossCorrelationValues[secondaryCategory]}
+                  category={secondaryCategory}
+                />
+              </div>
+            )}
           </div>
         )}
         <DataImportPopup show={isPopupOpen} onHide={handlePopupClose} files={selectedFiles} onComplete={handlePopupComplete} />

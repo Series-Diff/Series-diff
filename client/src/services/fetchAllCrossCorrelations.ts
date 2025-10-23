@@ -4,7 +4,7 @@ export async function fetchCrossCorrelation(
   filename2: string,
   category: string
 ): Promise<number | null> {
-  const url = `/timeseries/pearson_correlation?filename1=${filename1}&filename2=${filename2}&category=${category}`;
+  const url = `api/timeseries/pearson_correlation?filename1=${filename1}&filename2=${filename2}&category=${category}`;
   try {
     const response = await fetch(url);
     if (!response.ok) {
