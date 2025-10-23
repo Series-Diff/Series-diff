@@ -1,6 +1,5 @@
 import sys
 
-import pandas as pd
 
 from services.time_series_manager import TimeSeriesManager
 import services.metric_service as metric_service
