@@ -23,6 +23,37 @@ export const useChartInteractions = (
         return false; // Prevents default Plotly behavior
     };
 
+    // Native listeners for intercepting unsupported interactions
+    useEffect(() => {
+        const container = containerRef.current;
+        if (!container) return;
+        const isAllowedPointerDown = (ev: PointerEvent) => {
+            const isLeft = ev.button === 0;
+            if (isLeft && !ev.ctrlKey && !ev.altKey && !ev.metaKey) return true;
+            if (isLeft && ev.shiftKey) return true;
+            return false;
+        };
+
+        const onPointerDown = (ev: PointerEvent) => {
+            if (!isAllowedPointerDown(ev)) {
+                ev.preventDefault();
+                ev.stopImmediatePropagation();
+            }
+        };
+
+        const onContextMenu = (ev: Event) => {
+            ev.preventDefault();
+            ev.stopImmediatePropagation();
+        };
+
+        container.addEventListener('pointerdown', onPointerDown as EventListener, { capture: true });
+        container.addEventListener('contextmenu', onContextMenu as EventListener, { capture: true });
+        return () => {
+            container.removeEventListener('pointerdown', onPointerDown as EventListener, { capture: true } as any);
+            container.removeEventListener('contextmenu', onContextMenu as EventListener, { capture: true } as any);
+        };
+    }, []);
+
     // Global error suppression for Plotly issues
     useEffect(() => {
         const onUnhandledRejection = (ev: PromiseRejectionEvent) => {
