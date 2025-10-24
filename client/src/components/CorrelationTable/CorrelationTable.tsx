@@ -1,13 +1,16 @@
+// src/components/CorrelationTable/CorrelationTable.tsx
 import React from "react";
 
 interface CorrelationTableProps {
-  data: Record<string, Record<string, number>>;
-  category: string;
+  data: Record<string, Record<string, number>>; // Dane korelacji w formacie: plik1 -> (plik2 -> wartość)
+  category: string; // Nazwa kategorii
+  onCellClick?: (file1: string, file2: string) => void; // Funkcja wywoływana po kliknięciu komórki
 }
 
-const CorrelationTable: React.FC<CorrelationTableProps> = ({ data, category }) => {
-  const filenames = Object.keys(data);
+const CorrelationTable: React.FC<CorrelationTableProps> = ({ data, category, onCellClick }) => {
+  const filenames = Object.keys(data); // Lista nazw plików z danej kategorii
 
+  // Jeśli brak danych — wyświetl komunikat
   if (filenames.length === 0) {
     return (
       <div className="alert alert-secondary text-center" role="alert">
@@ -19,14 +22,16 @@ const CorrelationTable: React.FC<CorrelationTableProps> = ({ data, category }) =
   return (
     <div className="card shadow-sm mt-3">
       <div className="card-header bg-light text-center">
-        <h5 className="mb-0">Cross-Correlation Matrix ({category})</h5>
+        <h5 className="mb-0">Pearson-Correlation Matrix ({category})</h5>
       </div>
       <div className="card-body p-0">
         <div className="table-responsive">
+          {/* Tabela macierzy korelacji */}
           <table className="table table-bordered table-striped mb-0 align-middle text-center">
             <thead className="table-light">
               <tr>
                 <th scope="col">File</th>
+                {/* Nagłówki kolumn z nazwami plików */}
                 {filenames.map((f) => (
                   <th key={`header-${f}`} scope="col">
                     {f}
@@ -35,6 +40,7 @@ const CorrelationTable: React.FC<CorrelationTableProps> = ({ data, category }) =
               </tr>
             </thead>
             <tbody>
+              {/* Wiersze macierzy korelacji */}
               {filenames.map((f1) => (
                 <tr key={`row-${f1}`}>
                   <th scope="row" className="bg-light text-dark fw-semibold">
@@ -43,21 +49,21 @@ const CorrelationTable: React.FC<CorrelationTableProps> = ({ data, category }) =
                   {filenames.map((f2) => {
                     const value = data[f1]?.[f2] ?? 0;
                     const colorIntensity = Math.abs(value);
-                    const backgroundColor = `rgba(${
-                      value > 0 ? "0,128,0" : "255,0,0"
-                    }, ${colorIntensity})`;
+                    const backgroundColor = `rgba(${value > 0 ? "0,128,0" : "255,0,0"}, ${colorIntensity})`;
 
                     return (
                       <td
                         key={`${f1}-${f2}`}
-                        title={value.toFixed(3)}
+                        title={value.toFixed(3)} // Pokazuj dokładną wartość po najechaniu
+                        onClick={() => onCellClick?.(f1, f2)} // Kliknięcie otwiera wykres rozrzutu
                         style={{
                           backgroundColor,
                           color: "#000",
-                          fontWeight: f1 === f2 ? "bold" : "normal",
+                          fontWeight: f1 === f2 ? "bold" : "normal", // Wyróżnij przekątną
+                          cursor: "pointer",
                         }}
                       >
-                        {value.toFixed(2)}
+                        {value.toFixed(2)} {/* Zaokrąglona wartość korelacji */}
                       </td>
                     );
                   })}

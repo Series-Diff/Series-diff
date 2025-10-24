@@ -17,8 +17,9 @@ import {fetchAllStdDevs} from "../services/fetchAllStdDevs";
 import Select from'../components/Select/Select';
 import Dropdown from '../components/Dropdown/Dropdown';
 import {fetchAllAutoCorrelations} from "../services/fetchAllAutoCorrelations";
-import { fetchAllCrossCorrelations } from "../services/fetchAllCrossCorrelations";
+import { fetchAllPearsonCorrelations } from "../services/fetchAllPearsonCorrelations";
 import CorrelationTable from "../components/CorrelationTable/CorrelationTable";
+import ScatterPlotModal from "../components/ScatterPlotModal/ScatterPlotModal";
 import metrics from "../components/Metric/Metrics";
 
 
@@ -50,8 +51,50 @@ function DashboardPage() {
   });
 
   const [autoCorrelationValues, setAutoCorrelationValues] = useState<Record<string, Record<string, number>>>({});
-  const [crossCorrelationValues, setCrossCorrelationValues] = useState<Record<string, Record<string, Record<string, number>>>>({});
+  const [PearsonCorrelationValues, setPearsonCorrelationValues] = useState<Record<string, Record<string, Record<string, number>>>>({});
 
+  // Stan przechowujący aktualnie wybraną parę plików do porównania dla wykresu rozrzutu
+  const [selectedPair, setSelectedPair] = useState<{
+      file1: string | null;
+      file2: string | null;
+      category: string | null;
+    }>({
+      file1: null,
+      file2: null,
+      category: null,
+    });
+
+  // czy okno ze scatter plotem jest otwarte
+  const [isScatterOpen, setIsScatterOpen] = useState(false);
+
+  // Ustawia aktualną parę plików (file1, file2), a następnie otwiera okno scatter plotu
+  const handleCellClick = (file1: string, file2: string, category: string) => {
+    setSelectedPair({ file1, file2, category });
+    setIsScatterOpen(true);
+  };
+
+  // Czyści wybraną parę plików oraz ustawia flagę modalnego okna na false
+  const handleCloseScatter = () => {
+    setIsScatterOpen(false);
+    setSelectedPair({ file1: null, file2: null, category:null });
+  };
+
+  // Funkcja pomocnicza, tworząca pełny klucz dla danych złożony z kategorii i nazwy pliku
+  const getFullKey = (category: string | null, file: string | null) =>
+  category && file ? `${category}.${file}` : null;
+
+  // Jeśli istnieje pełny klucz (category.file1), dane są pobierane z chartData, jeśli nie, zwracane jest undefined
+  const data1 =
+    selectedPair.category && selectedPair.file1
+      ? chartData[`${selectedPair.category}.${selectedPair.file1}`]
+      : undefined;
+
+  const data2 =
+    selectedPair.category && selectedPair.file2
+      ? chartData[`${selectedPair.category}.${selectedPair.file2}`]
+      : undefined;
+
+  
   const handleFetchData = useCallback(async (showLoadingIndicator = true) => {
   if (showLoadingIndicator) setIsLoading(true);
   setError(null);
@@ -80,14 +123,14 @@ function DashboardPage() {
     const autoCorrelations = await fetchAllAutoCorrelations(names);
     setAutoCorrelationValues(autoCorrelations);
 
-    const allCrossCorrelations: Record<string, Record<string, Record<string, number>>> = {};
+    const allPearsonCorrelations: Record<string, Record<string, Record<string, number>>> = {};
 
     for (const category of Object.keys(names)) {
       const files = names[category];
-      allCrossCorrelations[category] = await fetchAllCrossCorrelations(files, category);
+      allPearsonCorrelations[category] = await fetchAllPearsonCorrelations(files, category);
     }
 
-    setCrossCorrelationValues(allCrossCorrelations);
+    setPearsonCorrelationValues(allPearsonCorrelations);
 
 
    } catch (err: any) {
@@ -106,7 +149,7 @@ function DashboardPage() {
     const storedStdDevsValues = localStorage.getItem('stdDevsValues');
     const storedAutoCorrelationsValues = localStorage.getItem('autoCorrelationValues');
     const storedFilenames = localStorage.getItem('filenamesPerCategory');
-    const storedCrossCorrelationsValues = localStorage.getItem('crossCorrelationValues');
+    const storedPearsonCorrelationsValues = localStorage.getItem('PearsonCorrelationValues');
     if (storedData && storedMeanValues && storedMedianValues && storedVarianceValues && storedStdDevsValues && storedAutoCorrelationsValues && storedFilenames) {
       try {
         const parsedData = JSON.parse(storedData);
@@ -115,7 +158,7 @@ function DashboardPage() {
         const parsedVarianceValues = JSON.parse(storedVarianceValues);
         const parsedStdDevsValues = JSON.parse(storedStdDevsValues);
         const parsedAutoCorrelations = JSON.parse(storedAutoCorrelationsValues);
-        const parsedCrossCorrelations = storedCrossCorrelationsValues ? JSON.parse(storedCrossCorrelationsValues) : {};
+        const parsedPearsonCorrelations = storedPearsonCorrelationsValues ? JSON.parse(storedPearsonCorrelationsValues) : {};
         const parsedFilenames = JSON.parse(storedFilenames);
 
         setChartData(parsedData);
@@ -124,7 +167,7 @@ function DashboardPage() {
         setVarianceValues(parsedVarianceValues);
         setStdDevsValues(parsedStdDevsValues);
         setAutoCorrelationValues(parsedAutoCorrelations)
-        setCrossCorrelationValues(parsedCrossCorrelations);
+        setPearsonCorrelationValues(parsedPearsonCorrelations);
         setFilenamesPerCategory(parsedFilenames);
       } catch (e) {
         localStorage.removeItem('chartData');
@@ -203,14 +246,14 @@ function DashboardPage() {
     if (Object.keys(autoCorrelationValues).length > 0) {
     localStorage.setItem('autoCorrelationValues', JSON.stringify(autoCorrelationValues));
     }
-    if (Object.keys(crossCorrelationValues).length > 0) {
-    localStorage.setItem('crossCorrelationValues', JSON.stringify(crossCorrelationValues));
+    if (Object.keys(PearsonCorrelationValues).length > 0) {
+    localStorage.setItem('PearsonCorrelationValues', JSON.stringify(PearsonCorrelationValues));
     }
     if (Object.keys(filenamesPerCategory).length > 0) {
       localStorage.setItem('filenamesPerCategory', JSON.stringify(filenamesPerCategory));
     }
 
-  }, [meanValues, medianValues, varianceValues, stdDevsValues, autoCorrelationValues, crossCorrelationValues, filenamesPerCategory]);
+  }, [meanValues, medianValues, varianceValues, stdDevsValues, autoCorrelationValues, PearsonCorrelationValues, filenamesPerCategory]);
 
     const handleDropdownChange = (event: React.ChangeEvent<HTMLSelectElement>) => {
     setSelectedCategory(event.target.value);
@@ -387,24 +430,42 @@ return (
           </div>
         )}
         {/* Tabele korelacji – jedna lub dwie (dla wybranych osi) */}
-        {selectedCategory && crossCorrelationValues[selectedCategory] && (
+        {selectedCategory && PearsonCorrelationValues[selectedCategory] && (
           <div className="section-container" style={{ padding: "16px" }}>
             <CorrelationTable
-              data={crossCorrelationValues[selectedCategory]}
+              data={PearsonCorrelationValues[selectedCategory]}
               category={selectedCategory}
+              onCellClick={(file1, file2) =>
+                handleCellClick(file1, file2, selectedCategory)
+              }
             />
 
             {/* Jeśli wybrano drugą kategorię, pokaż jej tabelę pod spodem */}
-            {secondaryCategory && crossCorrelationValues[secondaryCategory] && (
+            {secondaryCategory && PearsonCorrelationValues[secondaryCategory] && (
               <div style={{ marginTop: "32px" }}>
                 <CorrelationTable
-                  data={crossCorrelationValues[secondaryCategory]}
+                  data={PearsonCorrelationValues[secondaryCategory]}
                   category={secondaryCategory}
+                  onCellClick={(file1, file2) =>
+                    handleCellClick(file1, file2, secondaryCategory)
+                  }
                 />
               </div>
             )}
           </div>
         )}
+
+        {/* Scatter plot modal */}
+        <ScatterPlotModal
+          show={isScatterOpen}
+          onHide={handleCloseScatter}
+          file1={selectedPair.file1}
+          file2={selectedPair.file2}
+          data1={data1}
+          data2={data2}
+        />
+
+
         <DataImportPopup show={isPopupOpen} onHide={handlePopupClose} files={selectedFiles} onComplete={handlePopupComplete} />
       </div>
     </div>
