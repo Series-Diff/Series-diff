@@ -22,9 +22,13 @@
     "baseUrl": ".",
     "paths": {
       "@/*": ["src/*"]
-    }
+    },
+    "sourceMap": true,
+    "inlineSources": true,
+    "types": ["node", "jest"]
   },
   "include": [
-    "src"
+    "src",
+    "tests"
   ]
 }

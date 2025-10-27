@@ -4,7 +4,6 @@
   "private": true,
   "proxy": "http://backend:5000",
   "dependencies": {
-    "@types/node": "^16.18.126",
     "@types/plotly.js": "^2.35.5",
     "@types/react-plotly.js": "^2.6.3",
     "bootstrap": "^5.3.6",
@@ -22,7 +21,15 @@
     "start": "react-scripts start",
     "build": "react-scripts build",
     "test": "react-scripts test",
+    "test:unit": "react-scripts test --coverage --watchAll=false & start coverage/lcov-report/index.html",
+    "test:e2e": "npx playwright test & npx playwright show-report",
     "eject": "react-scripts eject"
+  },
+  "jest": {
+    "collectCoverageFrom": [
+      "src/services/**/*.{ts,tsx}",
+      "!src/services/**/*.test.{ts,tsx}"
+    ]
   },
   "eslintConfig": {
     "extends": [
@@ -43,6 +50,9 @@
     ]
   },
   "devDependencies": {
+    "@playwright/test": "^1.56.1",
+    "@types/jest": "^30.0.0",
+    "@types/node": "^24.9.2",
     "@types/react": "^19.0.12",
     "@types/react-dom": "^19.0.4"
   }
