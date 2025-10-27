@@ -6,22 +6,26 @@
 |- interfaces – interfaces for application
 |- services – utility classes used as services in application
 |- tests – Unit tests
-| Dockerfile – Dockerfile to containerize APi
+| Dockerfile – Dockerfile to containerize API
 | README.md – Documentation of API
-| requirments.txt - list of python packages needed to run application
+| requirements.txt - list of python packages needed to run application
 | main.py – main file of program
 ```
 
-## Running Aplication
+## Running Application
 
-You can run backend of application by simply typing `python3 main.py` in the terminal or run the whole application using `docker compose up --build`
+You can run the backend of the application by simply typing `python3 main.py` in the terminal or run the whole application using `docker compose up --build`.
 
-## Testing application
+## Testing Application
 
-To run unittests you have to type in commandline while being in API folder `python -m unittest -v ./tests/*.py`.
+### Unit/Integration Tests (unittest with coverage)
+- Tests are in the `tests/` folder (files matching `test_*.py`).
+- Run tests with coverage summary: `coverage run -m unittest discover -s tests -p "test_*.py" && coverage report -m`.
+- Run with HTML report and auto-open: `coverage run -m unittest discover -s tests -p "test_*.py" && coverage html & start htmlcov\index.html` (runs tests, generates report in `htmlcov/`, and opens `index.html` in default browser).
+  - For detailed view, open `htmlcov/index.html` manually.
 
-**ATTENTION** <br>
-Be sure you have *unittest* package installed.
+**Attention**  
+Be sure you have unittest and coverage packages installed.
 
 ## Endpoints
 
