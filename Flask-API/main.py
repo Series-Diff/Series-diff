@@ -249,12 +249,13 @@ def get_pearson_correlation():
     category = request.args.get("category")
     start = request.args.get("start")
     end = request.args.get("end")
+    tolerance = request.args.get("tolerance")
     try:
         data1 = timeseries_manager.get_timeseries(filename=filename1, category=category, start=start, end=end)
         serie1 = metric_service.extract_series_from_dict(data1, category, filename1)
         data2 = timeseries_manager.get_timeseries(filename=filename2, category=category, start=start, end=end)
         serie2 = metric_service.extract_series_from_dict(data2, category, filename2)
-        correlation = metric_service.calculate_pearson_correlation(serie1, serie2)
+        correlation = metric_service.calculate_pearson_correlation(serie1, serie2, tolerance)
     except (KeyError, ValueError) as e:
         logger.error("Error calculating Pearson correlation for filenames '%s' and '%s' in category '%s': %s", filename1, filename2, category, e)
         return jsonify({"error": str(e)}), 400
