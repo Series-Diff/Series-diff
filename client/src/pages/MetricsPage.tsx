@@ -1,6 +1,6 @@
 // src/MetricsPage.tsx
 import React, { useState, useEffect, useCallback } from 'react';
-import { MyChart } from '../components/Chart/Chart';
+import MyChart from '../components/Chart/Chart';
 import './MetricsPage.css';
 import { fetchAllDifferences } from '../services/fetchAllDifferences';
 import { extractFilenamesPerCategory } from '../services/extractFilenamesPerCategory';

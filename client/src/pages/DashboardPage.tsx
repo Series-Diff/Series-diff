@@ -5,7 +5,7 @@ import '../components/Chart/Chart.css';
 import '../components/Metric/Metrics.css';
 import '../components/Dropdown/Dropdown.css';
 import { sendProcessedTimeSeriesData } from '../services/uploadTimeSeries';
-import { MyChart } from '../components/Chart/Chart';
+import MyChart from '../components/Chart/Chart';
 import { fetchTimeSeriesData, TimeSeriesEntry } from '../services/fetchTimeSeries';
 import { DataImportPopup } from '../components/DataImportPopup/DataImportPopup';
 import Metrics, {CombinedMetric} from "../components/Metric/Metrics";
