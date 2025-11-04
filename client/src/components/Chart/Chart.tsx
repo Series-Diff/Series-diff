@@ -31,7 +31,7 @@ const MyChart: React.FC<MyChartProps> = ({ primaryData, secondaryData, title }) 
                 <Plot
                     data={traces}
                     layout={{
-                        title: title || 'Time Series Data',
+                        title: { text: title || 'Time Series Data' },
                         xaxis: {
                             title: { text: 'Time' },
                             type: 'date',
