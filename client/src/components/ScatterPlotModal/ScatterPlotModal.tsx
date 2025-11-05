@@ -48,6 +48,14 @@ const ScatterPlotModal: React.FC<ScatterPlotModalProps> = ({
               mode: "markers",
               type: "scatter",
               marker: { size: 6, color: "blue" },
+              text: data1.slice(0, minLength).map((d1, i) => {
+                const d2 = data2[i];
+                const time = new Date(d1.x).toLocaleString(); // używamy x jako timestamp
+                const val1 = d1.y;
+                const val2 = d2.y;
+                return `${file1}: ${val1}, ${file2}: ${val2}, time: ${time}`;
+              }),
+              hovertemplate: "%{text}<extra></extra>", // niestandardowy tooltip
             },
           ]}
           layout={{
