@@ -9,7 +9,7 @@ export const HelpAbout = (): JSX.Element => {
         <Card.Title as="h4" className="mb-0">About</Card.Title>
       </Card.Header>
       <Card.Body>
-        <Card.Title as="h5">Time Series Analysis Application</Card.Title>
+        <Card.Title as="h5">SeriesDiff</Card.Title>
 
         <Card.Text>
           This application was developed as a university project in collaboration with Rockwool, a leading manufacturer of stone wool insulation products. It enables engineers and data analysts to compare and analyze time series data from multiple sensors and predictive models.

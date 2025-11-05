@@ -26,7 +26,7 @@ const HelpPage = (): JSX.Element => {
         <Sidebar page="help" /> {/* Sidebar variant for HelpPage */}
       </Col>
       <Col className="section-container d-flex flex-column p-5 gap-5 w-100 overflow-auto" style={{ height: "calc(100vh - var(--nav-height) - 2 * var(--section-margin))" }}>
-        <Header title="Help & Documentation" subtitle="Learn how to use the time series analysis application effectively" />
+        <Header title="Help & Documentation" subtitle="Learn how to use the SeriesDiff application effectively" />
         <Outlet /> {/* Renders selected help subpage content */}
       </Col>
     </Container>
