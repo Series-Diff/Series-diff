@@ -132,18 +132,16 @@ def calculate_iqr(series: dict) -> float:
 
 def calculate_pearson_correlation(series1: dict, series2: dict, tolerance: str | None = None) -> float:
     """
-    Oblicza współczynnik korelacji Pearsona między dwoma szeregami czasowymi,
-    dopasowując je metodą "asof" (najbliższego znacznika czasu) z tolerancją.
-
+    Calculates the Pearson correlation coefficient between two series,
+    matching them using the "asof" (nearest timestamp) method with tolerance.
     Args:
-        series1 (dict): Pierwszy szereg czasowy.
-        series2 (dict): Drugi szereg czasowy.
-        tolerance (str): Maksymalna różnica czasu do dopasowania punktów (np. '1T', '5s').
-                         Jeśli None, zostanie automatycznie obliczona na podstawie
-                         mediany interwałów w obu seriach.
-
+        series1 (dict): First time series.
+        series2 (dict): Second time series.
+        tolerance (str): Maximum time difference for matching points (e.g., '1T', '5s'). 
+        If None, it will be automatically calculated based on the 
+        median intervals in both series.
     Returns:
-        float: Współczynnik korelacji Pearsona (lub np.nan, jeśli obliczenie jest niemożliwe).
+        float: Pearson correlation coefficient.
     """
     if not isinstance(series1, dict) or not isinstance(series2, dict):
         return np.nan
@@ -154,7 +152,7 @@ def calculate_pearson_correlation(series1: dict, series2: dict, tolerance: str |
         df1 = pd.DataFrame({
             "time": pd.to_datetime(list(series1.keys())),
             "value1": list(series1.values())
-        }).set_index("time").sort_index()
+        }).set_index("time").sort_index() # Sort is needed for merge_asof
 
         df2 = pd.DataFrame({
             "time": pd.to_datetime(list(series2.keys())),
@@ -186,20 +184,20 @@ def calculate_pearson_correlation(series1: dict, series2: dict, tolerance: str |
         df2,
         left_index=True,
         right_index=True,
-        direction="nearest",  # Znajduje najbliższy punkt (w przód lub wstecz)
+        direction="nearest",  # Finds nearest point
         tolerance=tolerance_td
     ).dropna()
 
 
-    # pearsonr potrzebuje co najmniej 2 punktów
+    # pearsonr needs at least 2 data points
     if len(df_merged) < 2:
-        return np.nan  # Zbyt mało pokrywających się danych
+        return np.nan  # Too few overlapping points
 
     # Sprawdź wariancję na dopasowanych danych (jezeli 0 to wtedy NaN)
     if df_merged["value1"].var() == 0 or df_merged["value2"].var() == 0:
-        return np.nan  # Jedna z dopasowanych serii jest stała
+        return np.nan  # One of the series has zero variance
 
-    # Oblicz korelację
+    # Calculate Pearson correlation
     corr, _ = pearsonr(df_merged["value1"], df_merged["value2"])
 
     return corr
