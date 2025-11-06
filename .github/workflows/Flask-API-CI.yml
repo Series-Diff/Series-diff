@@ -21,10 +21,17 @@ jobs:
         with:
           python-version: "3.12"
 
+      - name: Cache pip dependencies
+        uses: actions/cache@v4
+        with:
+          key: ${{ runner.os }}-pip-${{ hashFiles('Flask-API/requirements.txt') }}
+          restore-keys: ${{ runner.os }}-pip-
+          path: ~/.cache/pip
+
       - name: Install dependencies
         working-directory: Flask-API
         run: pip install -r requirements.txt
 
-      - name: Run tests
+      - name: Run tests with coverage
         working-directory: Flask-API
-        run: python -m unittest discover -s tests -p "test_*.py"
+        run: coverage run -m unittest discover -s tests -p "test_*.py"
