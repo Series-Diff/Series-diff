@@ -1,8 +1,0 @@
-{
-  "devDependencies": {
-    "@types/papaparse": "^5.5.0",
-    "install": "^0.13.0",
-    "npm": "^11.6.2",
-    "papaparse": "^5.5.3"
-  }
-}
