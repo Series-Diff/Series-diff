@@ -129,30 +129,79 @@ def calculate_iqr(series: dict) -> float:
     return series.quantile(0.75) - series.quantile(0.25)
 
 
-# --- Metryki dla porównywania wielu szeregów ---
-def calculate_pearson_correlation(series1: dict, series2: dict) -> float:
+
+def calculate_pearson_correlation(series1: dict, series2: dict, tolerance: str | None = None) -> float:
     """
-    Calculates the Pearson correlation coefficient between two series.
+    Calculates the Pearson correlation coefficient between two series,
+    matching them using the "asof" (nearest timestamp) method with tolerance.
     Args:
         series1 (dict): First time series.
         series2 (dict): Second time series.
+        tolerance (str): Maximum time difference for matching points (e.g., '1T', '5s'). 
+        If None, it will be automatically calculated based on the 
+        median intervals in both series.
     Returns:
         float: Pearson correlation coefficient.
     """
-    if not series1 or not series2 or len(series1) != len(series2):
-        return np.nan
     if not isinstance(series1, dict) or not isinstance(series2, dict):
         return np.nan
-    if any(not isinstance(v, (int, float)) or np.isnan(v) for v in series1.values()) or \
-       any(not isinstance(v, (int, float)) or np.isnan(v) for v in series2.values()):
+    if not series1 or not series2:
         return np.nan
+
     try:
-        series1: pd.Series = pd.Series(series1)
-        series2: pd.Series = pd.Series(series2)
+        df1 = pd.DataFrame({
+            "time": pd.to_datetime(list(series1.keys())),
+            "value1": list(series1.values())
+        }).set_index("time").sort_index() # Sort is needed for merge_asof
+
+        df2 = pd.DataFrame({
+            "time": pd.to_datetime(list(series2.keys())),
+            "value2": list(series2.values())
+        }).set_index("time").sort_index()
+
+        df1 = df1[~df1.index.duplicated(keep='first')]
+        df2 = df2[~df2.index.duplicated(keep='first')]
+
     except (ValueError, TypeError) as e:
-        raise ValueError("could not convert series to pd.Series: " + str(e)) from e
-    corr, _ = pearsonr(series1, series2)
+        return np.nan
+
+    if tolerance is None:
+        deltas = []
+        if len(df1.index) > 1:
+            deltas.append((df1.index[1:] - df1.index[:-1]).median())
+        if len(df2.index) > 1:
+            deltas.append((df2.index[1:] - df2.index[:-1]).median())
+
+        if not deltas:
+            return np.nan
+        tolerance_td = max(deltas)
+    else:
+        tolerance_td = pd.Timedelta(tolerance)
+
+
+    df_merged = pd.merge_asof(
+        df1,
+        df2,
+        left_index=True,
+        right_index=True,
+        direction="nearest",  # Finds nearest point
+        tolerance=tolerance_td
+    ).dropna()
+
+
+    # pearsonr needs at least 2 data points
+    if len(df_merged) < 2:
+        return np.nan  # Too few overlapping points
+
+    # Check for zero variance
+    if df_merged["value1"].var() == 0 or df_merged["value2"].var() == 0:
+        return np.nan  # One of the series has zero variance
+
+    # Calculate Pearson correlation
+    corr, _ = pearsonr(df_merged["value1"], df_merged["value2"])
+
     return corr
+
 
 def calculate_difference(series1: dict, series2: dict, tolerance: str | None = None) -> dict:
     """
