@@ -193,7 +193,7 @@ def calculate_pearson_correlation(series1: dict, series2: dict, tolerance: str |
     if len(df_merged) < 2:
         return np.nan  # Too few overlapping points
 
-    # Sprawdź wariancję na dopasowanych danych (jezeli 0 to wtedy NaN)
+    # Check for zero variance
     if df_merged["value1"].var() == 0 or df_merged["value2"].var() == 0:
         return np.nan  # One of the series has zero variance
 
