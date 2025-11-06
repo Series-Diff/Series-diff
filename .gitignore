@@ -50,7 +50,7 @@ coverage.xml
 .hypothesis/
 .pytest_cache/
 cover/
-client/test-results/.last-run.json
+client/test-results/
 
 # Translations
 *.mo

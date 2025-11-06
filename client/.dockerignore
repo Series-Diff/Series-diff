@@ -27,8 +27,10 @@ Thumbs.db
 .vscode
 .idea
 
-# Test coverage
+# Tests
 coverage
+playwright-report
+test-results
 
 # Misc
 *.tgz

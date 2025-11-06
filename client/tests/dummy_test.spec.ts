@@ -1,6 +1,6 @@
 import { test, expect } from '@playwright/test';
 
 test('dummy test to pass CI temporarily', async () => {
-  // Prosty assertion, który zawsze przechodzi – zero interakcji z aplikacją
+  // Simple assertion that always passes – zero interaction with the application
   expect(true).toBe(true);
 });

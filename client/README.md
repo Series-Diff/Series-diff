@@ -23,7 +23,7 @@ To run app type `npm start` in the terminal or start the whole app by typing `do
 ## Testing
 
 ### Unit/Integration Tests (Jest)
-- Tests for services are located in the `src/services/` folder (e.g., `fetchAllMeans.test.tsx` next to `fetchAllMeans.tsx`).
+- Tests for services are located in the `src/services/` folder (e.g., `fetchAllMeans.test.ts` next to `fetchAllMeans.tsx`).
 - Run tests: `npm test` (interactive watch mode).
 - Run with coverage and auto-open report: Use the script `npm run test:unit` (runs with `--coverage --watchAll=false` and opens `coverage/lcov-report/index.html` in default browser).
   - Coverage is limited to services (`src/services/**/*.{ts,tsx}`) for focused reports.
