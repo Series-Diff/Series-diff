@@ -12,6 +12,14 @@ app = Flask(__name__)
 logger = app.logger
 logger.setLevel("DEBUG")
 
+@app.route('/health')
+def health_check():
+    # Add your custom health check logic here
+    if all_required_services_are_running():
+        return 'OK', 200
+    else:
+        return 'Service Unavailable', 500
+
 @app.route("/timeseries", methods=["GET"])
 def get_timeseries():
 
@@ -43,7 +51,7 @@ def get_mean():
     Returns:
         JSON response with the mean value or error message.
     """
-    
+
     filename = request.args.get("filename")
     category = request.args.get("category")
     try:
@@ -68,7 +76,7 @@ def get_median():
     Returns:
         JSON response with the median value or error message.
     """
-    
+
     filename = request.args.get("filename")
     category = request.args.get("category")
     try:
@@ -192,7 +200,7 @@ def get_iqr():
     Returns:
         JSON response with the IQR value or error message.
     """
-    
+
     filename = request.args.get("filename")
     category = request.args.get("category")
     try:
@@ -277,7 +285,8 @@ def clear_timeseries():
         return jsonify({"error": str(e)}), 400
     return jsonify({"status": "All timeseries cleared"}), 200
 
-
+def all_required_services_are_running():
+    return True
 
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=5000, debug=True)
