@@ -369,7 +369,7 @@
                     setIsLoading(false);
                 });
             } else {
-                console.log("Nie przetworzono żadnych danych z plików.");
+                console.log("No data processed from files.");
             }
         };
     
