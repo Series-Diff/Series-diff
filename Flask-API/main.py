@@ -274,7 +274,7 @@ def get_difference():
     tolerance = request.args.get("tolerance")
 
     try:
-        data1 = timeseries_manager.get_timeseries (filename=filename1, category=category)
+        data1 = timeseries_manager.get_timeseries(filename=filename1, category=category)
         serie1 = metric_service.extract_series_from_dict(data1, category, filename1)
 
         data2 = timeseries_manager.get_timeseries(filename=filename2, category=category)
