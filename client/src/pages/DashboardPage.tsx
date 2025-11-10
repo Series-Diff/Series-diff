@@ -212,7 +212,7 @@
                     setMedianValues(parsedMedianValues);
                     setVarianceValues(parsedVarianceValues);
                     setStdDevsValues(parsedStdDevsValues);
-                    setAutoCorrelationValues(parsedAutoCorrelations)
+                    setAutoCorrelationValues(parsedAutoCorrelations);
                     setPearsonCorrelationValues(parsedPearsonCorrelations);
                     setFilenamesPerCategory(parsedFilenames);
                 } catch (e) {
