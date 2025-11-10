@@ -409,7 +409,7 @@
                 }
             } catch (err: any) {
                 console.error("Error clearing timeseries on backend:", err);
-                setError(`Błąd podczas czyszczenia danych na serwerze: ${err.message}. Dane na wykresie zostały zresetowane.`);
+                setError(`Error while clearing data on server: ${err.message}. Chart data has been reset.`);
             } finally {
                 setIsLoading(false);
             }
