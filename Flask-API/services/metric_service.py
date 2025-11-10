@@ -260,14 +260,14 @@ def calculate_difference(series1: dict, series2: dict, tolerance: str | None = N
 
 def calculate_rolling_mean(series: dict, window_size: str = "1d") -> dict:
     """
-    Calculates the rolling mean (moving average) of a time series with a window size of 3.
+    Calculates the rolling mean (moving average) of a time series using a configurable window size.
 
     Args:
-        series (dict): Timeseries.
+        series (dict): Time series as a dictionary of timestamp-value pairs.
+        window_size (str): Size of the moving window (e.g., '1d', '3h'). Defaults to '1d'.
 
     Returns:
-        dict: Timeseries of rolling mean values.
-
+        dict: Time series of rolling mean values.
     """
     if not series or not isinstance(series, dict):
         return {}
