@@ -515,7 +515,7 @@
                                        className={`custom-file-upload btn btn-primary rounded p-2 px-3 text-center ${isLoading ? "disabled" : ""}`}>
                                     {isLoading ? "Loading..." : "Upload files"}
                                 </label>
-                                <input id="file-upload" type="file" multiple accept=".json, .csv"
+                                <input id="file-upload" type="file" multiple accept=".json,.csv"
                                        onChange={handleFileUpload} className="d-none" disabled={isLoading}/>
                                 <button onClick={handleReset}
                                         className="custom-file-upload btn btn-primary rounded p-2 px-3 text-center"
