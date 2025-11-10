@@ -7,7 +7,7 @@ export async function fetchRollingMean(
   window_size: string
 ): Promise<Record<string, TimeSeriesEntry[]>> {
 
-  const resp = await fetch(`api/timeseries/rolling_mean?category=${category}&filename=${filename}&window_size=${window_size}`);
+  const resp = await fetch(`/api/timeseries/rolling_mean?category=${category}&filename=${filename}&window_size=${window_size}`);
   if (!resp.ok) throw new Error(await resp.text());
 
   const data = await resp.json();
