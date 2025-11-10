@@ -273,12 +273,13 @@ def calculate_rolling_mean(series: dict, window_size: str = "1d") -> dict:
         return {}
     if any(not isinstance(v, (int, float)) or np.isnan(v) for v in series.values()):
         return {}
+    if not isinstance(window_size, str):
+        return {}
     try:
         s = pd.Series(series)
         s.index = pd.to_datetime(s.index)
         s = s.sort_index()
-
+        rolling_mean = s.rolling(pd.Timedelta(window_size)).mean()
     except (ValueError, TypeError) as e:
         raise ValueError("could not convert series to pd.Series: " + str(e)) from e
-    rolling_mean = s.rolling(pd.Timedelta(window_size)).mean()
     return {idx.isoformat(): float(val) for idx, val in rolling_mean.items()}
