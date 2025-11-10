@@ -12,7 +12,7 @@ interface MyChartProps {
     title?: string;
 }
 
-export const MyChart: React.FC<MyChartProps> = ({ primaryData, secondaryData, title }) => {
+const MyChart: React.FC<MyChartProps> = ({ primaryData, secondaryData, title }) => {
     // Extract state and setters from hook
     const {
         xaxisRange, tickFormat, showMarkers, customRange, setCustomRange, customYMin, setCustomYMin, customYMax, setCustomYMax,
@@ -31,7 +31,7 @@ export const MyChart: React.FC<MyChartProps> = ({ primaryData, secondaryData, ti
                 <Plot
                     data={traces}
                     layout={{
-                        title: title || 'Time Series Data',
+                        title: { text: title || 'Time Series Data' },
                         xaxis: {
                             title: { text: 'Time' },
                             type: 'date',
@@ -104,3 +104,4 @@ export const MyChart: React.FC<MyChartProps> = ({ primaryData, secondaryData, ti
         </>
     );
 };
+export default React.memo(MyChart);

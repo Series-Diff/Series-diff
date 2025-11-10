@@ -59,9 +59,9 @@ const ScatterPlotModal: React.FC<ScatterPlotModalProps> = ({
             },
           ]}
           layout={{
-            title: `Scatter plot: ${file1} vs ${file2}`,
-            xaxis: { title: file1 },
-            yaxis: { title: file2 },
+            title: { text: `Scatter plot: ${file1} vs ${file2}` },
+            xaxis: { title: { text: file1 } },
+            yaxis: { title: { text: file2 } },
             autosize: true,
           }}
           style={{ width: "100%", height: "100%" }}
