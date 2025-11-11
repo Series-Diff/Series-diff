@@ -2,6 +2,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { Modal, Button, Form } from 'react-bootstrap';
 import { DataTable } from '../DataTable/DataTable';
+import Papa from 'papaparse';
 
 interface FileConfig {
   logDateColumn: string;
@@ -80,10 +81,34 @@ export const DataImportPopup: React.FC<Props> = ({ show, files, onHide, onComple
       return;
     }
 
-    try {
+try {
       const text = await file.text();
-      const jsonData = JSON.parse(text);
-const dataArray = Array.isArray(jsonData) ? jsonData : (typeof jsonData === 'object' && jsonData !== null ? [jsonData] : []);
+      let dataArray: any[] = [];
+
+      // ================== POCZĄTEK ZMIANY ==================
+      // Sprawdź typ pliku na podstawie rozszerzenia
+      if (file.name.toLowerCase().endsWith('.csv')) {
+        // Parsowanie CSV za pomocą Papaparse
+        const result = Papa.parse(text, {
+          header: true, // Ważne: traktuj pierwszy wiersz jako nagłówki (klucze obiektu)
+          skipEmptyLines: true,
+          dynamicTyping: true, // Automatycznie konwertuj liczby i booleany
+        });
+
+        if (result.errors.length > 0) {
+          // Weź pierwszy błąd jako komunikat
+          throw new Error(`CSV Parsing Error: ${result.errors[0].message}`);
+        }
+        dataArray = result.data;
+
+      } else if (file.name.toLowerCase().endsWith('.json')) {
+        // Istniejąca logika parsowania JSON
+        const jsonData = JSON.parse(text);
+        dataArray = Array.isArray(jsonData) ? jsonData : (typeof jsonData === 'object' && jsonData !== null ? [jsonData] : []);
+      } else {
+        // Obsługa nieznanego typu pliku
+        throw new Error(`Unsupported file type: ${file.name}. Please upload .json or .csv files.`);
+      }
 
 const flattenedDataArray = dataArray.map(entry => flattenObject(entry));
     console.log(flattenedDataArray[0]);
@@ -254,8 +279,8 @@ if (flattenedDataArray.length > 0) {
   };
 
   const handleRenameFile = () => {
-    const originalKey = currentFile.name.replace(/\.json$/i, '');
-    const newKey = tempFileName.trim();
+  const originalKey = currentFile.name.replace(/\.(json|csv)$/i, '');
+  const newKey = tempFileName.trim();
     setRenameError(null);
 
     const currentDisplayName = getFileKey(currentFile);
@@ -435,7 +460,7 @@ if (flattenedDataArray.length > 0) {
   const currentFile = files[currentFileIndex];
   const getFileKey = (file?: File) => {
     if (!file) return '';
-    const originalKey = file.name.replace(/\.json$/i, '');
+    const originalKey = file.name.replace(/\.(json|csv)$/i, '');
     return renamedFiles[originalKey] || originalKey;
   };
   const currentFileKey = getFileKey(currentFile);

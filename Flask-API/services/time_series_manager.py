@@ -1,3 +1,6 @@
+from datetime import datetime
+
+
 class TimeSeriesManager:
     """
     Service class to manage time series data.
@@ -42,7 +45,7 @@ class TimeSeriesManager:
             return True
         return False
 
-    def get_timeseries(self, time:str = None, filename:str = None, category:str = None):
+    def get_timeseries(self, time:str = None, filename:str = None, category:str = None, start:str = None, end:str = None) -> dict:
         """
         Retrieve timeseries data.
 
@@ -50,6 +53,8 @@ class TimeSeriesManager:
             time (str, optional): The time to filter timeseries by
             filename (str, optional): The filename to filter timeseries by
             category (str, optional): The category to filter timeseries by
+            start (str, optional): The start of the time interval
+            end (str, optional): The end of the time interval
         Returns:
             dict: Timeseries data for the specified time or all timeseries if no key is provided
         """
@@ -65,10 +70,31 @@ class TimeSeriesManager:
 
         if category and not isinstance(category, str):
             raise ValueError(f"Invalid category format: {category}. Expected a string.")
+        if start and not isinstance(start, str):
+            raise ValueError(f"Invalid start format: {start}. Expected a string.")
+        if end and not isinstance(end, str):
+            raise ValueError(f"Invalid end format: {end}. Expected a string.")
+        if start and end and start > end:
+            raise ValueError(f"Start date {start} is after end date {end}.")
+        try:            
+            datetime_start = datetime.fromisoformat(start) if start else None
+            datetime_end = datetime.fromisoformat(end) if end else None
+        except ValueError as e:
+            raise ValueError(f"Invalid date format for start or end. Expected ISO format.") from e
 
         for timeseries, categories in self.timeseries.items():
             if time and timeseries != time:
                 continue
+            if datetime_start or datetime_end:
+                try:
+                    timeseries_datetime = datetime.fromisoformat(timeseries)
+                except ValueError as e:
+                    raise ValueError(f"Invalid time format in timeseries key: {timeseries}. Expected ISO format.") from e
+
+                if datetime_start and timeseries_datetime < datetime_start:
+                    continue
+                if datetime_end and timeseries_datetime > datetime_end:
+                    continue
 
             for timeseries_category, timeseries_filenames in categories.items():
                 if category and timeseries_category != category:

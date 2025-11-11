@@ -1,0 +1,69 @@
+name: Frontend CI
+
+on:
+  push:
+    paths:
+      - "client/**"
+  pull_request:
+    paths:
+      - "client/**"
+
+jobs:
+  build-and-test:
+    runs-on: ubuntu-latest
+
+    defaults:
+      run:
+        working-directory: client
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          
+      - name: Cache node modules
+        uses: actions/cache@v4
+        with:
+          path: ~/.npm
+          key: ${{ runner.os }}-node-${{ hashFiles('client/package-lock.json') }}
+          restore-keys: ${{ runner.os }}-node-
+
+      - name: Cache Playwright browsers
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/ms-playwright
+          key: ${{ runner.os }}-playwright-${{ hashFiles('client/package-lock.json') }}
+          restore-keys: ${{ runner.os }}-playwright-
+
+      - name: Cache apt packages
+        uses: actions/cache@v4
+        with:
+          path: /var/cache/apt/archives
+          key: ${{ runner.os }}-apt-${{ hashFiles('client/package-lock.json') }}
+          restore-keys: ${{ runner.os }}-apt-
+
+      - name: Install minimal apt dependencies for Playwright
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            libnss3 libatk-bridge2.0-0 libdrm-dev libxkbcommon-dev libgbm-dev libasound2t64 \
+            libatspi2.0-0 libxshmfence-dev fonts-liberation fonts-noto-color-emoji
+
+      - name: Install npm dependencies
+        run: npm ci
+
+      - name: Build project
+        run: CI=false npm run build
+
+      - name: Run unit tests
+        run: npm test -- --watchAll=false --passWithNoTests
+
+      - name: Install Playwright
+        run: npx playwright install --with-deps
+
+      - name: Run E2E tests
+        run: npx playwright test

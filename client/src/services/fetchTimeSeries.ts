@@ -8,7 +8,7 @@ export type TimeSeriesResponse = Record<string, TimeSeriesEntry[]>;
 
 
 export const fetchTimeSeriesData = async (): Promise<TimeSeriesResponse> => {
-  const resp = await fetch("/timeseries");
+  const resp = await fetch("api/timeseries");
   if (!resp.ok) throw new Error(await resp.text());
   const json: Record<string, Record<string, Record<string, number>>> = await resp.json();
   const out: TimeSeriesResponse = {};

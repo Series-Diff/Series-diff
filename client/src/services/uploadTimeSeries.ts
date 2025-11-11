@@ -8,7 +8,7 @@ export const sendProcessedTimeSeriesData = async (
         return;
     }
   try {
-    const response = await fetch('/upload-timeseries', {
+    const response = await fetch('api/upload-timeseries', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
