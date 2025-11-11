@@ -8,7 +8,7 @@ export const HelpGettingStarted = (): JSX.Element => {
         <Card.Title as="h4" className="mb-0">How to get started</Card.Title>
       </Card.Header>
       <Card.Body>
-        <Card.Text>Welcome to the Time Series Analysis Application. This tool helps you analyze and compare multiple time series data sets from your files.</Card.Text>
+        <Card.Text>Welcome to the SeriesDiff Application. This tool helps you analyze and compare multiple time series data sets from your files.</Card.Text>
         <Alert variant="info">
           <Alert.Heading>Quick Start Steps:</Alert.Heading>
           <ol>

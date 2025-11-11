@@ -287,7 +287,22 @@ def get_difference():
 
     return jsonify({"difference": difference_series}), 200
 
+@app.route("/api/timeseries/rolling_mean", methods=["GET"])
+def get_rolling_mean():
+    filename = request.args.get("filename")
+    category = request.args.get("category")
+    window_size = request.args.get("window_size", "1d")
 
+    try:
+        data = timeseries_manager.get_timeseries(filename=filename, category=category)
+        serie = metric_service.extract_series_from_dict(data, category, filename)
+
+        rolling_mean_series = metric_service.calculate_rolling_mean(serie, window_size)
+
+    except Exception as e:
+        return jsonify({"error": str(e)}), 400
+
+    return jsonify({"rolling_mean": rolling_mean_series}), 200
 
 @app.route("/api/upload-timeseries", methods=["POST"])
 def add_timeseries():
@@ -330,7 +345,6 @@ def clear_timeseries():
         logger.error("Error clearing timeseries: %s", e)
         return jsonify({"error": str(e)}), 400
     return jsonify({"status": "All timeseries cleared"}), 200
-
 
 
 if __name__ == "__main__":

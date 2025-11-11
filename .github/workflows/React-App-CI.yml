@@ -46,6 +46,13 @@ jobs:
           key: ${{ runner.os }}-apt-${{ hashFiles('client/package-lock.json') }}
           restore-keys: ${{ runner.os }}-apt-
 
+      - name: Install minimal apt dependencies for Playwright
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            libnss3 libatk-bridge2.0-0 libdrm-dev libxkbcommon-dev libgbm-dev libasound2t64 \
+            libatspi2.0-0 libxshmfence-dev fonts-liberation fonts-noto-color-emoji
+
       - name: Install npm dependencies
         run: npm ci
 

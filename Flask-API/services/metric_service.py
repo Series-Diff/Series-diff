@@ -256,3 +256,30 @@ def calculate_difference(series1: dict, series2: dict, tolerance: str | None = N
 
     df_merged["diff"] = df_merged["value1"] - df_merged["value2"]
     return {idx.isoformat(): float(val) for idx, val in df_merged["diff"].items()}
+
+
+def calculate_rolling_mean(series: dict, window_size: str = "1d") -> dict:
+    """
+    Calculates the rolling mean (moving average) of a time series using a configurable window size.
+
+    Args:
+        series (dict): Time series as a dictionary of timestamp-value pairs.
+        window_size (str): Size of the moving window (e.g., '1d', '3h'). Defaults to '1d'.
+
+    Returns:
+        dict: Time series of rolling mean values.
+    """
+    if not series or not isinstance(series, dict):
+        return {}
+    if any(not isinstance(v, (int, float)) or np.isnan(v) for v in series.values()):
+        return {}
+    if not isinstance(window_size, str):
+        return {}
+    try:
+        s = pd.Series(series)
+        s.index = pd.to_datetime(s.index)
+        s = s.sort_index()
+        rolling_mean = s.rolling(pd.Timedelta(window_size)).mean()
+    except (ValueError, TypeError) as e:
+        raise ValueError("could not convert series to pd.Series: " + str(e)) from e
+    return {idx.isoformat(): float(val) for idx, val in rolling_mean.items()}
