@@ -15,8 +15,17 @@ interface MyChartProps {
 const MyChart: React.FC<MyChartProps> = ({ primaryData, secondaryData, title }) => {
     // Extract state and setters from hook
     const {
-        xaxisRange, tickFormat, showMarkers, customRange, setCustomRange, customYMin, setCustomYMin, customYMax, setCustomYMax,
-        customRange2, setCustomRange2, customY2Min, setCustomY2Min, customY2Max, setCustomY2Max, visibleMap, setVisibleMap, handleRelayout,
+        xaxisRange,
+        tickFormat,
+        showMarkers,
+        customRange, setCustomRange,
+        customYMin, setCustomYMin,
+        customYMax, setCustomYMax,
+        customRange2, setCustomRange2,
+        customY2Min, setCustomY2Min,
+        customY2Max, setCustomY2Max,
+        visibleMap, setVisibleMap,
+        handleRelayout,
     } = useChartState(primaryData, secondaryData);
 
     // Extract interaction handlers from hook

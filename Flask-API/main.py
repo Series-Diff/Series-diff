@@ -14,6 +14,13 @@ app = Flask(__name__)
 logger = app.logger
 logger.setLevel("DEBUG")
 
+@app.route('/health')
+def health_check():
+    # Add your custom health check logic here
+    if all_required_services_are_running():
+        return 'OK', 200
+    else:
+        return 'Service Unavailable', 500
 
 @app.route("/", methods=["GET"])
 def index():
@@ -346,6 +353,8 @@ def clear_timeseries():
         return jsonify({"error": str(e)}), 400
     return jsonify({"status": "All timeseries cleared"}), 200
 
+def all_required_services_are_running():
+    return True
 
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=5000)

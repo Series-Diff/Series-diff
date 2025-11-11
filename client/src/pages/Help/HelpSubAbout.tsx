@@ -19,7 +19,7 @@ export const HelpAbout = (): JSX.Element => {
         {/* target="_blank" - Opens the link in a new tab to keep the app open */}
         {/* rel="noopener"  - Prevents the new tab from accessing the original tab for security */}
         {/* rel="noreferrer"- Hides the referrer URL to protect user privacy */}
-        <Button href="https://github.com/Comparison-Tool/Comparison-Tool" target="_blank" rel="noopener noreferrer" variant="dark" size="sm" className="mb-3 d-inline-flex align-items-center">
+        <Button href="https://github.com/Series-Diff/Series-Diff" target="_blank" rel="noopener noreferrer" variant="dark" size="sm" className="mb-3 d-inline-flex align-items-center">
           <Github className="me-2 align-middle" size={16} />
           View on GitHub
         </Button>
