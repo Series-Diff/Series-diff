@@ -399,7 +399,7 @@
             localStorage.removeItem('chartData');
     
             try {
-                const resp = await fetch('/api/clear-timeseries', {method: 'DELETE'});
+                const resp = await fetch('/clear-timeseries', {method: 'DELETE'});
                 if (!resp.ok) {
                     const errorText = await resp.text();
                     console.error("Failed to clear timeseries on backend:", errorText);

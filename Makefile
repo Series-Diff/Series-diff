@@ -56,7 +56,7 @@ check-config: ## Validate Pulumi configuration
 		exit 1; \
 	fi
 	@echo "$(GREEN)✓ Configuration file found$(NC)"
-	@. venv/bin/activate && cd infra && pulumi config -s $(STACK)
+	@. venv/bin/activate && pulumi config -s $(STACK)
 
 login: ## Login to Pulumi S3 backend
 	@echo "$(GREEN)Logging in to Pulumi S3 backend...$(NC)"
@@ -64,37 +64,37 @@ login: ## Login to Pulumi S3 backend
 
 stack-init: login ## Initialize a new Pulumi stack
 	@echo "$(GREEN)Initializing stack: $(STACK)...$(NC)"
-	@. venv/bin/activate && cd infra && pulumi stack init $(STACK) || echo "$(YELLOW)Stack already exists$(NC)"
-	@. venv/bin/activate && cd infra && pulumi stack select $(STACK)
+	@. venv/bin/activate && pulumi stack init $(STACK) || echo "$(YELLOW)Stack already exists$(NC)"
+	@. venv/bin/activate && pulumi stack select $(STACK)
 	@echo "$(GREEN)✓ Stack $(STACK) ready$(NC)"
 
 preview: check-aws check-config ## Preview infrastructure changes
 	@echo "$(GREEN)Previewing changes for stack: $(STACK)...$(NC)"
-	@. venv/bin/activate && cd infra && pulumi preview -s $(STACK)
+	@. venv/bin/activate && pulumi preview -s $(STACK)
 
 deploy: check-aws check-config ## Deploy infrastructure
 	@echo "$(GREEN)Deploying infrastructure for stack: $(STACK)...$(NC)"
-	@. venv/bin/activate && cd infra && pulumi up -s $(STACK)
+	@. venv/bin/activate  && pulumi up -s $(STACK)
 
 deploy-yes: check-aws check-config ## Deploy infrastructure without confirmation
 	@echo "$(GREEN)Deploying infrastructure for stack: $(STACK) (auto-approve)...$(NC)"
-	@. venv/bin/activate && cd infra && pulumi up -s $(STACK) --yes
+	@. venv/bin/activate  && pulumi up -s $(STACK) --yes
 
 destroy: check-aws ## Destroy infrastructure (with confirmation)
 	@echo "$(RED)WARNING: This will destroy all infrastructure for stack: $(STACK)$(NC)"
-	@. venv/bin/activate && cd infra && pulumi destroy -s $(STACK)
+	@. venv/bin/activate && pulumi destroy -s $(STACK)
 
 destroy-yes: check-aws ## Destroy infrastructure without confirmation
 	@echo "$(RED)Destroying infrastructure for stack: $(STACK) (auto-approve)...$(NC)"
-	@. venv/bin/activate && cd infra && pulumi destroy -s $(STACK) --yes
+	@. venv/bin/activate && pulumi destroy -s $(STACK) --yes
 
 refresh: check-aws ## Refresh stack state with actual infrastructure
 	@echo "$(GREEN)Refreshing stack state: $(STACK)...$(NC)"
-	@. venv/bin/activate && cd infra && pulumi refresh -s $(STACK)
+	@. venv/bin/activate && pulumi refresh -s $(STACK)
 
 outputs: ## Show stack outputs
 	@echo "$(GREEN)Stack outputs for: $(STACK)$(NC)"
-	@. venv/bin/activate && cd infra && pulumi stack output -s $(STACK)
+	@. venv/bin/activate && pulumi stack output -s $(STACK)
 
 logs: check-aws ## View ECS task logs (requires stack outputs)
 	@echo "$(GREEN)Fetching ECS logs...$(NC)"
