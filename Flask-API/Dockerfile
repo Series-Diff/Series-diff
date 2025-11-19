@@ -4,17 +4,23 @@ FROM python:3.11-slim
 # Set the working directory in the container
 WORKDIR /app
 
-# Copy the requirements file into the container at /app
-COPY requirements.txt ./main.py ./
+# Setup environment
+ENV POETRY_VERSION=2.2.1
+
+# Install package manager
+RUN pip install poetry==$POETRY_VERSION
+
+# Create .venv
+RUN poetry config virtualenvs.in-project true
+
+# Copy the requirements file into the container
+COPY pyproject.toml poetry.lock ./
 
 # Install any dependencies
-RUN pip install --no-cache-dir -r requirements.txt
+RUN poetry install --no-root
 
-# Copy the current directory contents into the container at /app
-COPY . /app
-
-# Make port 5000 available to the world outside this container
-EXPOSE 5000
+# Copy the current directory contents into the container
+COPY . .
 
 # Run app.py when the container launches
-CMD ["flask", "run", "--host=0.0.0.0", "--port=5000", "--reload"]
+CMD ["poetry", "run", "gunicorn", "--workers=4", "--bind=0.0.0.0:5000", "main:app"]

@@ -9,7 +9,11 @@ export type TimeSeriesResponse = Record<string, TimeSeriesEntry[]>;
 const API_URL = process.env.REACT_APP_API_URL || '';
 
 export const fetchTimeSeriesData = async (): Promise<TimeSeriesResponse> => {
+<<<<<<< HEAD
   const resp = await fetch(`${API_URL}/api/timeseries`);
+=======
+  const resp = await fetch("/timeseries");
+>>>>>>> 5ec6c04 (CT-102 - Dostosowanie (ponownie) adresów pod api oraz przejscie na zarzadzanie zaleznosciami za pomoca poetry)
   if (!resp.ok) throw new Error(await resp.text());
   const json: Record<string, Record<string, Record<string, number>>> = await resp.json();
   const out: TimeSeriesResponse = {};
