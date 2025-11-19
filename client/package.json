@@ -11,6 +11,7 @@
     "react": "^19.0.0",
     "react-bootstrap": "^2.10.10",
     "react-bootstrap-icons": "^1.11.6",
+    "react-datepicker": "^8.8.0",
     "react-dom": "^19.0.0",
     "react-plotly.js": "^2.6.0",
     "react-router-dom": "^7.6.0",

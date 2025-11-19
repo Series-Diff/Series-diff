@@ -19,6 +19,10 @@ import Dropdown from '../components/Dropdown/Dropdown';
 import {fetchAllAutoCorrelations} from "../services/fetchAllAutoCorrelations";
 import { fetchAllCrossCorrelations } from "../services/fetchAllCrossCorrelations";
 import metrics from "../components/Metric/Metrics";
+import DatePicker from "react-datepicker";
+import "react-datepicker/dist/react-datepicker.css";
+
+
 
 
 function DashboardPage() {
@@ -34,6 +38,9 @@ function DashboardPage() {
   const [filenamesPerCategory, setFilenamesPerCategory] = useState<Record<string, string[]>>({});
   const [dataPreview, setDataPreview] = useState<Record<string, any> | null>(null);
   const [groupedMetrics, setGroupedMetrics] = useState<Record<string, CombinedMetric[]>>({});
+  const [startDate, setStartDate] = useState<Date | null>(null);
+  const [endDate, setEndDate] = useState<Date | null>(null);
+
 
   const [filteredData, setFilteredData] = useState<{
   primary: Record<string, TimeSeriesEntry[]>;
@@ -358,8 +365,46 @@ return (
                   allowNoneOption
                 />
               </>
+              
             )}
-          </div>
+
+  <div className="d-flex flex-column" style={{ minWidth: "180px" }}>
+    <label className="mb-1">Start time</label>
+    <DatePicker
+      selected={startDate}
+      onChange={(date) => setStartDate(date)}
+      showTimeSelect
+      timeFormat="HH:mm"
+      timeIntervals={1}
+      dateFormat="yyyy-MM-dd HH:mm"
+      placeholderText="Start date"
+      className="form-control"
+      popperPlacement="bottom-start"
+    />
+  </div>
+
+  <div className="d-flex flex-column" style={{ minWidth: "180px" }}>
+    <label className="mb-1">End time</label>
+    <DatePicker
+      selected={endDate}
+      onChange={(date) => setEndDate(date)}
+      showTimeSelect
+      timeFormat="HH:mm"
+      timeIntervals={1}
+      dateFormat="yyyy-MM-dd HH:mm"
+      placeholderText="End date"
+      className="form-control"
+      popperPlacement="bottom-start"
+    />
+  </div>
+  
+
+
+</div>
+
+
+
+
           <div className="d-flex align-items-center gap-3">
             <label htmlFor="file-upload" className={`custom-file-upload btn btn-primary rounded p-2 px-3 text-center ${isLoading ? "disabled" : ""}`}>
               {isLoading ? "Loading..." : "Upload files"}
