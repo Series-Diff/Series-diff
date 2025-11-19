@@ -1,7 +1,7 @@
 // services/fetchAllAutoCorrelations.ts
 
 async function fetchAutocorrelation(category: string, filename: string): Promise<number | null>{
-    const resp = await fetch(`api/timeseries/autocorrelation?category=${category}&filename=${filename}`);
+    const resp = await fetch(`/timeseries/autocorrelation?category=${category}&filename=${filename}`);
     if (!resp.ok) {
         console.error("Failed to fetch autocorrelation:", await resp.text());
         return null;
