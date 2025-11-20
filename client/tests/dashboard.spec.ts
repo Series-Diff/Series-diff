@@ -6,7 +6,7 @@ test.describe('Dashboard Page Tests', () => {
   });
 
   test('should load the default page correctly', async ({ page }) => {
-    // Sprawdź tytuł strony
+    // Sprawdź tytuł strony      
     await expect(page).toHaveTitle(/SeriesDiff/);
 
     // Sprawdź logo (element przy nawigacji z nazwą "SeriesDiff")
