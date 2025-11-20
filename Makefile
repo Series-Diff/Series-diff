@@ -149,6 +149,11 @@ prod-deploy: ## Deploy to production (requires confirmation)
 	else \
 		echo "$(YELLOW)Deployment cancelled$(NC)"; \
 	fi
+	
+lint: ## Run code linting (flake8)
+	@echo "$(GREEN)Running flake8 linter...$(NC)"
+	@# Uruchamiamy flake8 wewnątrz środowiska poetry w katalogu Flask-API
+	@cd Flask-API && poetry run flake8 . --exclude .venv,__pycache__
 
 # Quick commands
 up: deploy ## Alias for deploy
