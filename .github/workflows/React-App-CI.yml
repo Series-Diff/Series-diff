@@ -24,7 +24,16 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: 20
-          
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3  # Dla docker-compose
+
+      - name: Build and start services
+        run: docker-compose up -d --build  # Uruchamia Flask + React w tle
+
+      # - name: Wait for services
+      #   run: sleep 10  # Czekaj na start; alternatywnie użyj curl/wait-for-it na healthcheck
+
       - name: Cache node modules
         uses: actions/cache@v4
         with:
@@ -54,16 +63,25 @@ jobs:
             libatspi2.0-0 libxshmfence-dev fonts-liberation fonts-noto-color-emoji
 
       - name: Install npm dependencies
+        # working-directory: client
         run: npm ci
 
       - name: Build project
+        # working-directory: client
         run: CI=false npm run build
 
       - name: Run unit tests
+        # working-directory: client
         run: npm test -- --watchAll=false --passWithNoTests
 
       - name: Install Playwright
+        # working-directory: client
         run: npx playwright install --with-deps
 
       - name: Run E2E tests
+        # working-directory: client
         run: npx playwright test
+
+      - name: Stop services
+        if: always()
+        run: docker-compose down  # Zawsze wyłącz na końcu
