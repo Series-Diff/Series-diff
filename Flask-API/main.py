@@ -14,6 +14,7 @@ app = Flask(__name__)
 logger = app.logger
 logger.setLevel("DEBUG")
 
+
 @app.route('/health')
 def health_check():
     # Add your custom health check logic here
@@ -22,9 +23,11 @@ def health_check():
     else:
         return 'Service Unavailable', 500
 
+
 @app.route("/", methods=["GET"])
 def index():
     return redirect(url_for("get_timeseries")) # set /api/timeseries as the default route
+
 
 @app.route("/timeseries", methods=["GET"])
 def get_timeseries():
@@ -54,6 +57,7 @@ def get_timeseries():
     logger.info("Successfully fetched timeseries for filename '%s' and category '%s' and time interval '%s - %s'", filename, category, start, end)
     return jsonify(data), 200
 
+
 @app.route("/timeseries/mean", methods=["GET"])
 def get_mean():
     """
@@ -80,6 +84,7 @@ def get_mean():
     logger.info("Successfully calculated mean for provided timeseries data: filename '%s', category '%s', time interval '%s - %s'", filename, category, start, end)
 
     return jsonify({"mean": mean}), 200
+
 
 @app.route("/timeseries/median", methods=["GET"])
 def get_median():
@@ -109,6 +114,7 @@ def get_median():
 
     return jsonify({"median": median}), 200
 
+
 @app.route("/timeseries/variance", methods=["GET"])
 def get_variance():
     """
@@ -136,6 +142,7 @@ def get_variance():
 
     return jsonify({"variance": variance}), 200
 
+
 @app.route("/timeseries/standard_deviation", methods=["GET"])
 def get_standard_deviation():
     """
@@ -161,6 +168,7 @@ def get_standard_deviation():
     logger.info("Successfully calculated standard deviation for provided timeseries data for filename '%s' and category '%s' and time interval '%s - %s'", filename, category, start, end)
 
     return jsonify({"standard_deviation": std_dev}), 200
+
 
 @app.route("/timeseries/autocorrelation", methods=["GET"])
 def get_autocorrelation():
@@ -190,6 +198,7 @@ def get_autocorrelation():
 
     return jsonify({"autocorrelation": acf_value}), 200
 
+
 @app.route("/timeseries/coefficient_of_variation", methods=["GET"])
 def get_coefficient_of_variation():
     """
@@ -215,6 +224,7 @@ def get_coefficient_of_variation():
     logger.info("Successfully calculated coefficient of variation for provided timeseries data for filename '%s' and category '%s' and time interval '%s - %s'", filename, category, start, end)
 
     return jsonify({"coefficient_of_variation": cv}), 200
+
 
 @app.route("/timeseries/iqr", methods=["GET"])
 def get_iqr():
@@ -242,6 +252,7 @@ def get_iqr():
     logger.info("Successfully calculated IQR for provided timeseries data for filename '%s' and category '%s' and time interval '%s - %s'", filename, category, start, end)
 
     return jsonify({"iqr": iqr}), 200
+
 
 @app.route("/timeseries/pearson_correlation", methods=["GET"])
 def get_pearson_correlation():
@@ -295,6 +306,7 @@ def get_difference():
 
     return jsonify({"difference": difference_series}), 200
 
+
 @app.route("/timeseries/rolling_mean", methods=["GET"])
 def get_rolling_mean():
     filename = request.args.get("filename")
@@ -311,6 +323,7 @@ def get_rolling_mean():
         return jsonify({"error": str(e)}), 400
 
     return jsonify({"rolling_mean": rolling_mean_series}), 200
+
 
 @app.route("/upload-timeseries", methods=["POST"])
 def add_timeseries():
@@ -338,6 +351,7 @@ def add_timeseries():
             return jsonify({"error": str(e)}), 400
     logger.info("All timeseries data uploaded successfully")
     return jsonify({"status": "Data uploaded"}), 201
+
 
 @app.route("/clear-timeseries", methods=["DELETE"])
 def clear_timeseries():
