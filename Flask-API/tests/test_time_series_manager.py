@@ -4,7 +4,7 @@ import services.time_series_manager as tsm
 class TestTimeSeriesManagerAddMethod(unittest.TestCase):
     def setUp(self):
         self.manager = tsm.TimeSeriesManager()
- 
+
     def test_add_timeseries_valid(self):
         # Arrange
         time = "2023-01-01"
@@ -43,7 +43,7 @@ class TestTimeSeriesManagerAddMethod(unittest.TestCase):
         # Act & Assert
         with self.assertRaises(ValueError):
             self.manager.add_timeseries(time, data)
-    
+
     def test_add_timeseries_invalid_file_data(self):
         # Arrange
         time = "2023-01-01"
@@ -54,7 +54,7 @@ class TestTimeSeriesManagerAddMethod(unittest.TestCase):
         # Act & Assert
         with self.assertRaises(ValueError):
             self.manager.add_timeseries(time, data)
-    
+
 class TestTimeSeriesManagerGetMethod(unittest.TestCase):
     def setUp(self):
         self.manager = tsm.TimeSeriesManager()
@@ -77,7 +77,7 @@ class TestTimeSeriesManagerGetMethod(unittest.TestCase):
                 }
             }   
         }
-        
+
     def test_get_all_timeseries(self):
         # Act
         result = self.manager.get_timeseries()
@@ -124,7 +124,7 @@ class TestTimeSeriesManagerGetMethod(unittest.TestCase):
             }
         }
         self.assertEqual(result, expected)
-        
+
     def test_get_timeseries_with_category(self):
         # Act
         result = self.manager.get_timeseries(category="category1")
@@ -146,7 +146,7 @@ class TestTimeSeriesManagerGetMethod(unittest.TestCase):
             }
         }
         self.assertEqual(result, expected)
-        
+
     def test_get_timeseries_with_filename(self):
         # Act
         result = self.manager.get_timeseries(filename="file1")
@@ -163,7 +163,7 @@ class TestTimeSeriesManagerGetMethod(unittest.TestCase):
             }
         }
         self.assertEqual(result, expected)
-        
+
     def test_get_timeseries_with_time_and_category(self):
         # Act
         result = self.manager.get_timeseries(time="2023-01-01", category="category1")
@@ -179,7 +179,7 @@ class TestTimeSeriesManagerGetMethod(unittest.TestCase):
             }
         }
         self.assertEqual(result, expected)
-        
+
     def test_get_timeseries_with_time_and_filename(self):
         # Act
         result = self.manager.get_timeseries(time="2023-01-01", filename="file1")
@@ -196,7 +196,7 @@ class TestTimeSeriesManagerGetMethod(unittest.TestCase):
             }
         }
         self.assertEqual(result, expected)
-        
+
     def test_get_timeseries_with_category_and_filename(self):
         # Act
         result = self.manager.get_timeseries(category="category1", filename="file1")
@@ -227,7 +227,7 @@ class TestTimeSeriesManagerGetMethod(unittest.TestCase):
             }
         }
         self.assertEqual(result, expected)
-    
+
     def test_get_timeseries_with_time_category_and_filename(self):
         # Act
         result = self.manager.get_timeseries(time="2023-01-01", category="category1", filename="file1")
@@ -241,32 +241,32 @@ class TestTimeSeriesManagerGetMethod(unittest.TestCase):
             }
         }
         self.assertEqual(result, expected)
-        
+
     def test_get_timeseries_no_data(self):
         # Arrange
         empty_manager = tsm.TimeSeriesManager()
 
         # Act & Assert
         self.assertEqual(empty_manager.get_timeseries(), {})
-            
+
     def test_get_timeseries_invalid_time(self):
-        
+
         # Act
         result = self.manager.get_timeseries(time="invalid_time")
 
         # Assert
         self.assertEqual(result, {})
-        
+
     def test_get_timeseries_invalid_data_type(self):
         # Act & Assert
         with self.assertRaises(ValueError):
             self.manager.get_timeseries(time=2023-1-1)
-    
+
     def test_get_timeseries_invalid_category(self):
         # Act & Assert
         result = self.manager.get_timeseries(category="invalid_category")
         self.assertEqual(result, {})
-            
+
     def test_get_timeseries_invalid_filename(self):
         # Act & Assert
         result = self.manager.get_timeseries(filename="invalid_file")
