@@ -16,6 +16,8 @@
 
 You can run the backend of the application by simply typing `python3 main.py` in the terminal or run the whole application using `docker compose up --build`.
 
+To fully rebuild container: `docker-compose down -v --rmi all && docker-compose build --no-cache && docker-compose up`.
+
 ## Testing Application
 
 ### Unit/Integration Tests (unittest with coverage)
