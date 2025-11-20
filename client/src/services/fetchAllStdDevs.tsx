@@ -1,5 +1,10 @@
-async function fetchStdDev(category: string, filename: string): Promise<number | null>{
-    const resp = await fetch(`api/timeseries/standard_deviation?category=${category}&filename=${filename}`);
+async function fetchStdDev(category: string, filename: string, start?: string,
+  end?: string): Promise<number | null>{
+        let url=`api/timeseries/standard_deviation?category=${category}&filename=${filename}`;
+      if (start) url += `&start=${start}`;
+      if (end) url += `&end=${end}`;
+
+    const resp = await fetch(url);
     if (!resp.ok) {
         console.error("Failed to fetch standard deviation:", await resp.text());
         return null;
@@ -9,7 +14,8 @@ async function fetchStdDev(category: string, filename: string): Promise<number |
 }
 
 export async function fetchAllStdDevs(
-  filenamesPerCategory: Record<string, string[]>
+  filenamesPerCategory: Record<string, string[]>,  start?: string,
+  end?: string
 ): Promise<Record<string, Record<string, number>>> {
   const stdDevsValues: Record<string, Record<string, number>> = {};
 

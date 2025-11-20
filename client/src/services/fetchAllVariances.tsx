@@ -1,5 +1,9 @@
-async function fetchVariance(category: string, filename: string): Promise<number | null>{
-    const resp = await fetch(`api/timeseries/variance?category=${category}&filename=${filename}`);
+async function fetchVariance(category: string, filename: string, start?: string,
+  end?: string): Promise<number | null>{
+      let url=`api/timeseries/variance?category=${category}&filename=${filename}`;
+      if (start) url += `&start=${start}`;
+      if (end) url += `&end=${end}`;
+    const resp = await fetch(url);
     if (!resp.ok) {
         console.error("Failed to fetch variance:", await resp.text());
         return null;
@@ -9,7 +13,8 @@ async function fetchVariance(category: string, filename: string): Promise<number
 }
 
 export async function fetchAllVariances(
-  filenamesPerCategory: Record<string, string[]>
+  filenamesPerCategory: Record<string, string[]>,  start?: string,
+  end?: string
 ): Promise<Record<string, Record<string, number>>> {
   const varianceValues: Record<string, Record<string, number>> = {};
 

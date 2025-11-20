@@ -2,9 +2,14 @@
 
 import {TimeSeriesEntry} from "../services/fetchTimeSeries";
 
-async function fetchDifference(category: string, filename1: string, filename2: string, tolerance?: string): Promise<TimeSeriesEntry[] | null> {
+async function fetchDifference(category: string, filename1: string, filename2: string, tolerance?: string, start?: string,
+  end?: string): Promise<TimeSeriesEntry[] | null> {
     const toleranceParam = tolerance !== undefined ? String(tolerance) : undefined;
-    const resp = await fetch(`/timeseries/difference?category=${category}&filename1=${filename1}&filename2=${filename2}` + (toleranceParam ? `&tolerance=${toleranceParam}` : ""));
+    let url=`/timeseries/difference?category=${category}&filename1=${filename1}&filename2=${filename2}` + (toleranceParam ? `&tolerance=${toleranceParam}` : "")
+    if (start) url += `&start=${start}`;
+    if (end) url += `&end=${end}`;
+
+    const resp = await fetch(url);
     if (!resp.ok) {
         console.error(`Failed to fetch difference for ${filename1} - ${filename2} in ${category}:`, await resp.text());
         return null;
@@ -19,7 +24,8 @@ async function fetchDifference(category: string, filename1: string, filename2: s
 // New function to fetch all differences for all meaningful pairs
 export async function fetchAllDifferences(
   filenamesPerCategory: Record<string, string[]>,
-  tolerance: number | null | undefined
+  tolerance: number | null | undefined,  start?: string,
+  end?: string
 ): Promise<Record<string, Record<string, TimeSeriesEntry[]>>> {
   const differenceValues: Record<string, Record<string, TimeSeriesEntry[]>> = {};
 

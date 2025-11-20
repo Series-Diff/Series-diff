@@ -42,6 +42,7 @@ function DashboardPage() {
   const [endDate, setEndDate] = useState<Date | null>(null);
 
 
+
   const [filteredData, setFilteredData] = useState<{
   primary: Record<string, TimeSeriesEntry[]>;
   secondary: Record<string, TimeSeriesEntry[]> | null;
@@ -58,7 +59,7 @@ function DashboardPage() {
   const [autoCorrelationValues, setAutoCorrelationValues] = useState<Record<string, Record<string, number>>>({});
   const [crossCorrelationValues, setCrossCorrelationValues] = useState<Record<string, Record<string, Record<string, number>>>>({});
 
-  const handleFetchData = useCallback(async (showLoadingIndicator = true) => {
+const handleFetchData = useCallback(async (showLoadingIndicator = true) => {
   if (showLoadingIndicator) setIsLoading(true);
   setError(null);
   try {
@@ -68,41 +69,43 @@ function DashboardPage() {
     const names = extractFilenamesPerCategory(allSeries);
     setFilenamesPerCategory(names);
 
-    const means = await fetchAllMeans(names);
+    const start = startDate ? startDate.toISOString() : undefined;
+    const end = endDate ? endDate.toISOString() : undefined;
+
+    const means = await fetchAllMeans(names, start, end);
     setMeanValues(means);
 
-    const medians = await fetchAllMedians(names);
+    const medians = await fetchAllMedians(names, start, end);
     setMedianValues(medians);
 
-    const variances = await fetchAllVariances(names);
+    const variances = await fetchAllVariances(names, start, end);
     setVarianceValues(variances);
 
-    const stdDevs = await fetchAllStdDevs(names);
+    const stdDevs = await fetchAllStdDevs(names, start, end);
     setStdDevsValues(stdDevs);
 
     setSelectedCategory(Object.keys(names)[0] || null);
     setSecondaryCategory(null);
     
-    const autoCorrelations = await fetchAllAutoCorrelations(names);
+    const autoCorrelations = await fetchAllAutoCorrelations(names, start, end);
     setAutoCorrelationValues(autoCorrelations);
 
     const allCrossCorrelations: Record<string, Record<string, Record<string, number>>> = {};
-
     for (const category of Object.keys(names)) {
       const files = names[category];
-      allCrossCorrelations[category] = await fetchAllCrossCorrelations(files, category);
+      allCrossCorrelations[category] = await fetchAllCrossCorrelations(files, category, start, end);
     }
-
     setCrossCorrelationValues(allCrossCorrelations);
+console.log("Fetched meanValues:", meanValues);
 
+  } catch (err: any) {
+    setError(err.message || 'Failed to fetch data.');
+    setChartData({});
+  } finally {
+    if (showLoadingIndicator) setIsLoading(false);
+  }
+}, [startDate, endDate]);
 
-   } catch (err: any) {
-      setError(err.message || 'Failed to fetch data.');
-      setChartData({}); // Wyczyść dane w przypadku błędu
-    } finally {
-      if (showLoadingIndicator) setIsLoading(false);
-    }
-  }, []);
   useEffect(() => {
 
     const storedData = localStorage.getItem('chartData');
@@ -217,6 +220,49 @@ function DashboardPage() {
     }
 
   }, [meanValues, medianValues, varianceValues, stdDevsValues, autoCorrelationValues, crossCorrelationValues, filenamesPerCategory]);
+useEffect(() => {
+  if (!chartData || Object.keys(chartData).length === 0) return;
+
+  const updateMetrics = async () => {
+    const names = extractFilenamesPerCategory(chartData);
+    const start = startDate ? startDate.toISOString() : undefined;
+    const end = endDate ? endDate.toISOString() : undefined;
+
+    try {
+      setIsLoading(true);
+
+      const [means, medians, variances, stdDevs, autoCorrelations] = await Promise.all([
+        fetchAllMeans(names, start, end),
+        fetchAllMedians(names, start, end),
+        fetchAllVariances(names, start, end),
+        fetchAllStdDevs(names, start, end),
+        fetchAllAutoCorrelations(names, start, end),
+      ]);
+
+      setMeanValues(means);
+      setMedianValues(medians);
+      setVarianceValues(variances);
+      setStdDevsValues(stdDevs);
+      setAutoCorrelationValues(autoCorrelations);
+
+      // cross correlations też, jeśli potrzebujesz
+      const allCrossCorrelations: Record<string, Record<string, Record<string, number>>> = {};
+      for (const category of Object.keys(names)) {
+        const files = names[category];
+        allCrossCorrelations[category] = await fetchAllCrossCorrelations(files, category, start, end);
+      }
+      setCrossCorrelationValues(allCrossCorrelations);
+
+    } catch (err: any) {
+      setError(err.message || "Failed to fetch metrics.");
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  updateMetrics();
+}, [startDate, endDate, chartData]);
+
 
     const handleDropdownChange = (event: React.ChangeEvent<HTMLSelectElement>) => {
     setSelectedCategory(event.target.value);
@@ -401,9 +447,6 @@ return (
 
 
 </div>
-
-
-
 
           <div className="d-flex align-items-center gap-3">
             <label htmlFor="file-upload" className={`custom-file-upload btn btn-primary rounded p-2 px-3 text-center ${isLoading ? "disabled" : ""}`}>
