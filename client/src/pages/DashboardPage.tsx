@@ -46,7 +46,9 @@ function DashboardPage() {
   const [filteredData, setFilteredData] = useState<{
   primary: Record<string, TimeSeriesEntry[]>;
   secondary: Record<string, TimeSeriesEntry[]> | null;
-}>({ primary: {}, secondary: null });
+  }>
+
+({ primary: {}, secondary: null });
     const [selectedCategory, setSelectedCategory] = useState(() => {
     const savedCategory = localStorage.getItem('selectedCategory');
     return savedCategory ? savedCategory : null;
@@ -58,6 +60,15 @@ function DashboardPage() {
 
   const [autoCorrelationValues, setAutoCorrelationValues] = useState<Record<string, Record<string, number>>>({});
   const [crossCorrelationValues, setCrossCorrelationValues] = useState<Record<string, Record<string, Record<string, number>>>>({});
+const filterByTime = (entries: TimeSeriesEntry[]) =>
+  entries.filter(entry => {
+    const time = new Date(new Date(entry.x).getTime() - 2 * 60 * 60 * 1000).getTime();
+    const afterStart = !startDate || time >= startDate.getTime();
+    const beforeEnd = !endDate || time <= endDate.getTime();
+    return afterStart && beforeEnd;
+  });
+
+
 
 const handleFetchData = useCallback(async (showLoadingIndicator = true) => {
   if (showLoadingIndicator) setIsLoading(true);
@@ -149,7 +160,7 @@ console.log("Fetched meanValues:", meanValues);
   if (selectedCategory) {
     for (const [key, series] of Object.entries(chartData)) {
       if (key.startsWith(`${selectedCategory}.`)) {
-        primary[key] = series;
+        primary[key] = filterByTime(series);;
       }
     }
   }
@@ -158,7 +169,7 @@ console.log("Fetched meanValues:", meanValues);
   if (secondaryCategory ) {
     for (const [key, series] of Object.entries(chartData)) {
       if (key.startsWith(`${secondaryCategory}.`)) {
-        secondary[key] = series;
+        secondary[key] = filterByTime(series);
       }
     }
   }
@@ -167,7 +178,7 @@ console.log("Fetched meanValues:", meanValues);
     primary,
     secondary: Object.keys(secondary).length > 0 ? secondary : null
   });
-}, [chartData, selectedCategory, secondaryCategory]);
+}, [chartData, selectedCategory, secondaryCategory,startDate,endDate]);
 
     useEffect(() => {
       if (Object.keys(filenamesPerCategory).length > 0 && !selectedCategory) {
@@ -245,7 +256,6 @@ useEffect(() => {
       setStdDevsValues(stdDevs);
       setAutoCorrelationValues(autoCorrelations);
 
-      // cross correlations też, jeśli potrzebujesz
       const allCrossCorrelations: Record<string, Record<string, Record<string, number>>> = {};
       for (const category of Object.keys(names)) {
         const files = names[category];

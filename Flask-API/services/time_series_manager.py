@@ -1,3 +1,4 @@
+
 from datetime import datetime
 
 
@@ -14,8 +15,15 @@ class TimeSeriesManager:
         bool: True if added successfully, False otherwise
     """
 
+
     def __init__(self):
         self.timeseries = {}
+
+    def parse_iso(date_str: str):
+        if not date_str:
+            return None
+        return datetime.fromisoformat(date_str.replace("Z", "+02:00"))
+
 
     def add_timeseries(self, time: str, data: dict):
 
@@ -46,6 +54,10 @@ class TimeSeriesManager:
         return False
 
     def get_timeseries(self, time:str = None, filename:str = None, category:str = None, start:str = None, end:str = None) -> dict:
+        print("datetime_start:", start)
+        print("datetime_start:", end)
+
+
         """
         Retrieve timeseries data.
 
@@ -92,6 +104,7 @@ class TimeSeriesManager:
                     raise ValueError(f"Invalid time format in timeseries key: {timeseries}. Expected ISO format.") from e
 
                 if datetime_start and timeseries_datetime < datetime_start:
+
                     continue
                 if datetime_end and timeseries_datetime > datetime_end:
                     continue
