@@ -1,6 +1,7 @@
 import unittest
 import services.time_series_manager as tsm
 
+
 class TestTimeSeriesManagerAddMethod(unittest.TestCase):
     def setUp(self):
         self.manager = tsm.TimeSeriesManager()
@@ -54,6 +55,7 @@ class TestTimeSeriesManagerAddMethod(unittest.TestCase):
         # Act & Assert
         with self.assertRaises(ValueError):
             self.manager.add_timeseries(time, data)
+
 
 class TestTimeSeriesManagerGetMethod(unittest.TestCase):
     def setUp(self):
