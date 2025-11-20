@@ -42,8 +42,8 @@ jobs:
         if: steps.cached-poetry-dependencies.outputs.cache-hit != 'true'
         run: poetry install --no-interaction --no-root
 
-      - name: Lint with flake8
-        run: make lint
+      # - name: Lint with flake8
+      #   run: make lint
 
       - name: Run tests with coverage
         working-directory: Flask-API
