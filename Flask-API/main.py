@@ -311,6 +311,48 @@ def get_rolling_mean():
 
     return jsonify({"rolling_mean": rolling_mean_series}), 200
 
+@app.route("/api/timeseries/dtw", methods=["GET"])
+def get_dtw():
+    filename1 = request.args.get("filename1")
+    filename2 = request.args.get("filename2")
+    category = request.args.get("category")
+    start = request.args.get("start")
+    end = request.args.get("end")
+
+    try:
+        data1 = timeseries_manager.get_timeseries(filename=filename1, category=category, start=start, end=end)
+        series1 = metric_service.extract_series_from_dict(data1, category, filename1)
+        data2 = timeseries_manager.get_timeseries(filename=filename2, category=category, start=start, end=end)
+        series2 = metric_service.extract_series_from_dict(data2, category, filename2)
+
+        dtw_distance = metric_service.calculate_dtw(series1, series2)
+
+    except Exception as e:
+        return jsonify({"error": str(e)}), 400
+
+    return jsonify({"dtw_distance": dtw_distance}), 200
+
+@app.route("/api/timeseries/euclidean_distance", methods=["GET"])
+def get_euclidean_distance():
+    filename1 = request.args.get("filename1")
+    filename2 = request.args.get("filename2")
+    category = request.args.get("category")
+    tolerance = request.args.get("tolerance")
+
+    try:
+        data1 = timeseries_manager.get_timeseries(filename=filename1, category=category)
+        serie1 = metric_service.extract_series_from_dict(data1, category, filename1)
+
+        data2 = timeseries_manager.get_timeseries(filename=filename2, category=category)
+        serie2 = metric_service.extract_series_from_dict(data2, category, filename2)
+
+        euclidean_distances = metric_service.calculate_euclidean_distance(serie1, serie2, tolerance)
+
+    except Exception as e:
+        return jsonify({"error": str(e)}), 400
+
+    return jsonify({"euclidean_distance": euclidean_distances}), 200
+
 @app.route("/api/upload-timeseries", methods=["POST"])
 def add_timeseries():
     """

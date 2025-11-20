@@ -1,8 +1,9 @@
 import numpy as np
 import pandas as pd
+from scipy.spatial.distance import euclidean
 from scipy.stats import pearsonr
 from statsmodels.tsa.stattools import acf
-
+from dtw import *
 
 def extract_series_from_dict(data:dict, category:str, filename:str) -> dict:
     """Extracts a time series from a nested dictionary structure.
@@ -283,3 +284,114 @@ def calculate_rolling_mean(series: dict, window_size: str = "1d") -> dict:
     except (ValueError, TypeError) as e:
         raise ValueError("could not convert series to pd.Series: " + str(e)) from e
     return {idx.isoformat(): float(val) for idx, val in rolling_mean.items()}
+
+def calculate_dtw(series1: dict, series2: dict) -> float:
+    if not series1 or not series2:
+        raise ValueError("Both series must be non-empty dictionaries")
+
+    if not isinstance(series1, dict) or not isinstance(series2, dict):
+        raise ValueError("Both series must be dictionaries with timestamps as keys")
+    if len(series1) == 0 or len(series2) == 0:
+        raise ValueError("Both series must be non-empty")
+
+    s1 = pd.Series(series1)
+    s1.index = pd.to_datetime(s1.index)
+    s1 = s1.sort_index().astype(float)
+
+    s2 = pd.Series(series2)
+    s2.index = pd.to_datetime(s2.index)
+    s2 = s2.sort_index().astype(float)
+
+    x = s1.values
+    y = s2.values
+
+    dtw_distance = dtw(x, y).distance
+
+    return dtw_distance
+
+def calculate_euclidean_distance(series1: dict, series2: dict, tolerance: str | None = None) -> float:
+    """
+    Computes the Euclidean distance between two time series by aligning points
+    using pandas.merge_asof with nearest timestamp matching.
+
+    Args:
+        series1 (dict): First time series (timestamp -> value).
+        series2 (dict): Second time series (timestamp -> value).
+        tolerance (str | None): Maximum allowed time difference for matching
+                                (e.g., '1T', '5s'). If None, tolerance will be
+                                automatically estimated from median sampling intervals.
+
+    Returns:
+        float: Euclidean distance computed from the aligned points.
+
+    Raises:
+        ValueError: If inputs are invalid or no points can be matched.
+    """
+    if not isinstance(series1, dict) or not isinstance(series2, dict):
+        raise ValueError("Both series must be dictionaries")
+    if not series1 or not series2:
+        raise ValueError("Both series must be non-empty dictionaries")
+
+    # Convert to DataFrames and ensure proper datetime index
+    df1 = pd.DataFrame({
+        "time": pd.to_datetime(list(series1.keys())),
+        "value1": list(series1.values())
+    }).set_index("time").sort_index()
+
+    df2 = pd.DataFrame({
+        "time": pd.to_datetime(list(series2.keys())),
+        "value2": list(series2.values())
+    }).set_index("time").sort_index()
+
+    # Remove duplicate timestamps
+    df1 = df1[~df1.index.duplicated(keep='first')]
+    df2 = df2[~df2.index.duplicated(keep='first')]
+
+    # Automatically determine tolerance if not provided
+    if tolerance is None:
+        deltas = []
+        if len(df1.index) > 1:
+            deltas.append((df1.index[1:] - df1.index[:-1]).median())
+        if len(df2.index) > 1:
+            deltas.append((df2.index[1:] - df2.index[:-1]).median())
+
+        if not deltas:
+            raise ValueError("Cannot determine tolerance automatically; provide tolerance explicitly")
+
+        tolerance_td = max(deltas)
+    else:
+        tolerance_td = pd.Timedelta(tolerance)
+
+    # Reset index for merge_asof
+    df1_reset = df1.reset_index().rename(columns={"time": "time1"})
+    df2_reset = df2.reset_index().rename(columns={"time": "time2"})
+
+    df1_reset = df1_reset.sort_values("time1")
+    df2_reset = df2_reset.sort_values("time2")
+
+    # Use nearest timestamp matching
+    df_merged = pd.merge_asof(
+        df1_reset,
+        df2_reset,
+        left_on="time1",
+        right_on="time2",
+        direction="nearest",
+        tolerance=tolerance_td
+    ).dropna(subset=["value1", "value2"])
+
+    if df_merged.empty:
+        raise ValueError("No overlapping timestamps within tolerance")
+
+    # Convert to numeric and clean invalid values
+    df_merged["value1"] = pd.to_numeric(df_merged["value1"], errors="coerce")
+    df_merged["value2"] = pd.to_numeric(df_merged["value2"], errors="coerce")
+    df_merged = df_merged.dropna(subset=["value1", "value2"])
+
+    if df_merged.empty:
+        raise ValueError("No valid numeric matches after merging")
+
+    # Compute Euclidean distance
+    diffs = df_merged["value1"].values - df_merged["value2"].values
+    euclidean_distance = float(np.linalg.norm(diffs))
+
+    return euclidean_distance
