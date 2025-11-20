@@ -73,6 +73,7 @@ export const HelpAbout = (): JSX.Element => {
             <strong>Additional Technologies: </strong>
             <Badge bg="secondary" className="ms-1">Bootstrap</Badge>
             <Badge bg="secondary" className="ms-2">Docker</Badge>
+            <Badge bg="secondary" className="ms-2">AWS</Badge>
           </p>
         </Alert>
 

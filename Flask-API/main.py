@@ -29,7 +29,7 @@ def health_check():
 
 @app.route("/", methods=["GET"])
 def index():
-    return redirect(url_for("get_timeseries")) # set /api/timeseries as the default route
+    return redirect(url_for("get_timeseries"))
 
 
 @app.route("/timeseries", methods=["GET"])
