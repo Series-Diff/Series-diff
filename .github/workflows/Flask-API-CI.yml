@@ -8,10 +8,6 @@ on:
     paths:
       - "Flask-API/**"
 
-defaults:
-      run:
-        working-directory: ./Flask-API
-
 jobs:
   test-backend:
     runs-on: ubuntu-latest
@@ -38,16 +34,17 @@ jobs:
         id: cached-poetry-dependencies
         uses: actions/cache@v3
         with:
-          path: ./.venv
+          path: ./Flask-API/.venv
           key: venv-${{ runner.os }}-${{ steps.setup-python.outputs.python-version }}-${{ hashFiles('**/poetry.lock') }}
 
       - name: Install dependencies
+        working-directory: ./Flask-API
         if: steps.cached-poetry-dependencies.outputs.cache-hit != 'true'
         run: poetry install --no-interaction --no-root
 
       - name: Lint with flake8
-          
         run: make lint
 
       - name: Run tests with coverage
+        working-directory: Flask-API
         run: coverage run -m unittest discover -s tests -p "test_*.py"
