@@ -648,7 +648,7 @@
                                 />
 
                                 {/* Jeśli wybrano drugą kategorię, pokaż jej tabelę pod spodem */}
-                                {secondaryCategory && DTWValues[secondaryCategory] && (
+                                {secondaryCategory && EuclideanValues[secondaryCategory] && (
                                     <div style={{marginTop: "32px"}}>
                                         <StandardTable
                                             data={EuclideanValues[secondaryCategory]}
