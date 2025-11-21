@@ -5,9 +5,25 @@
 
   const MA_Suffix = / \(MA.*\)$/;
 
-  const getBaseKey = (name: string): string => {
-    return name.replace(MA_Suffix, '');
-  };
+const getBaseKey = (name: string, syncByFile: boolean): string => {
+  // 1. Najpierw usuń sufiks średniej kroczącej, jeśli istnieje
+  let tempName = name.replace(MA_Suffix, '');
+
+  if (syncByFile) {
+    // 2. Podziel nazwę na części po kropce
+    const parts = tempName.split('.');
+
+    // 3. Zwróć wszystko PO pierwszej kropce (czyli samą nazwę pliku)
+    // Jeśli nazwa nie miała kropki (co jest mało prawdopodobne), zwróci oryginalną nazwę.
+    if (parts.length > 1) {
+      // Łączy wszystkie części z wyjątkiem pierwszej (kategorii)
+      return parts.slice(1).join('.');
+    }
+  }
+
+  // Fallback, jeśli nie było prefiksu kategorii
+  return tempName;
+};
 
   const isMA = (name: string): boolean => {
     return MA_Suffix.test(name);
@@ -22,7 +38,9 @@
     primaryData: Record<string, TimeSeriesEntry[]>,
     secondaryData: Record<string, TimeSeriesEntry[]> | undefined,
     visibleMap: Record<string, boolean>,
-    showMarkers: boolean
+    showMarkers: boolean,
+    syncColorsByFile: boolean
+
   ): Data[] => {
 
     const colorMap = new Map<string, string>();
@@ -34,7 +52,7 @@
     ];
 
     allKeys.forEach(name => {
-      const baseKey = getBaseKey(name);
+      const baseKey = getBaseKey(name, syncColorsByFile);
       if (!colorMap.has(baseKey)) {
         colorMap.set(baseKey, colors[colorIndex % colors.length]);
         colorIndex++;
@@ -46,7 +64,7 @@
       series: TimeSeriesEntry[],
       yaxis: 'y1' | 'y2'
     ): Data => {
-      const baseKey = getBaseKey(name);
+      const baseKey = getBaseKey(name, syncColorsByFile);
       const color = colorMap.get(baseKey) || '#000000'; // Domyślnie czarny
       const isSeriesMA = isMA(name);
 

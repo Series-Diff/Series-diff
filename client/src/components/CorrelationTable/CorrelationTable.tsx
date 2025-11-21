@@ -27,7 +27,7 @@ const CorrelationTable: React.FC<CorrelationTableProps> = ({ data, category, onC
       <div className="card-body p-0">
         <div className="table-responsive">
           {/* Tabela macierzy korelacji */}
-          <table className="table table-bordered table-striped mb-0 align-middle text-center">
+          <table className="table table-bordered mb-0 align-middle text-center">
             <thead className="table-light">
               <tr>
                 <th scope="col">File</th>
