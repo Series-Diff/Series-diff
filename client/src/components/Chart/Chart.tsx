@@ -10,9 +10,10 @@ interface MyChartProps {
     primaryData: Record<string, TimeSeriesEntry[]>;
     secondaryData?: Record<string, TimeSeriesEntry[]>;
     title?: string;
+    syncColorsByFile?: boolean;
 }
 
-const MyChart: React.FC<MyChartProps> = ({ primaryData, secondaryData, title }) => {
+const MyChart: React.FC<MyChartProps> = ({ primaryData, secondaryData, title, syncColorsByFile =true}) => {
     // Extract state and setters from hook
     const {
         xaxisRange,
@@ -32,7 +33,7 @@ const MyChart: React.FC<MyChartProps> = ({ primaryData, secondaryData, title }) 
     const { handleLegendClick, containerRef } = useChartInteractions(setVisibleMap);
 
     // Build traces using utility function
-    const traces = buildTraces(primaryData, secondaryData, visibleMap, showMarkers);
+    const traces = buildTraces(primaryData, secondaryData, visibleMap, showMarkers, syncColorsByFile);
 
     return (
         <>
@@ -40,7 +41,7 @@ const MyChart: React.FC<MyChartProps> = ({ primaryData, secondaryData, title }) 
                 <Plot
                     data={traces}
                     layout={{
-                        title: { text: title || 'Time Series Data' },
+                        title: { text: title },
                         xaxis: {
                             title: { text: 'Time' },
                             type: 'date',
@@ -110,6 +111,7 @@ const MyChart: React.FC<MyChartProps> = ({ primaryData, secondaryData, title }) 
                 customY2Min={customY2Min} setCustomY2Min={setCustomY2Min} customY2Max={customY2Max} setCustomY2Max={setCustomY2Max} setCustomRange2={setCustomRange2}
                 hasSecondary={!!secondaryData}
             />
+
         </>
     );
 };

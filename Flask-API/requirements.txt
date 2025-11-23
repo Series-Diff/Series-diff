@@ -11,3 +11,4 @@ statsmodels==0.14.4
 scipy==1.15.3
 python-dateutil==2.9.0
 coverage==7.11.0
+fastdtw==0.3.4
