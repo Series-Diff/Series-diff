@@ -3,7 +3,7 @@ import { test, expect } from '@playwright/test';
 
 test.describe('Dashboard Page Tests', () => {
   test.beforeEach(async ({ page }) => {
-    await page.goto('/'); 
+    await page.goto('/');  
   });
 
   test('should load the default page correctly', async ({ page }) => {

@@ -11,6 +11,9 @@ on:
 jobs:
   build-and-test:
     runs-on: ubuntu-latest
+    env:
+      IS_E2E: ${{ github.event_name == 'pull_request' || (github.event_name == 'push' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/dev')) }}
+
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -30,11 +33,9 @@ jobs:
       - name: Fix permissions
         run: sudo chown -R $(id -u):$(id -g) client/
 
-      - name: Clean and install dependencies
+      - name: Install dependencies
         working-directory: client
-        run: |
-          rm -rf node_modules
-          npm ci --cache ~/.npm --prefer-offline
+        run: npm ci --cache ~/.npm --prefer-offline
 
       - name: Build project
         working-directory: client
@@ -45,7 +46,7 @@ jobs:
         run: npm test -- --watchAll=false --passWithNoTests
 
       - name: Install minimal apt dependencies for Playwright
-        if: github.event_name == 'pull_request' || (github.event_name == 'push' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/dev'))
+        if: env.IS_E2E == 'true'
         run: |
           sudo apt-get update
           sudo apt-get install -y --no-install-recommends \
@@ -53,52 +54,60 @@ jobs:
             libatspi2.0-0 libxshmfence-dev fonts-liberation fonts-noto-color-emoji
 
       - name: Set up Docker Buildx
-        if: github.event_name == 'pull_request' || (github.event_name == 'push' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/dev'))
+        if: env.IS_E2E == 'true'
         uses: docker/setup-buildx-action@v3
 
-      - name: Cache Docker layers
-        if: github.event_name == 'pull_request' || (github.event_name == 'push' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/dev'))
+      - name: Cache Docker layers (backend)
+        if: env.IS_E2E == 'true'
         uses: actions/cache@v4
         with:
-          key: ${{ runner.os }}-docker-${{ hashFiles('docker-compose.yml', '**/*.Dockerfile') }}
-          path: /tmp/docker-cache
-          restore-keys: ${{ runner.os }}-docker-
+          key: ${{ runner.os }}-docker-backend-${{ hashFiles('docker-compose.yml', 'Flask-API/Dockerfile') }}
+          path: /tmp/docker-cache-backend
+          restore-keys: ${{ runner.os }}-docker-backend-
+
+      - name: Cache Docker layers (frontend)
+        if: env.IS_E2E == 'true'
+        uses: actions/cache@v4
+        with:
+          key: ${{ runner.os }}-docker-frontend-${{ hashFiles('docker-compose.yml', 'client/Dockerfile') }}
+          path: /tmp/docker-cache-frontend
+          restore-keys: ${{ runner.os }}-docker-frontend-
 
       - name: Build backend image
-        if: github.event_name == 'pull_request' || (github.event_name == 'push' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/dev'))
+        if: env.IS_E2E == 'true'
         uses: docker/build-push-action@v6
         with:
           context: ./Flask-API
           file: ./Flask-API/Dockerfile
           push: false
           tags: series-diff-backend:latest
-          cache-from: type=local,src=/tmp/docker-cache
-          cache-to: type=local,dest=/tmp/docker-cache,mode=max
+          cache-from: type=local,src=/tmp/docker-cache-backend
+          cache-to: type=local,dest=/tmp/docker-cache-backend,mode=max
 
       - name: Build frontend image
-        if: github.event_name == 'pull_request' || (github.event_name == 'push' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/dev'))
+        if: env.IS_E2E == 'true'
         uses: docker/build-push-action@v6
         with:
           context: ./client
           file: ./client/Dockerfile
           push: false
           tags: series-diff-frontend:latest
-          cache-from: type=local,src=/tmp/docker-cache
-          cache-to: type=local,dest=/tmp/docker-cache,mode=max
+          cache-from: type=local,src=/tmp/docker-cache-frontend
+          cache-to: type=local,dest=/tmp/docker-cache-frontend,mode=max
 
       - name: Start services
-        if: github.event_name == 'pull_request' || (github.event_name == 'push' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/dev'))
+        if: env.IS_E2E == 'true'
         run: docker compose up -d
 
       - name: Wait for services
-        if: github.event_name == 'pull_request' || (github.event_name == 'push' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/dev'))
+        if: env.IS_E2E == 'true'
         run: |
           sudo apt-get install -y wait-for-it
           wait-for-it localhost:5000 --timeout=30
           wait-for-it localhost:3000 --timeout=30
 
       - name: Cache Playwright browsers
-        if: github.event_name == 'pull_request' || (github.event_name == 'push' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/dev'))
+        if: env.IS_E2E == 'true'
         uses: actions/cache@v4
         with:
           path: ~/.cache/ms-playwright
@@ -106,15 +115,15 @@ jobs:
           restore-keys: ${{ runner.os }}-playwright-
 
       - name: Install Playwright
-        if: github.event_name == 'pull_request' || (github.event_name == 'push' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/dev'))
+        if: env.IS_E2E == 'true'
         working-directory: client
         run: npx playwright install --with-deps
 
       - name: Run E2E tests
-        if: github.event_name == 'pull_request' || (github.event_name == 'push' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/dev'))
+        if: env.IS_E2E == 'true'
         working-directory: client
         run: npx playwright test
 
       - name: Stop services
-        if: always() && (github.event_name == 'pull_request' || (github.event_name == 'push' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/dev')))
+        if: always() && env.IS_E2E == 'true'
         run: docker compose down
