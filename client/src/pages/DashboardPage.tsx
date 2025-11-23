@@ -149,7 +149,7 @@
     
                 setPearsonCorrelationValues(allPearsonCorrelations);
                 setDTWValues(allDTWs)
-                setEuclideanValues(allEuclideans)
+                setEuclideanValues(allEuclideans);
 
             } catch (err: any) {
                 setError(err.message || 'Failed to fetch data.');
