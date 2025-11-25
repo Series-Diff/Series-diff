@@ -40,6 +40,8 @@ function DashboardPage() {
   const [groupedMetrics, setGroupedMetrics] = useState<Record<string, CombinedMetric[]>>({});
   const [startDate, setStartDate] = useState<Date | null>(null);
   const [endDate, setEndDate] = useState<Date | null>(null);
+  const [rangePerCategory, setRangePerCategory] = useState<{ [key: string]: { min: number | '', max: number | '' } }>({});
+
 
 
 
@@ -68,6 +70,43 @@ const filterByTime = (entries: TimeSeriesEntry[]) =>
     return afterStart && beforeEnd;
   });
 
+
+const handleRangeChange = (category: string, min: number | '', max: number | '') => {
+  setRangePerCategory(prev => ({
+    ...prev,
+    [category]: { min, max }
+  }));
+};
+const getFilteredPrimary = () => {
+  if (!selectedCategory || !chartData[selectedCategory]) return {};
+
+  let filtered: Record<string, TimeSeriesEntry[]> = {};
+
+  // wybieramy serie głównej kategorii
+  for (const [key, series] of Object.entries(chartData)) {
+    if (key.startsWith(`${selectedCategory}.`)) {
+      filtered[key] = filterByTime(series); // filtr po czasie
+    }
+  }
+
+
+  const filterCategories = Object.entries(rangePerCategory).filter(
+    ([category, range]) => category !== selectedCategory && (range.min !== '' || range.max !== '')
+  );
+
+
+  filterCategories.forEach(([category, range]) => {
+    const { min, max } = range;
+    filtered = Object.fromEntries(
+      Object.entries(filtered).map(([key, series]) => [
+        key,
+        series.filter(item => (min === '' || item.y >= min) && (max === '' || item.y <= max))
+      ])
+    );
+  });
+
+  return filtered;
+};
 
 
 const handleFetchData = useCallback(async (showLoadingIndicator = true) => {
@@ -154,32 +193,75 @@ console.log("Fetched meanValues:", meanValues);
       handleFetchData();
     }
   }, [handleFetchData]);
- useEffect(() => {
-  const primary: Record<string, TimeSeriesEntry[]> = {};
-  const secondary: Record<string, TimeSeriesEntry[]> = {};
-  if (selectedCategory) {
-    for (const [key, series] of Object.entries(chartData)) {
-      if (key.startsWith(`${selectedCategory}.`)) {
-        primary[key] = filterByTime(series);;
-      }
+useEffect(() => {
+  if (!selectedCategory || Object.keys(chartData).length === 0) return;
+
+  let primary: Record<string, TimeSeriesEntry[]> = {};
+
+  // 1️⃣ filtrowanie po czasie dla wybranej kategorii
+  for (const [key, series] of Object.entries(chartData)) {
+    if (key.startsWith(`${selectedCategory}.`)) {
+      primary[key] = filterByTime(series);
     }
   }
 
+  // 2️⃣ filtracja per-file - WSZYSTKIE FILTRY RAZEM
+  const fileIds = Array.from(new Set(Object.keys(primary).map(k => k.split(".")[1])));
 
-  if (secondaryCategory ) {
-    for (const [key, series] of Object.entries(chartData)) {
-      if (key.startsWith(`${secondaryCategory}.`)) {
-        secondary[key] = filterByTime(series);
+  fileIds.forEach(fileId => {
+    const seriesKeys = Object.keys(primary).filter(k => k.endsWith(`.${fileId}`));
+
+    let allowedTimestamps: Set<string> | null = null;
+
+    // ✅ STOSUJEMY WSZYSTKIE DOSTĘPNE FILTRY
+    Object.entries(rangePerCategory).forEach(([group, range]) => {
+      if (!range || (range.min === '' && range.max === '')) return;
+
+      // Dla KAŻDEJ grupy z zakresem szukamy jej serii w tym pliku
+      const seriesKey = `${group}.${fileId}`;
+      
+      // Szukaj danych - mogą być w primary LUB w oryginalnych chartData
+      let seriesData = primary[seriesKey];
+      if (!seriesData && chartData[seriesKey]) {
+        seriesData = filterByTime(chartData[seriesKey]);
       }
-    }
-  }
+      if (!seriesData) return;
 
-  setFilteredData({
-    primary,
-    secondary: Object.keys(secondary).length > 0 ? secondary : null
+      // Filtruj punkty według zakresu
+      const timestamps = new Set(
+        seriesData
+          .filter(item => 
+            (range.min === '' || item.y >= Number(range.min)) &&
+            (range.max === '' || item.y <= Number(range.max))
+          )
+          .map(item => item.x)
+      );
+
+      if (allowedTimestamps === null) {
+        allowedTimestamps = timestamps;
+      } else {
+        // PRZECIĘCIE - tylko timestampy obecne we WSZYSTKICH filtrowanych seriach
+        allowedTimestamps = new Set(
+          Array.from(allowedTimestamps).filter(ts => timestamps.has(ts))
+        );
+      }
+    });
+
+    // Nakładamy PRZECIĘCIE timestampów na WSZYSTKIE serie w pliku
+    if (allowedTimestamps) {
+      seriesKeys.forEach(key => {
+        primary[key] = primary[key].filter(item => allowedTimestamps!.has(item.x));
+      });
+    } else if (allowedTimestamps) {
+      // Jeśli przecięcie jest puste - wyczyść wszystkie serie
+      seriesKeys.forEach(key => {
+        primary[key] = [];
+      });
+    }
   });
-}, [chartData, selectedCategory, secondaryCategory,startDate,endDate]);
 
+  setFilteredData({ primary, secondary: null });
+}, [chartData, selectedCategory, rangePerCategory, startDate, endDate]);
     useEffect(() => {
       if (Object.keys(filenamesPerCategory).length > 0 && !selectedCategory) {
         setSelectedCategory(Object.keys(filenamesPerCategory)[0]);
@@ -489,8 +571,14 @@ return (
     <div className="section-container group-menu d-flex flex-column align-items-center p-3 rounded">
       <h4>Groups</h4>
       {Object.entries(filenamesPerCategory).map(([category, files]) => (
-        <Dropdown key={category} category={category} files={files} onFileClick={() => {}} />
-      ))}
+    <Dropdown
+      key={category}
+      category={category}
+      files={files}
+      onFileClick={(file) => console.log('Kliknięto plik:', file)}
+      onRangeChange={handleRangeChange}
+    />
+  ))}
     </div>
   </div>
 );
