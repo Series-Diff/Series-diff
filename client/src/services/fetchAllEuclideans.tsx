@@ -54,8 +54,8 @@ export async function fetchAllEuclideans(
       const euclidean = value ?? 0;
 
       // Ustawiamy wartość symetrycznie
-      euclideans[file1][file2] = euclidean; // np. DTW(A, B)
-      euclideans[file2][file1] = euclidean; // np. DTW(B, A)
+      euclideans[file1][file2] = euclidean; // np. euclidean(A, B)
+      euclideans[file2][file1] = euclidean; // np. euclidean(B, A)
     }
   }
   return euclideans;
