@@ -341,12 +341,12 @@ def get_euclidean_distance():
 
     try:
         data1 = timeseries_manager.get_timeseries(filename=filename1, category=category)
-        serie1 = metric_service.extract_series_from_dict(data1, category, filename1)
+        series1 = metric_service.extract_series_from_dict(data1, category, filename1)
 
         data2 = timeseries_manager.get_timeseries(filename=filename2, category=category)
-        serie2 = metric_service.extract_series_from_dict(data2, category, filename2)
+        series2 = metric_service.extract_series_from_dict(data2, category, filename2)
 
-        euclidean_distances = metric_service.calculate_euclidean_distance(serie1, serie2, tolerance)
+        euclidean_distances = metric_service.calculate_euclidean_distance(series1, series2, tolerance)
 
     except Exception as e:
         return jsonify({"error": str(e)}), 400
