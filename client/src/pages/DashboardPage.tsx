@@ -143,7 +143,6 @@
                     allPearsonCorrelations[category] = await fetchAllPearsonCorrelations(files, category);
                     allDTWs[category] = await fetchAllDTWs(files, category);
                     allEuclideans[category] = await fetchAllEuclideans(files, null, category);
-                    console.log("DTW result for category", category, allDTWs);
 
                 }
     
