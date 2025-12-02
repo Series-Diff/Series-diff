@@ -7,7 +7,13 @@ export async function fetchEuclidean(
     tolerance?: string
     ): Promise<number | null> {
     const toleranceParam = tolerance !== undefined ? String(tolerance) : undefined;
-    const resp = await fetch(`api/timeseries/euclidean_distance?category=${category}&filename1=${filename1}&filename2=${filename2}` + (toleranceParam ? `&tolerance=${toleranceParam}` : ""));
+    const params = new URLSearchParams({
+        category,
+        filename1,
+        filename2,
+        ...(toleranceParam && { tolerance: toleranceParam })
+    });
+    const resp = await fetch(`api/timeseries/euclidean_distance?${params}`);
 
     if (!resp.ok) {
         console.error("Failed to fetch euclidean distance:", await resp.text());
