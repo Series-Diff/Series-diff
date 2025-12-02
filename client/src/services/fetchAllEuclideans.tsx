@@ -30,7 +30,7 @@ export async function fetchAllEuclideans(
 
 ): Promise<Record<string, Record<string, number>>> {
   const euclideans: Record<string, Record<string, number>> = {};
-      const toleranceString = tolerance !== null ? `${tolerance}T` : undefined;
+  const toleranceString = tolerance !== null ? `${tolerance}T` : undefined;
 
     const numFiles = filenames.length;
   // Dla każdej pary plików pobieramy euclidean distance z API
