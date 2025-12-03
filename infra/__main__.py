@@ -26,15 +26,15 @@ pulumi.export("region", config.aws_region)
 pulumi.export("environment", config.environment)
 
 # ECR and Docker Image
-ecr_repo = create_ecr_repository()
+ecr_repo = create_ecr_repository(config.environment)
 flask_api_path = os.path.join(PROJECT_ROOT, "Flask-API")
 pulumi.log.info(f"Flask API path: {flask_api_path}")
 pulumi.log.info(f"Dockerfile exists: {os.path.exists(os.path.join(flask_api_path, 'Dockerfile'))}")
-api_image = build_and_push_image(ecr_repo, flask_api_path)
+api_image = build_and_push_image(ecr_repo, flask_api_path, config.environment)
 pulumi.export("image_url", api_image.ref)
 
 # Networking
-networking = create_networking()
+networking = create_networking(config.environment)
 pulumi.export("vpc_id", networking["vpc_id"])
 pulumi.export("subnet_ids", networking["subnet_ids"])
 
@@ -50,11 +50,12 @@ if config.cognito_enabled:
     pulumi.export("cognito_domain", cognito["domain"].domain)
 
 # Application Load Balancer
-target_group = create_target_group(networking["vpc_id"])
+target_group = create_target_group(networking["vpc_id"], config.environment)
 alb_resources = create_alb(
     networking=networking,
     target_group=target_group,
     certificate_arn=config.certificate_arn,
+    environment=config.environment,
     cognito_config=cognito if config.cognito_enabled else None
 )
 
@@ -100,6 +101,7 @@ amplify_resources = create_amplify_app(
     fe_subdomain=config.fe_subdomain,
     api_url=api_url,
     github_repo_url=config.github_repo_url,
+    github_branch=config.github_branch,
     github_token_ssm_param=config.github_token_param_name,
     cognito_config=cognito if config.cognito_enabled else None
 )

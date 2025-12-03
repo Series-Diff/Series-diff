@@ -5,7 +5,7 @@ import pulumi_aws as aws
 from typing import Dict, Any
 
 
-def create_networking() -> Dict[str, Any]:
+def create_networking(environment: str) -> Dict[str, Any]:
     """
     Create networking resources including VPC, subnets, and security groups.
     

@@ -12,20 +12,22 @@ def create_amplify_app(
     fe_subdomain: str,
     api_url: pulumi.Output[str],
     github_repo_url: str,
+    github_branch: str,
     github_token_ssm_param: str,
     cognito_config: Optional[Dict[str, Any]] = None
 ) -> Dict[str, Any]:
     """
     Create AWS Amplify app for React frontend with custom domain.
-
+    
     Args:
         hosted_zone_domain: Root domain (e.g., example.com)
         fe_subdomain: Frontend subdomain (e.g., www)
         api_url: Backend API URL
         github_repo_url: GitHub repository URL
-        github_token_ssm_param: SSM parameter name containing GitHub token
+        github_branch: GitHub branch to deploy from (e.g., 'dev', 'main')
+        github_token_ssm_param: SSM parameter name containing GitHub token (required by Amplify API)
         cognito_config: Optional Cognito configuration for frontend
-
+        
     Returns:
         Dict containing Amplify app and branch resources
     """
@@ -34,38 +36,35 @@ def create_amplify_app(
     current_file_dir = os.path.dirname(os.path.abspath(__file__))
     infra_dir = os.path.dirname(current_file_dir)  # infra/
     buildspec_path = os.path.join(infra_dir, "buildspecs", "amplify-react.yml")
-
-    # Get GitHub token from SSM
-    github_token_param = aws.ssm.Parameter(
-        "githubToken",
-        name=github_token_ssm_param,
-        description="GitHub token for Amplify app deployment",
-        type="SecureString",
-        value="",
-        opts=pulumi.ResourceOptions(
-            ignore_changes=["value"]
-        ),
-        tags={
-            "Name": "amplify-github-token"
-        }
-    )
-
+    
+    # Get GitHub token from SSM (required by Amplify API even for public repos)
+    try:
+        existing_param = aws.ssm.get_parameter(
+            name=github_token_ssm_param,
+            with_decryption=True
+        )
+        access_token = pulumi.Output.secret(existing_param.value)
+        pulumi.log.info(f"Using GitHub token from SSM: {github_token_ssm_param}")
+    except Exception as e:
+        pulumi.log.error(f"GitHub token parameter '{github_token_ssm_param}' not found in SSM.")
+        pulumi.log.error(f"Please run: ./scripts/setup-github-token.sh")
+        pulumi.log.error(f"Error: {e}")
+        raise Exception(f"GitHub token required. Create it with: ./scripts/setup-github-token.sh")
+    
     # Read buildspec from file
     with open(buildspec_path, "r") as f:
         buildspec_content = f.read()
-
+    
     # Create Amplify App
     fe_full_name = f"{fe_subdomain}.{hosted_zone_domain}"
-
+    
     amplify_app = aws.amplify.App(
         "reactApp",
         name="comparison-tool-react",
         repository=github_repo_url,
-        access_token=github_token_param.value,
+        access_token=access_token,  # Required by Amplify API
         build_spec=buildspec_content,
-        # Custom redirect rules
         custom_rules=[
-            # Redirect apex domain to www subdomain
             {
                 "source": f"https://{hosted_zone_domain}",
                 "target": f"https://{fe_full_name}",
@@ -80,7 +79,6 @@ def create_amplify_app(
                 "condition": None,
             }
         ],
-        # Environment variables for React app
         environment_variables={
             "REACT_APP_API_URL": api_url,
             # Add Cognito config if enabled
@@ -89,6 +87,9 @@ def create_amplify_app(
                     "REACT_APP_COGNITO_USER_POOL_ID": cognito_config["user_pool"].id,
                     "REACT_APP_COGNITO_CLIENT_ID": cognito_config["user_pool_client"].id,
                     "REACT_APP_COGNITO_REGION": aws.get_region().name,
+                    "REACT_APP_COGNITO_DOMAIN": cognito_config["domain"].domain.apply(
+                        lambda d: f"{d}.auth.{aws.get_region().name}.amazoncognito.com"
+                    ),
                 } if cognito_config else {}
             )
         },
@@ -96,42 +97,52 @@ def create_amplify_app(
             "Name": "comparison-tool-react-amplify"
         }
     )
-
-    # Create main branch
-    master_branch = aws.amplify.Branch(
-        "masterBranch",
+    
+    # Create branch for deployment
+    amplify_branch = aws.amplify.Branch(
+        f"{github_branch}-branch",
         app_id=amplify_app.id,
-        branch_name="main",
+        branch_name=github_branch,
         framework="React",
         enable_auto_build=True,
-        stage="PRODUCTION",
+        stage="PRODUCTION" if github_branch == "main" else "DEVELOPMENT",
         tags={
-            "Name": "main-branch"
+            "Name": f"{github_branch}-branch",
+            "Branch": github_branch
         }
     )
-
+    
     # Custom domain association
+    # Build subdomain list based on environment
+    sub_domains = [
+        # Primary subdomain (www-dev, www-staging, or www for prod)
+        aws.amplify.DomainAssociationSubDomainArgs(
+            branch_name=amplify_branch.branch_name,
+            prefix=fe_subdomain
+        ),
+    ]
+    
+    # Only add root domain (apex) for production
+    # Dev/staging shouldn't claim the root domain
+    if github_branch == "main":
+        sub_domains.append(
+            aws.amplify.DomainAssociationSubDomainArgs(
+                branch_name=amplify_branch.branch_name,
+                prefix=""  # Root domain (example.com)
+            )
+        )
+    
     domain_association = aws.amplify.DomainAssociation(
-        "customDomain",
+        f"customDomain-{github_branch}",
         app_id=amplify_app.id,
         domain_name=hosted_zone_domain,
         enable_auto_sub_domain=True,
-        sub_domains=[
-            # www subdomain
-            aws.amplify.DomainAssociationSubDomainArgs(
-                branch_name=master_branch.branch_name,
-                prefix=fe_subdomain
-            ),
-            # Root domain (apex)
-            aws.amplify.DomainAssociationSubDomainArgs(
-                branch_name=master_branch.branch_name,
-                prefix=""
-            ),
-        ]
+        wait_for_verification=False,
+        sub_domains=sub_domains
     )
-
+    
     return {
         "app": amplify_app,
-        "branch": master_branch,
+        "branch": amplify_branch,
         "domain": domain_association
     }
