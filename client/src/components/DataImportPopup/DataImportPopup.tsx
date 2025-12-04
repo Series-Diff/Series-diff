@@ -85,12 +85,10 @@ try {
       const text = await file.text();
       let dataArray: any[] = [];
 
-      // ================== POCZĄTEK ZMIANY ==================
-      // Sprawdź typ pliku na podstawie rozszerzenia
+
       if (file.name.toLowerCase().endsWith('.csv')) {
-        // Parsowanie CSV za pomocą Papaparse
         const result = Papa.parse(text, {
-          header: true, // Ważne: traktuj pierwszy wiersz jako nagłówki (klucze obiektu)
+          header: true, // traktuj pierwszy wiersz jako nagłówki (klucze obiektu)
           skipEmptyLines: true,
           dynamicTyping: true, // Automatycznie konwertuj liczby i booleany
         });

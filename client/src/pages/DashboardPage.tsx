@@ -24,7 +24,9 @@
     import CorrelationTable from "../components/CorrelationTable/CorrelationTable";
     import StandardTable from "../components/StandardTable/StandardTable";
     import ScatterPlotModal, { ScatterPoint } from "../components/ScatterPlotModal/ScatterPlotModal";
-    
+
+    const API_URL = process.env.REACT_APP_API_URL || '';
+
     function DashboardPage() {
         const [chartData, setChartData] = useState<Record<string, TimeSeriesEntry[]>>({});
         const [error, setError] = useState<string | null>(null);
@@ -58,7 +60,8 @@
             const savedCategory = localStorage.getItem('secondaryCategory');
             return savedCategory ? savedCategory : null;
         });
-    
+
+
         const [autoCorrelationValues, setAutoCorrelationValues] = useState<Record<string, Record<string, number>>>({});
         const [PearsonCorrelationValues, setPearsonCorrelationValues] = useState<Record<string, Record<string, Record<string, number>>>>({});
         const [DTWValues, setDTWValues] = useState<Record<string, Record<string, Record<string, number>>>>({});
@@ -93,7 +96,7 @@
                 category: category,
             });
 
-            const response = await fetch(`/api/timeseries/scatter_data?${params}`);
+            const response = await fetch(`${API_URL}/api/timeseries/scatter_data?${params}`);
             if (!response.ok) throw new Error("Failed to fetch scatter data");
 
             const data: ScatterPoint[] = await response.json();
@@ -447,7 +450,7 @@
             localStorage.removeItem('chartData');
     
             try {
-                const resp = await fetch('/api/clear-timeseries', {method: 'DELETE'});
+                const resp = await fetch(`${API_URL}/api/clear-timeseries`, {method: 'DELETE'});
                 if (!resp.ok) {
                     const errorText = await resp.text();
                     console.error("Failed to clear timeseries on backend:", errorText);

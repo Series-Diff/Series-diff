@@ -1,5 +1,7 @@
+    const API_URL = process.env.REACT_APP_API_URL || '';
+
     async function fetchMedian(category: string, filename: string): Promise<number | null>{
-        const resp = await fetch(`api/timeseries/median?category=${category}&filename=${filename}`);
+        const resp = await fetch(`${API_URL}/api/timeseries/median?category=${category}&filename=${filename}`);
         if (!resp.ok) {
             console.error("Failed to fetch median:", await resp.text());
             return null;

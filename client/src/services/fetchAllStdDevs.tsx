@@ -1,5 +1,7 @@
+const API_URL = process.env.REACT_APP_API_URL || '';
+
 async function fetchStdDev(category: string, filename: string): Promise<number | null>{
-    const resp = await fetch(`api/timeseries/standard_deviation?category=${category}&filename=${filename}`);
+    const resp = await fetch(`${API_URL}/api/timeseries/standard_deviation?category=${category}&filename=${filename}`);
     if (!resp.ok) {
         console.error("Failed to fetch standard deviation:", await resp.text());
         return null;

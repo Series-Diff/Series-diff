@@ -1,5 +1,7 @@
 // services/fetchAllEuclidean.tsx
 
+const API_URL = process.env.REACT_APP_API_URL || '';
+
 export async function fetchEuclidean(
     category: string,
     filename1: string,
@@ -13,7 +15,7 @@ export async function fetchEuclidean(
         filename2,
         ...(toleranceParam && { tolerance: toleranceParam })
     });
-    const resp = await fetch(`api/timeseries/euclidean_distance?${params}`);
+    const resp = await fetch(`${API_URL}/api/timeseries/euclidean_distance?${params}`);
 
     if (!resp.ok) {
         console.error("Failed to fetch euclidean distance:", await resp.text());

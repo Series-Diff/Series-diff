@@ -18,7 +18,7 @@ services:
       - backend
     environment:
       - NODE_ENV=development
-      - REACT_APP_API_URL=http://backend:5000/
+      - REACT_APP_API_URL=http://localhost:5000/
     networks:
       - comparison-tool-network
     volumes:

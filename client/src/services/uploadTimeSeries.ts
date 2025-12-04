@@ -1,4 +1,7 @@
 // src/services/uploadTimeSeries.ts
+
+const API_URL = process.env.REACT_APP_API_URL || '';
+
 export const sendProcessedTimeSeriesData = async (
   data: Record<string, any>, 
   callback?: (success: boolean) => void
@@ -8,7 +11,7 @@ export const sendProcessedTimeSeriesData = async (
         return;
     }
   try {
-    const response = await fetch('api/upload-timeseries', {
+    const response = await fetch(`${API_URL}/api/upload-timeseries`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',

@@ -6,9 +6,10 @@ export type TimeSeriesEntry = {
 
 export type TimeSeriesResponse = Record<string, TimeSeriesEntry[]>;
 
+const API_URL = process.env.REACT_APP_API_URL || '';
 
 export const fetchTimeSeriesData = async (): Promise<TimeSeriesResponse> => {
-  const resp = await fetch("api/timeseries");
+  const resp = await fetch(`${API_URL}/api/timeseries`);
   if (!resp.ok) throw new Error(await resp.text());
   const json: Record<string, Record<string, Record<string, number>>> = await resp.json();
   const out: TimeSeriesResponse = {};
@@ -52,7 +53,7 @@ export const fetchTimeSeriesData = async (): Promise<TimeSeriesResponse> => {
 
 
 export const fetchRawTimeSeriesData = async (): Promise<Record<string, any[]>> => {
-  const resp = await fetch("/timeseries");
+  const resp = await fetch(`${API_URL}/api/timeseries`);
   if (!resp.ok) throw new Error(await resp.text());
 
   const rawJson = await resp.json();
