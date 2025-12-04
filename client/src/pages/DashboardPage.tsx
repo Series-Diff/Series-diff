@@ -655,7 +655,6 @@
                         {/* Tabele korelacji – jedna lub dwie (dla wybranych osi) */}
                         {selectedCategory && PearsonCorrelationValues[selectedCategory] && (
                             <div className="section-container" style={{padding: "16px"}}>
-                                <h5 className="mb-3 text-center">Pearson-Correlation Matrix</h5>
                                 <CorrelationTable
                                     data={PearsonCorrelationValues[selectedCategory]}
                                     category={selectedCategory}
@@ -671,7 +670,7 @@
                                             data={PearsonCorrelationValues[secondaryCategory]}
                                             category={secondaryCategory}
                                             onCellClick={(file1, file2) =>
-                                        handleCellClick(file1, file2, selectedCategory)
+                                        handleCellClick(file1, file2, secondaryCategory)
                                     }
                                         />
                                     </div>
@@ -681,17 +680,18 @@
 
                         {selectedCategory && CosineSimilarityValues[selectedCategory] && (
                         <div className="section-container" style={{ padding: "16px", marginTop: "16px" }}>
-                            <h5 className="mb-3 text-center">Cosine Similarity Matrix</h5>
-                            <CorrelationTable
+                            <StandardTable
                                 data={CosineSimilarityValues[selectedCategory]}
                                 category={selectedCategory}
+                                metric="Cosine Similarity"
                             />
 
                             {secondaryCategory && CosineSimilarityValues[secondaryCategory] && (
                             <div style={{ marginTop: "24px" }}>
-                                <CorrelationTable
+                                <StandardTable
                                     data={CosineSimilarityValues[secondaryCategory]}
                                     category={secondaryCategory}
+                                    metric="Cosine Similarity"
                                 />
                             </div>
                             )}
@@ -700,18 +700,19 @@
 
                         {selectedCategory && maeValues[selectedCategory] && (
                             <div className="section-container" style={{ padding: "16px", marginTop: "16px" }}>
-                                <h5 className="mb-3 text-center">MAE Matrix</h5>
 
-                                <CorrelationTable
+                                <StandardTable
                                     data={maeValues[selectedCategory]}
                                     category={selectedCategory}
+                                    metric="MAE"
                                 />
 
                                 {secondaryCategory && maeValues[secondaryCategory] && (
                                     <div style={{ marginTop: "24px" }}>
-                                    <CorrelationTable
+                                    <StandardTable
                                         data={maeValues[secondaryCategory]}
                                         category={secondaryCategory}
+                                        metric="MAE"
                                     />
                                     </div>
                                 )}
@@ -720,18 +721,19 @@
 
                         {selectedCategory && rmseValues[selectedCategory] && (
                             <div className="section-container" style={{ padding: "16px", marginTop: "16px" }}>
-                                <h5 className="mb-3 text-center">RMSE Matrix</h5>
 
-                                <CorrelationTable
+                                <StandardTable
                                     data={rmseValues[selectedCategory]}
                                     category={selectedCategory}
+                                    metric="RMSE"
                                 />
 
                                 {secondaryCategory && rmseValues[secondaryCategory] && (
                                     <div style={{ marginTop: "24px" }}>
-                                        <CorrelationTable
+                                        <StandardTable
                                             data={rmseValues[secondaryCategory]}
                                             category={secondaryCategory}
+                                            metric="RMSE"
                                         />
                                     </div>
                                 )}
