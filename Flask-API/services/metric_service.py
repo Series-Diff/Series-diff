@@ -317,18 +317,19 @@ def calculate_euclidean_distance(series1: dict, series2: dict, tolerance: str | 
 
 def calculate_cosine_similarity(series1: dict, series2: dict, tolerance: str | None = None) -> float:
     """
-    Oblicza cosine similarity (podobieństwo cosinusowe) między dwoma szeregami czasowymi
-    dopasowanymi czasowo (asof merge).
+    Computes the cosine similarity between two time series
+    aligned in time (asof merge).
 
     Args:
-        series1 (dict): Pierwszy szereg czasowy {timestamp: value}.
-        series2 (dict): Drugi szereg czasowy {timestamp: value}.
-        tolerance (str | None): Maksymalna różnica czasu do dopasowania punktów, np. '3min'.
-                                Jeśli None, zostanie wyliczona z mediany interwałów.
+        series1 (dict): The first time series {timestamp: value}.
+        series2 (dict): The second time series {timestamp: value}.
+        tolerance (str | None): Maximum time difference allowed when matching points,
+                                e.g., '3min'. If None, it will be derived from the
+                                median interval.
 
     Returns:
-        float: Wartość cosine similarity w przedziale [-1, 1].
-               Zwraca np.nan, jeśli nie można obliczyć.
+        float: The cosine similarity value in the range [-1, 1].
+               Returns np.nan if it cannot be computed.
     """
     if not isinstance(series1, dict) or not isinstance(series2, dict):
         return np.nan
