@@ -194,74 +194,74 @@ console.log("Fetched meanValues:", meanValues);
     }
   }, [handleFetchData]);
 useEffect(() => {
-  if (!selectedCategory || Object.keys(chartData).length === 0) return;
+  if (!chartData || Object.keys(chartData).length === 0) return;
 
-  let primary: Record<string, TimeSeriesEntry[]> = {};
+  const processCategory = (category: string | null): Record<string, TimeSeriesEntry[]> => {
+    if (!category) return {};
 
-  // 1️⃣ filtrowanie po czasie dla wybranej kategorii
-  for (const [key, series] of Object.entries(chartData)) {
-    if (key.startsWith(`${selectedCategory}.`)) {
-      primary[key] = filterByTime(series);
-    }
-  }
+    let result: Record<string, TimeSeriesEntry[]> = {};
 
-  // 2️⃣ filtracja per-file - WSZYSTKIE FILTRY RAZEM
-  const fileIds = Array.from(new Set(Object.keys(primary).map(k => k.split(".")[1])));
-
-  fileIds.forEach(fileId => {
-    const seriesKeys = Object.keys(primary).filter(k => k.endsWith(`.${fileId}`));
-
-    let allowedTimestamps: Set<string> | null = null;
-
-    // ✅ STOSUJEMY WSZYSTKIE DOSTĘPNE FILTRY
-    Object.entries(rangePerCategory).forEach(([group, range]) => {
-      if (!range || (range.min === '' && range.max === '')) return;
-
-      // Dla KAŻDEJ grupy z zakresem szukamy jej serii w tym pliku
-      const seriesKey = `${group}.${fileId}`;
-      
-      // Szukaj danych - mogą być w primary LUB w oryginalnych chartData
-      let seriesData = primary[seriesKey];
-      if (!seriesData && chartData[seriesKey]) {
-        seriesData = filterByTime(chartData[seriesKey]);
+    // 1️⃣ filtrowanie po czasie dla wybranej kategorii
+    for (const [key, series] of Object.entries(chartData)) {
+      if (key.startsWith(`${category}.`)) {
+        result[key] = filterByTime(series);
       }
-      if (!seriesData) return;
+    }
 
-      // Filtruj punkty według zakresu
-      const timestamps = new Set(
-        seriesData
-          .filter(item => 
-            (range.min === '' || item.y >= Number(range.min)) &&
-            (range.max === '' || item.y <= Number(range.max))
-          )
-          .map(item => item.x)
-      );
+    // 2️⃣ filtracja per-file - WSZYSTKIE DOSTĘPNE FILTRY
+    const fileIds = Array.from(new Set(Object.keys(result).map(k => k.split(".")[1])));
 
-      if (allowedTimestamps === null) {
-        allowedTimestamps = timestamps;
-      } else {
-        // PRZECIĘCIE - tylko timestampy obecne we WSZYSTKICH filtrowanych seriach
-        allowedTimestamps = new Set(
-          Array.from(allowedTimestamps).filter(ts => timestamps.has(ts))
+    fileIds.forEach(fileId => {
+      const seriesKeys = Object.keys(result).filter(k => k.endsWith(`.${fileId}`));
+
+      let allowedTimestamps: Set<string> | null = null;
+
+      Object.entries(rangePerCategory).forEach(([group, range]) => {
+        if (!range || (range.min === '' && range.max === '')) return;
+
+        const seriesKey = `${group}.${fileId}`;
+        let seriesData = result[seriesKey] || chartData[seriesKey];
+        if (!seriesData) return;
+
+        seriesData = filterByTime(seriesData);
+
+        const timestamps = new Set(
+          seriesData
+            .filter(item =>
+              (range.min === '' || item.y >= Number(range.min)) &&
+              (range.max === '' || item.y <= Number(range.max))
+            )
+            .map(item => item.x)
         );
+
+        if (allowedTimestamps === null) {
+          allowedTimestamps = timestamps;
+        } else {
+          allowedTimestamps = new Set(
+            Array.from(allowedTimestamps).filter(ts => timestamps.has(ts))
+          );
+        }
+      });
+
+      if (allowedTimestamps) {
+        seriesKeys.forEach(key => {
+          result[key] = result[key].filter(item => allowedTimestamps!.has(item.x));
+        });
       }
     });
 
-    // Nakładamy PRZECIĘCIE timestampów na WSZYSTKIE serie w pliku
-    if (allowedTimestamps) {
-      seriesKeys.forEach(key => {
-        primary[key] = primary[key].filter(item => allowedTimestamps!.has(item.x));
-      });
-    } else if (allowedTimestamps) {
-      // Jeśli przecięcie jest puste - wyczyść wszystkie serie
-      seriesKeys.forEach(key => {
-        primary[key] = [];
-      });
-    }
-  });
+    return result;
+  };
 
-  setFilteredData({ primary, secondary: null });
-}, [chartData, selectedCategory, rangePerCategory, startDate, endDate]);
+  const primary = processCategory(selectedCategory);
+  const secondary = processCategory(secondaryCategory);
+
+  setFilteredData({
+    primary,
+    secondary: Object.keys(secondary).length > 0 ? secondary : null
+  });
+}, [chartData, selectedCategory, secondaryCategory, rangePerCategory, startDate, endDate]);
+
     useEffect(() => {
       if (Object.keys(filenamesPerCategory).length > 0 && !selectedCategory) {
         setSelectedCategory(Object.keys(filenamesPerCategory)[0]);
