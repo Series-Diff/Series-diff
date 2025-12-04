@@ -31,7 +31,7 @@ export async function fetchAllDTWs(
   category: string
 ): Promise<Record<string, Record<string, number>>> {
   const DTWs: Record<string, Record<string, number>> = {};
-    const numFiles = filenames.length;
+  const numFiles = filenames.length;
   // Dla każdej pary plików pobieramy DTW z API
   for (const file1 of filenames) {
     DTWs[file1] = {};

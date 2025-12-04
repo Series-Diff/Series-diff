@@ -7,7 +7,13 @@ export async function fetchEuclidean(
     tolerance?: string
     ): Promise<number | null> {
     const toleranceParam = tolerance !== undefined ? String(tolerance) : undefined;
-    const resp = await fetch(`api/timeseries/euclidean_distance?category=${category}&filename1=${filename1}&filename2=${filename2}` + (toleranceParam ? `&tolerance=${toleranceParam}` : ""));
+    const params = new URLSearchParams({
+        category,
+        filename1,
+        filename2,
+        ...(toleranceParam && { tolerance: toleranceParam })
+    });
+    const resp = await fetch(`api/timeseries/euclidean_distance?${params}`);
 
     if (!resp.ok) {
         console.error("Failed to fetch euclidean distance:", await resp.text());
@@ -24,7 +30,7 @@ export async function fetchAllEuclideans(
 
 ): Promise<Record<string, Record<string, number>>> {
   const euclideans: Record<string, Record<string, number>> = {};
-      const toleranceString = tolerance !== null ? `${tolerance}T` : undefined;
+  const toleranceString = tolerance !== null ? `${tolerance}T` : undefined;
 
     const numFiles = filenames.length;
   // Dla każdej pary plików pobieramy euclidean distance z API
@@ -48,8 +54,8 @@ export async function fetchAllEuclideans(
       const euclidean = value ?? 0;
 
       // Ustawiamy wartość symetrycznie
-      euclideans[file1][file2] = euclidean; // np. DTW(A, B)
-      euclideans[file2][file1] = euclidean; // np. DTW(B, A)
+      euclideans[file1][file2] = euclidean; // np. euclidean(A, B)
+      euclideans[file2][file1] = euclidean; // np. euclidean(B, A)
     }
   }
   return euclideans;
