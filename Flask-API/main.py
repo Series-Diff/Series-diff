@@ -5,6 +5,7 @@ from services.time_series_manager import TimeSeriesManager
 import services.metric_service as metric_service
 
 from flask import Flask, jsonify, redirect, request, url_for
+from utils.time_utils import convert_timeseries_keys_timezone
 
 sys.stdout.reconfigure(line_buffering=True)
 
@@ -48,11 +49,62 @@ def get_timeseries():
     except Exception as e:
         logger.error("Unexpected error fetching timeseries for filename '%s' and category '%s' and time interval '%s - %s': %s", filename, category, start, end, e)
         return jsonify({"error": "Unexpected error occurred"}), 500
+    tz_param = request.args.get("tz", "Europe/Warsaw")
+    keep_offset_param = request.args.get("keep_offset", "false").lower() in ("1", "true", "yes")
+    if data:
+        try:
+            data = convert_timeseries_keys_timezone(data, tz_str=tz_param, keep_offset=keep_offset_param)
+        except Exception as e:
+            logger.warning("Time conversion failed: %s. Returning original timestamps.", e)
     if data is None:
         logger.warning("Timeseries not found for filename '%s' and category '%s' and time interval '%s - %s'", filename, category, start, end)
         return jsonify({"error": "Timeseries not found"}), 404
     logger.info("Successfully fetched timeseries for filename '%s' and category '%s' and time interval '%s - %s'", filename, category, start, end)
     return jsonify(data), 200
+
+
+@app.route("/api/timeseries/scatter_data", methods=["GET"])
+def get_scatter_data():
+    """
+    Returns aligned data points for scatter plot using the same logic as Pearson correlation.
+    """
+    filename1 = request.args.get("filename1")
+    filename2 = request.args.get("filename2")
+    category = request.args.get("category")
+    tolerance = request.args.get("tolerance")  # Opcjonalnie
+
+    try:
+        # Pobranie danych
+        data1 = timeseries_manager.get_timeseries(filename=filename1, category=category)
+        tz_param = request.args.get("tz", "Europe/Warsaw")
+        keep_offset_param = request.args.get("keep_offset", "false").lower() in ("1", "true", "yes")
+        if data1:
+            data1 = convert_timeseries_keys_timezone(data1, tz_str=tz_param, keep_offset=keep_offset_param)
+        serie1 = metric_service.extract_series_from_dict(data1, category, filename1)
+
+        data2 = timeseries_manager.get_timeseries(filename=filename2, category=category)
+        if data2:
+            data2 = convert_timeseries_keys_timezone(data2, tz_str=tz_param, keep_offset=keep_offset_param)
+        serie2 = metric_service.extract_series_from_dict(data2, category, filename2)
+
+        # Użycie wspólnej logiki alignowania
+        df_merged = metric_service.get_aligned_data(serie1, serie2, tolerance)
+
+        # Przygotowanie odpowiedzi JSON
+        # Format: [{x: 10, y: 12, time: "2023-01-01..."}, ...]
+        result = []
+        for index, row in df_merged.iterrows():
+            result.append({
+                "x": row["value1"],
+                "y": row["value2"],
+                "time": index.isoformat()
+            })
+
+        return jsonify(result), 200
+
+    except Exception as e:
+        logger.error(f"Error getting scatter data: {e}")
+        return jsonify({"error": str(e)}), 400
 
 @app.route("/api/timeseries/mean", methods=["GET"])
 def get_mean():
@@ -310,6 +362,48 @@ def get_rolling_mean():
         return jsonify({"error": str(e)}), 400
 
     return jsonify({"rolling_mean": rolling_mean_series}), 200
+
+@app.route("/api/timeseries/dtw", methods=["GET"])
+def get_dtw():
+    filename1 = request.args.get("filename1")
+    filename2 = request.args.get("filename2")
+    category = request.args.get("category")
+    start = request.args.get("start")
+    end = request.args.get("end")
+
+    try:
+        data1 = timeseries_manager.get_timeseries(filename=filename1, category=category, start=start, end=end)
+        series1 = metric_service.extract_series_from_dict(data1, category, filename1)
+        data2 = timeseries_manager.get_timeseries(filename=filename2, category=category, start=start, end=end)
+        series2 = metric_service.extract_series_from_dict(data2, category, filename2)
+
+        dtw_distance = metric_service.calculate_dtw(series1, series2)
+
+    except Exception as e:
+        return jsonify({"error": str(e)}), 400
+
+    return jsonify({"dtw_distance": dtw_distance}), 200
+
+@app.route("/api/timeseries/euclidean_distance", methods=["GET"])
+def get_euclidean_distance():
+    filename1 = request.args.get("filename1")
+    filename2 = request.args.get("filename2")
+    category = request.args.get("category")
+    tolerance = request.args.get("tolerance")
+
+    try:
+        data1 = timeseries_manager.get_timeseries(filename=filename1, category=category)
+        series1 = metric_service.extract_series_from_dict(data1, category, filename1)
+
+        data2 = timeseries_manager.get_timeseries(filename=filename2, category=category)
+        series2 = metric_service.extract_series_from_dict(data2, category, filename2)
+
+        euclidean_distances = metric_service.calculate_euclidean_distance(series1, series2, tolerance)
+
+    except Exception as e:
+        return jsonify({"error": str(e)}), 400
+
+    return jsonify({"euclidean_distance": euclidean_distances}), 200
 
 @app.route("/api/upload-timeseries", methods=["POST"])
 def add_timeseries():

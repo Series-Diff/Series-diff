@@ -19,9 +19,11 @@
     import Dropdown from '../components/Dropdown/Dropdown';
     import {fetchAllAutoCorrelations} from "../services/fetchAllAutoCorrelations";
     import {fetchAllPearsonCorrelations} from "../services/fetchAllPearsonCorrelations";
+    import {fetchAllDTWs} from "../services/fetchAllDTWs";
+    import {fetchAllEuclideans} from "../services/fetchAllEuclideans";
     import CorrelationTable from "../components/CorrelationTable/CorrelationTable";
-    import ScatterPlotModal from "../components/ScatterPlotModal/ScatterPlotModal";
-    
+    import StandardTable from "../components/StandardTable/StandardTable";
+    import ScatterPlotModal, { ScatterPoint } from "../components/ScatterPlotModal/ScatterPlotModal";
     
     function DashboardPage() {
         const [chartData, setChartData] = useState<Record<string, TimeSeriesEntry[]>>({});
@@ -40,7 +42,10 @@
         const [isMaLoading, setIsMaLoading] = useState(false);
         const [dataPreview, setDataPreview] = useState<Record<string, any> | null>(null);
         const [groupedMetrics, setGroupedMetrics] = useState<Record<string, CombinedMetric[]>>({});
-    
+        const [scatterPoints, setScatterPoints] = useState<ScatterPoint[]>([]);
+        const [isScatterLoading, setIsScatterLoading] = useState(false);
+        const [syncColorsByFile, setSyncColorsByFile] = useState(true);
+
         const [filteredData, setFilteredData] = useState<{
             primary: Record<string, TimeSeriesEntry[]>;
             secondary: Record<string, TimeSeriesEntry[]> | null;
@@ -56,7 +61,9 @@
     
         const [autoCorrelationValues, setAutoCorrelationValues] = useState<Record<string, Record<string, number>>>({});
         const [PearsonCorrelationValues, setPearsonCorrelationValues] = useState<Record<string, Record<string, Record<string, number>>>>({});
-    
+        const [DTWValues, setDTWValues] = useState<Record<string, Record<string, Record<string, number>>>>({});
+        const [EuclideanValues, setEuclideanValues] = useState<Record<string, Record<string, Record<string, number>>>>({});
+
         // Stan przechowujący aktualnie wybraną parę plików do porównania dla wykresu rozrzutu
         const [selectedPair, setSelectedPair] = useState<{
             file1: string | null;
@@ -72,9 +79,30 @@
         const [isScatterOpen, setIsScatterOpen] = useState(false);
     
         // Ustawia aktualną parę plików (file1, file2), a następnie otwiera okno scatter plotu
-        const handleCellClick = (file1: string, file2: string, category: string) => {
+        const handleCellClick = async(file1: string, file2: string, category: string) => {
             setSelectedPair({file1, file2, category});
+            setScatterPoints([]); // Clean old data
+            setIsScatterLoading(true);
             setIsScatterOpen(true);
+
+            try {
+            // Download scatter data from backend
+            const params = new URLSearchParams({
+                filename1: file1,
+                filename2: file2,
+                category: category,
+            });
+
+            const response = await fetch(`/api/timeseries/scatter_data?${params}`);
+            if (!response.ok) throw new Error("Failed to fetch scatter data");
+
+            const data: ScatterPoint[] = await response.json();
+            setScatterPoints(data);
+        } catch (err) {
+            console.error(err);
+        } finally {
+            setIsScatterLoading(false);
+        }
         };
     
         // Czyści wybraną parę plików oraz ustawia flagę modalnego okna na false
@@ -128,15 +156,21 @@
                 setAutoCorrelationValues(autoCorrelations);
     
                 const allPearsonCorrelations: Record<string, Record<string, Record<string, number>>> = {};
-    
+                const allDTWs: Record<string, Record<string, Record<string, number>>> = {};
+                const allEuclideans: Record<string, Record<string, Record<string, number>>> = {};
+
                 for (const category of Object.keys(names)) {
                     const files = names[category];
                     allPearsonCorrelations[category] = await fetchAllPearsonCorrelations(files, category);
+                    allDTWs[category] = await fetchAllDTWs(files, category);
+                    allEuclideans[category] = await fetchAllEuclideans(files, null, category);
+
                 }
     
                 setPearsonCorrelationValues(allPearsonCorrelations);
-    
-    
+                setDTWValues(allDTWs)
+                setEuclideanValues(allEuclideans);
+
             } catch (err: any) {
                 setError(err.message || 'Failed to fetch data.');
                 setChartData({}); // Wyczyść dane w przypadku błędu
@@ -195,7 +229,9 @@
             const storedAutoCorrelationsValues = localStorage.getItem('autoCorrelationValues');
             const storedFilenames = localStorage.getItem('filenamesPerCategory');
             const storedPearsonCorrelationsValues = localStorage.getItem('PearsonCorrelationValues');
-    
+            const storedDTWValues = localStorage.getItem('DTWValues');
+            const storedEuclideanValues = localStorage.getItem('EuclideanValues');
+
             if (storedData && storedMeanValues && storedMedianValues && storedVarianceValues && storedStdDevsValues && storedAutoCorrelationsValues && storedFilenames) {
                 try {
                     const parsedData = JSON.parse(storedData);
@@ -205,6 +241,8 @@
                     const parsedStdDevsValues = JSON.parse(storedStdDevsValues);
                     const parsedAutoCorrelations = JSON.parse(storedAutoCorrelationsValues);
                     const parsedPearsonCorrelations = storedPearsonCorrelationsValues ? JSON.parse(storedPearsonCorrelationsValues) : {};
+                    const parsedDTWValues = storedDTWValues ? JSON.parse(storedDTWValues) : {};
+                    const parsedEuclideanValues = storedEuclideanValues ? JSON.parse(storedEuclideanValues) : {};
                     const parsedFilenames = JSON.parse(storedFilenames);
     
                     setChartData(parsedData);
@@ -214,6 +252,8 @@
                     setStdDevsValues(parsedStdDevsValues);
                     setAutoCorrelationValues(parsedAutoCorrelations);
                     setPearsonCorrelationValues(parsedPearsonCorrelations);
+                    setDTWValues(parsedDTWValues);
+                    setEuclideanValues(parsedEuclideanValues);
                     setFilenamesPerCategory(parsedFilenames);
                 } catch (e) {
                     localStorage.removeItem('chartData');
@@ -322,11 +362,17 @@
             if (Object.keys(PearsonCorrelationValues).length > 0) {
                 localStorage.setItem('PearsonCorrelationValues', JSON.stringify(PearsonCorrelationValues));
             }
+            if (Object.keys(DTWValues).length > 0) {
+                localStorage.setItem('DTWValues', JSON.stringify(DTWValues));
+            }
+            if (Object.keys(EuclideanValues).length > 0) {
+                localStorage.setItem('EuclideanValues', JSON.stringify(EuclideanValues));
+            }
             if (Object.keys(filenamesPerCategory).length > 0) {
                 localStorage.setItem('filenamesPerCategory', JSON.stringify(filenamesPerCategory));
             }
     
-        }, [meanValues, medianValues, varianceValues, stdDevsValues, autoCorrelationValues, PearsonCorrelationValues, filenamesPerCategory]);
+        }, [meanValues, medianValues, varianceValues, stdDevsValues, autoCorrelationValues, PearsonCorrelationValues, DTWValues, EuclideanValues, filenamesPerCategory]);
     
         const handleDropdownChange = (event: React.ChangeEvent<HTMLSelectElement>) => {
             setSelectedCategory(event.target.value);
@@ -392,6 +438,8 @@
             setSelectedCategory(null);
             setSecondaryCategory(null);
             setRollingMeanChartData({});
+            setDTWValues({});
+            setEuclideanValues({});
             setShowMovingAverage(false);
             setMaWindow("1d");
             setFilenamesPerCategory({}); // Wyczyść kategorie plików
@@ -475,10 +523,8 @@
                                             disabledCategory={selectedCategory ?? undefined}
                                             allowNoneOption
                                         />
-                                    </>
-                                )}
-                            </div>
-                          <div className="d-flex align-items-center gap-2">
+
+                          <div className="d-flex align-items-center gap-2" style={{ marginLeft: '16px' }}>
                 <div className="form-check form-switch">
                     <input
                         className="form-check-input"
@@ -493,6 +539,9 @@
                         {isMaLoading ? "Loading MA..." : "Show Moving Avg"}
                     </label>
                 </div>
+
+
+
                 <input
                     type="text"
                     className="form-control"
@@ -509,7 +558,25 @@
                 >
                     Apply
                 </button>
+
             </div>
+                            <div className="form-check form-switch" style={{ marginLeft: '16px' }}>
+                <input
+                    className="form-check-input"
+                    type="checkbox"
+                    role="switch"
+                    id="color-sync-toggle"
+                    checked={syncColorsByFile}
+                    onChange={() => setSyncColorsByFile(prev => !prev)}
+                />
+                <label className="form-check-label" htmlFor="color-sync-toggle">
+                    Sync Colors
+                </label>
+
+            </div>
+            </>
+                                )}
+                            </div>
                             <div className="d-flex align-items-center gap-3">
                                 <label htmlFor="file-upload"
                                        className={`custom-file-upload btn btn-primary rounded p-2 px-3 text-center ${isLoading ? "disabled" : ""}`}>
@@ -523,7 +590,9 @@
                                     Reset data
                                 </button>
                             </div>
+
                         </div>
+
                         {error && <p className="text-danger text-center">Error: {error}</p>}
                         <div className="Chart-container section-container">
                             {isLoading && Object.keys(chartData).length === 0 &&
@@ -534,7 +603,7 @@
                                 <div className="chart-wrapper">
                                     <MyChart primaryData={filteredData.primary}
                                              secondaryData={filteredData.secondary || undefined}
-                                             title="Time Series Analysis"/>
+                                                syncColorsByFile={syncColorsByFile}/>
                                 </div>
                             )}
                         </div>
@@ -568,15 +637,57 @@
                                 )}
                             </div>
                         )}
-    
+
+                        {selectedCategory && DTWValues[selectedCategory] && (
+                            <div className="section-container" style={{padding: "16px"}}>
+                                <StandardTable
+                                    data={DTWValues[selectedCategory]}
+                                    category={selectedCategory}
+                                    metric="DTW"
+                                />
+
+                                {/* Jeśli wybrano drugą kategorię, pokaż jej tabelę pod spodem */}
+                                {secondaryCategory && DTWValues[secondaryCategory] && (
+                                    <div style={{marginTop: "32px"}}>
+                                        <StandardTable
+                                            data={DTWValues[secondaryCategory]}
+                                            category={secondaryCategory}
+                                            metric="DTW"
+                                        />
+                                    </div>
+                                )}
+                            </div>
+                        )}
+
+                        {selectedCategory && EuclideanValues[selectedCategory] && (
+                            <div className="section-container" style={{padding: "16px"}}>
+                                <StandardTable
+                                    data={EuclideanValues[selectedCategory]}
+                                    category={selectedCategory}
+                                    metric="Euclidean"
+                                />
+
+                                {/* Jeśli wybrano drugą kategorię, pokaż jej tabelę pod spodem */}
+                                {secondaryCategory && EuclideanValues[secondaryCategory] && (
+                                    <div style={{marginTop: "32px"}}>
+                                        <StandardTable
+                                            data={EuclideanValues[secondaryCategory]}
+                                            category={secondaryCategory}
+                                            metric="Euclidean"
+                                        />
+                                    </div>
+                                )}
+                            </div>
+                        )}
+
                         {/* Scatter plot modal */}
                         <ScatterPlotModal
                             show={isScatterOpen}
                             onHide={handleCloseScatter}
                             file1={selectedPair.file1}
                             file2={selectedPair.file2}
-                            data1={data1}
-                            data2={data2}
+                            points={scatterPoints}
+                            isLoading={isScatterLoading}
                         />
     
     
