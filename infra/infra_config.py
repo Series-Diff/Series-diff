@@ -17,15 +17,18 @@ class InfraConfig:
 
         # Domain Configuration
         self.hosted_zone_domain = self.pulumi_config.require("hostedZoneDomain")
-        self.be_subdomain = self.pulumi_config.get("beSubdomain") or "api"
-        self.fe_subdomain = self.pulumi_config.get("feSubdomain") or "www"
-
+        # For non-prod environments, add environment suffix to subdomains
+        subdomain_suffix = "" if self.environment == "prod" else f"-{self.environment}"
+        self.be_subdomain = self.pulumi_config.get("beSubdomain") or f"api{subdomain_suffix}"
+        self.fe_subdomain = self.pulumi_config.get("feSubdomain") or f"www{subdomain_suffix}"
+        
         # Certificate
         self.certificate_arn = self.pulumi_config.require("certificateArn")
 
         # GitHub Configuration
         self.github_repo_url = self.pulumi_config.require("githubRepoUrl")
         self.github_token_param_name = self.pulumi_config.get("githubTokenParamName") or "/comparison_tool/github_token"
+        self.github_branch = self.pulumi_config.get("githubBranch") or ("main" if self.environment == "prod" else "dev")
 
         # ECS Configuration
         self.ecs_task_cpu = self.pulumi_config.get("ecsTaskCpu") or "256"

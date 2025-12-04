@@ -5,7 +5,7 @@ import pulumi_aws as aws
 from typing import Dict, Any, Optional
 
 
-def create_target_group(vpc_id: str) -> aws.lb.TargetGroup:
+def create_target_group(vpc_id: str, environment: str) -> aws.lb.TargetGroup:
     """
     Create a target group for the Flask API.
     
@@ -32,7 +32,8 @@ def create_target_group(vpc_id: str) -> aws.lb.TargetGroup:
             unhealthy_threshold=3
         ),
         tags={
-            "Name": "flask-api-target-group"
+            "Name": f"flask-{environment}-tg",
+            "Environment": environment
         }
     )
     
@@ -43,6 +44,7 @@ def create_alb(
     networking: Dict[str, Any],
     target_group: aws.lb.TargetGroup,
     certificate_arn: str,
+    environment: str,
     cognito_config: Optional[Dict[str, Any]] = None
 ) -> Dict[str, Any]:
     """
@@ -52,6 +54,7 @@ def create_alb(
         networking: Networking resources (subnets, security groups)
         target_group: Target group to forward traffic to
         certificate_arn: ACM certificate ARN for HTTPS
+        environment: Stack environment name
         cognito_config: Optional Cognito configuration for authentication
         
     Returns:
@@ -59,15 +62,16 @@ def create_alb(
     """
     # Create ALB
     alb = aws.lb.LoadBalancer(
-        "alb",
-        name="flask-api-alb",
+        f"alb-{environment}",
+        name=f"flask-api-{environment}-alb",
         internal=False,
         load_balancer_type="application",
         security_groups=[networking["alb_sg"].id],
         subnets=networking["subnet_ids"],
         enable_deletion_protection=False,
         tags={
-            "Name": "flask-api-alb"
+            "Name": f"flask-api-{environment}-alb",
+            "Environment": environment
         }
     )
     
@@ -75,7 +79,7 @@ def create_alb(
     if cognito_config:
         # With Cognito authentication (Option A)
         https_listener = aws.lb.Listener(
-            "https-listener",
+            f"https-listener-{environment}",
             load_balancer_arn=alb.arn,
             port=443,
             protocol="HTTPS",
@@ -102,13 +106,14 @@ def create_alb(
                 )
             ],
             tags={
-                "Name": "alb-https-listener-with-cognito"
+                "Name": f"alb-https-listener-cognito-{environment}",
+                "Environment": environment
             }
         )
     else:
         # Without authentication (direct forward)
         https_listener = aws.lb.Listener(
-            "https-listener",
+            f"https-listener-{environment}",
             load_balancer_arn=alb.arn,
             port=443,
             protocol="HTTPS",
@@ -119,13 +124,14 @@ def create_alb(
                 target_group_arn=target_group.arn,
             )],
             tags={
-                "Name": "alb-https-listener"
+                "Name": f"alb-https-listener-{environment}",
+                "Environment": environment
             }
         )
     
     # HTTP Listener - redirect to HTTPS
     http_listener = aws.lb.Listener(
-        "http-listener",
+        f"http-listener-{environment}",
         load_balancer_arn=alb.arn,
         port=80,
         protocol="HTTP",
@@ -138,7 +144,8 @@ def create_alb(
             )
         )],
         tags={
-            "Name": "alb-http-listener"
+            "Name": f"alb-http-listener-{environment}",
+            "Environment": environment
         }
     )
     

@@ -6,28 +6,32 @@ import pulumi_aws as aws
 import pulumi_docker_build as docker_build
 
 
-def create_ecr_repository() -> aws.ecr.Repository:
+def create_ecr_repository(environment: str) -> aws.ecr.Repository:
     """
     Create an ECR repository for the Flask API.
+    
+    Args:
+        environment: Stack environment name
     
     Returns:
         ECR Repository resource
     """
     ecr_repository = aws.ecr.Repository(
-        "flask-api",
-        name="flask-api",
+        f"flask-api-{environment}",
+        name=f"flask-api-{environment}",
         image_scanning_configuration=aws.ecr.RepositoryImageScanningConfigurationArgs(
             scan_on_push=True
         ),
         tags={
-            "Name": "flask-api-repository"
+            "Name": f"flask-api-{environment}-repository",
+            "Environment": environment
         }
     )
     
     return ecr_repository
 
 
-def build_and_push_image(ecr_repo: aws.ecr.Repository, context_path: str) -> docker_build.Image:
+def build_and_push_image(ecr_repo: aws.ecr.Repository, context_path: str, environment: str) -> docker_build.Image:
     """
     Build and push Docker image to ECR with caching.
     
