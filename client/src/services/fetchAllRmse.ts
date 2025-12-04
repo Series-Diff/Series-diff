@@ -1,0 +1,54 @@
+// services/fetchAllRmse.ts
+
+async function fetchRmse(
+  category: string,
+  filename1: string,
+  filename2: string,
+  tolerance?: string
+): Promise<number | null> {
+  const tolParam = tolerance ? `&tolerance=${tolerance}` : "";
+
+  const resp = await fetch(
+    `api/timeseries/rmse?category=${category}&filename1=${filename1}&filename2=${filename2}${tolParam}`
+  );
+
+  if (!resp.ok) {
+    console.error("Failed to fetch RMSE:", await resp.text());
+    return null;
+  }
+
+  const data = await resp.json();
+  return data.rmse ?? null;
+}
+
+export async function fetchAllRmse(
+  filenamesPerCategory: Record<string, string[]>,
+  tolerance?: string
+): Promise<Record<string, Record<string, Record<string, number>>>> {
+  const rmseValues: Record<string, Record<string, Record<string, number>>> = {};
+
+  for (const category of Object.keys(filenamesPerCategory)) {
+    const files = filenamesPerCategory[category];
+
+    for (const f1 of files) {
+      for (const f2 of files) {
+        if (f1 === f2) continue;
+
+        try {
+          const rmse = await fetchRmse(category, f1, f2, tolerance);
+
+          if (!rmseValues[category]) rmseValues[category] = {};
+          if (!rmseValues[category][f1]) rmseValues[category][f1] = {};
+
+          if (rmse != null) {
+            rmseValues[category][f1][f2] = rmse;
+          }
+        } catch (err) {
+          console.warn(`Error fetching RMSE for ${category}.${f1} vs ${f2}:`, err);
+        }
+      }
+    }
+  }
+
+  return rmseValues;
+}

@@ -24,6 +24,9 @@
     import CorrelationTable from "../components/CorrelationTable/CorrelationTable";
     import StandardTable from "../components/StandardTable/StandardTable";
     import ScatterPlotModal, { ScatterPoint } from "../components/ScatterPlotModal/ScatterPlotModal";
+    import { fetchAllCosineSimilarities } from "../services/fetchAllCosineSimilarities";
+    import { fetchAllMae } from "../services/fetchAllMae";
+    import { fetchAllRmse } from "../services/fetchAllRmse";
 
     const API_URL = process.env.REACT_APP_API_URL || '';
 
@@ -36,6 +39,8 @@
         const [meanValues, setMeanValues] = useState<Record<string, Record<string, number>>>({});
         const [medianValues, setMedianValues] = useState<Record<string, Record<string, number>>>({});
         const [varianceValues, setVarianceValues] = useState<Record<string, Record<string, number>>>({});
+        const [maeValues, setMaeValues] = useState<Record<string, Record<string, Record<string, number>>>>({});
+        const [rmseValues, setRmseValues] = useState<Record<string, Record<string, Record<string, number>>>>({});
         const [rollingMeanChartData, setRollingMeanChartData] = useState<Record<string, TimeSeriesEntry[]>>({});
         const [stdDevsValues, setStdDevsValues] = useState<Record<string, Record<string, number>>>({});
         const [filenamesPerCategory, setFilenamesPerCategory] = useState<Record<string, string[]>>({});
@@ -66,6 +71,8 @@
         const [PearsonCorrelationValues, setPearsonCorrelationValues] = useState<Record<string, Record<string, Record<string, number>>>>({});
         const [DTWValues, setDTWValues] = useState<Record<string, Record<string, Record<string, number>>>>({});
         const [EuclideanValues, setEuclideanValues] = useState<Record<string, Record<string, Record<string, number>>>>({});
+        const [CosineSimilarityValues, setCosineSimilarityValues] = useState<Record<string, Record<string, Record<string, number>>>>({});
+
 
         // Stan przechowujący aktualnie wybraną parę plików do porównania dla wykresu rozrzutu
         const [selectedPair, setSelectedPair] = useState<{
@@ -129,7 +136,8 @@
                 ? chartData[`${selectedPair.category}.${selectedPair.file2}`]
                 : undefined;
     
-    
+
+
         const handleFetchData = useCallback(async (showLoadingIndicator = true) => {
             if (showLoadingIndicator) setIsLoading(true);
             setError(null);
@@ -148,6 +156,12 @@
     
                 const variances = await fetchAllVariances(names);
                 setVarianceValues(variances);
+
+                const maes = await fetchAllMae(names);
+                setMaeValues(maes);
+
+                const rmses = await fetchAllRmse(names);
+                setRmseValues(rmses);
     
                 const stdDevs = await fetchAllStdDevs(names);
                 setStdDevsValues(stdDevs);
@@ -161,16 +175,19 @@
                 const allPearsonCorrelations: Record<string, Record<string, Record<string, number>>> = {};
                 const allDTWs: Record<string, Record<string, Record<string, number>>> = {};
                 const allEuclideans: Record<string, Record<string, Record<string, number>>> = {};
+                const allCosineSimilarities: Record<string, Record<string, Record<string, number>>> = {};
 
                 for (const category of Object.keys(names)) {
                     const files = names[category];
                     allPearsonCorrelations[category] = await fetchAllPearsonCorrelations(files, category);
                     allDTWs[category] = await fetchAllDTWs(files, category);
                     allEuclideans[category] = await fetchAllEuclideans(files, null, category);
+                    allCosineSimilarities[category] = await fetchAllCosineSimilarities(files, category);
 
                 }
     
                 setPearsonCorrelationValues(allPearsonCorrelations);
+                setCosineSimilarityValues(allCosineSimilarities);
                 setDTWValues(allDTWs)
                 setEuclideanValues(allEuclideans);
 
@@ -230,10 +247,13 @@
             const storedVarianceValues = localStorage.getItem('varianceValues');
             const storedStdDevsValues = localStorage.getItem('stdDevsValues');
             const storedAutoCorrelationsValues = localStorage.getItem('autoCorrelationValues');
+            const storedMaeValues = localStorage.getItem('maeValues');
+            const storedRmseValues = localStorage.getItem('rmseValues');
             const storedFilenames = localStorage.getItem('filenamesPerCategory');
             const storedPearsonCorrelationsValues = localStorage.getItem('PearsonCorrelationValues');
             const storedDTWValues = localStorage.getItem('DTWValues');
             const storedEuclideanValues = localStorage.getItem('EuclideanValues');
+            const storedCosineSimilarityValues = localStorage.getItem('CosineSimilarityValues');
 
             if (storedData && storedMeanValues && storedMedianValues && storedVarianceValues && storedStdDevsValues && storedAutoCorrelationsValues && storedFilenames) {
                 try {
@@ -243,9 +263,12 @@
                     const parsedVarianceValues = JSON.parse(storedVarianceValues);
                     const parsedStdDevsValues = JSON.parse(storedStdDevsValues);
                     const parsedAutoCorrelations = JSON.parse(storedAutoCorrelationsValues);
+                    const parsedMaeValues = storedMaeValues ? JSON.parse(storedMaeValues) : {};
+                    const parsedRmseValues = storedRmseValues ? JSON.parse(storedRmseValues) : {};
                     const parsedPearsonCorrelations = storedPearsonCorrelationsValues ? JSON.parse(storedPearsonCorrelationsValues) : {};
                     const parsedDTWValues = storedDTWValues ? JSON.parse(storedDTWValues) : {};
                     const parsedEuclideanValues = storedEuclideanValues ? JSON.parse(storedEuclideanValues) : {};
+                    const parsedCosineSimilarities = storedCosineSimilarityValues ? JSON.parse(storedCosineSimilarityValues) : {};
                     const parsedFilenames = JSON.parse(storedFilenames);
     
                     setChartData(parsedData);
@@ -254,9 +277,12 @@
                     setVarianceValues(parsedVarianceValues);
                     setStdDevsValues(parsedStdDevsValues);
                     setAutoCorrelationValues(parsedAutoCorrelations);
+                    setMaeValues(parsedMaeValues);
+                    setRmseValues(parsedRmseValues);
                     setPearsonCorrelationValues(parsedPearsonCorrelations);
                     setDTWValues(parsedDTWValues);
                     setEuclideanValues(parsedEuclideanValues);
+                    setCosineSimilarityValues(parsedCosineSimilarities);
                     setFilenamesPerCategory(parsedFilenames);
                 } catch (e) {
                     localStorage.removeItem('chartData');
@@ -362,6 +388,12 @@
             if (Object.keys(autoCorrelationValues).length > 0) {
                 localStorage.setItem('autoCorrelationValues', JSON.stringify(autoCorrelationValues));
             }
+            if (Object.keys(maeValues).length > 0) {
+                localStorage.setItem('maeValues', JSON.stringify(maeValues));
+            }
+            if (Object.keys(rmseValues).length > 0) {
+                localStorage.setItem('rmseValues', JSON.stringify(rmseValues));
+            }
             if (Object.keys(PearsonCorrelationValues).length > 0) {
                 localStorage.setItem('PearsonCorrelationValues', JSON.stringify(PearsonCorrelationValues));
             }
@@ -371,11 +403,14 @@
             if (Object.keys(EuclideanValues).length > 0) {
                 localStorage.setItem('EuclideanValues', JSON.stringify(EuclideanValues));
             }
+            if (Object.keys(CosineSimilarityValues).length > 0) {
+            localStorage.setItem('CosineSimilarityValues', JSON.stringify(CosineSimilarityValues));
+            }
             if (Object.keys(filenamesPerCategory).length > 0) {
                 localStorage.setItem('filenamesPerCategory', JSON.stringify(filenamesPerCategory));
             }
     
-        }, [meanValues, medianValues, varianceValues, stdDevsValues, autoCorrelationValues, PearsonCorrelationValues, DTWValues, EuclideanValues, filenamesPerCategory]);
+        }, [meanValues, medianValues, varianceValues, stdDevsValues, autoCorrelationValues, PearsonCorrelationValues, DTWValues, EuclideanValues,CosineSimilarityValues, filenamesPerCategory]);
     
         const handleDropdownChange = (event: React.ChangeEvent<HTMLSelectElement>) => {
             setSelectedCategory(event.target.value);
@@ -437,6 +472,8 @@
             setVarianceValues({});
             setStdDevsValues({});
             setAutoCorrelationValues({});
+            setMaeValues({});
+            setRmseValues({});
             setGroupedMetrics({});
             setSelectedCategory(null);
             setSecondaryCategory(null);
@@ -618,6 +655,7 @@
                         {/* Tabele korelacji – jedna lub dwie (dla wybranych osi) */}
                         {selectedCategory && PearsonCorrelationValues[selectedCategory] && (
                             <div className="section-container" style={{padding: "16px"}}>
+                                <h5 className="mb-3 text-center">Pearson-Correlation Matrix</h5>
                                 <CorrelationTable
                                     data={PearsonCorrelationValues[selectedCategory]}
                                     category={selectedCategory}
@@ -633,8 +671,67 @@
                                             data={PearsonCorrelationValues[secondaryCategory]}
                                             category={secondaryCategory}
                                             onCellClick={(file1, file2) =>
-                                                handleCellClick(file1, file2, secondaryCategory)
-                                            }
+                                        handleCellClick(file1, file2, selectedCategory)
+                                    }
+                                        />
+                                    </div>
+                                )}
+                            </div>
+                        )}
+
+                        {selectedCategory && CosineSimilarityValues[selectedCategory] && (
+                        <div className="section-container" style={{ padding: "16px", marginTop: "16px" }}>
+                            <h5 className="mb-3 text-center">Cosine Similarity Matrix</h5>
+                            <CorrelationTable
+                                data={CosineSimilarityValues[selectedCategory]}
+                                category={selectedCategory}
+                            />
+
+                            {secondaryCategory && CosineSimilarityValues[secondaryCategory] && (
+                            <div style={{ marginTop: "24px" }}>
+                                <CorrelationTable
+                                    data={CosineSimilarityValues[secondaryCategory]}
+                                    category={secondaryCategory}
+                                />
+                            </div>
+                            )}
+                        </div>
+                        )}
+
+                        {selectedCategory && maeValues[selectedCategory] && (
+                            <div className="section-container" style={{ padding: "16px", marginTop: "16px" }}>
+                                <h5 className="mb-3 text-center">MAE Matrix</h5>
+
+                                <CorrelationTable
+                                    data={maeValues[selectedCategory]}
+                                    category={selectedCategory}
+                                />
+
+                                {secondaryCategory && maeValues[secondaryCategory] && (
+                                    <div style={{ marginTop: "24px" }}>
+                                    <CorrelationTable
+                                        data={maeValues[secondaryCategory]}
+                                        category={secondaryCategory}
+                                    />
+                                    </div>
+                                )}
+                            </div>
+                        )}
+
+                        {selectedCategory && rmseValues[selectedCategory] && (
+                            <div className="section-container" style={{ padding: "16px", marginTop: "16px" }}>
+                                <h5 className="mb-3 text-center">RMSE Matrix</h5>
+
+                                <CorrelationTable
+                                    data={rmseValues[selectedCategory]}
+                                    category={selectedCategory}
+                                />
+
+                                {secondaryCategory && rmseValues[secondaryCategory] && (
+                                    <div style={{ marginTop: "24px" }}>
+                                        <CorrelationTable
+                                            data={rmseValues[secondaryCategory]}
+                                            category={secondaryCategory}
                                         />
                                     </div>
                                 )}
@@ -682,6 +779,7 @@
                                 )}
                             </div>
                         )}
+
 
                         {/* Scatter plot modal */}
                         <ScatterPlotModal

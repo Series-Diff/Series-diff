@@ -325,6 +325,116 @@ def get_pearson_correlation():
     logger.info("Successfully calculated Pearson correlation for provided timeseries data for filenames '%s' and '%s' in category '%s'", filename1, filename2, category)
     return jsonify({"pearson_correlation": correlation}), 200
 
+@app.route("/api/timeseries/cosine_similarity", methods=["GET"])
+def get_cosine_similarity():
+    """
+    Get the cosine similarity between two timeseries for specific filenames, category and time interval.
+
+    Returns:
+        JSON response with the cosine similarity value or error message.
+    """
+    filename1 = request.args.get("filename1")
+    filename2 = request.args.get("filename2")
+    category = request.args.get("category")
+    start = request.args.get("start")
+    end = request.args.get("end")
+    tolerance = request.args.get("tolerance")
+
+    try:
+        # Pobierz dane dla obu plików
+        data1 = timeseries_manager.get_timeseries(filename=filename1, category=category, start=start, end=end)
+        serie1 = metric_service.extract_series_from_dict(data1, category, filename1)
+
+        data2 = timeseries_manager.get_timeseries(filename=filename2, category=category, start=start, end=end)
+        serie2 = metric_service.extract_series_from_dict(data2, category, filename2)
+
+        # Oblicz cosine similarity
+        similarity = metric_service.calculate_cosine_similarity(serie1, serie2, tolerance)
+
+    except (KeyError, ValueError) as e:
+        logger.error("Error calculating cosine similarity for filenames '%s' and '%s' in category '%s': %s", filename1, filename2, category, e)
+        return jsonify({"error": str(e)}), 400
+    except Exception as e:
+        logger.error("Unexpected error calculating cosine similarity: %s", e)
+        return jsonify({"error": "Unexpected error occurred"}), 500
+
+    if similarity is None:
+        logger.warning("No valid timeseries data provided for cosine similarity calculation for filenames '%s' and '%s' in category '%s'", filename1, filename2, category)
+        return jsonify({"error": "No valid timeseries data provided"}), 400
+
+    logger.info("Successfully calculated cosine similarity for provided timeseries data for filenames '%s' and '%s' in category '%s'", filename1, filename2, category)
+    return jsonify({"cosine_similarity": similarity}), 200
+
+@app.route("/api/timeseries/mae", methods=["GET"])
+def get_mae():
+    """
+    Calculate MAE (Mean Absolute Error) between two timeseries.
+    """
+    filename1 = request.args.get("filename1")
+    filename2 = request.args.get("filename2")
+    category = request.args.get("category")
+    start = request.args.get("start")
+    end = request.args.get("end")
+    tolerance = request.args.get("tolerance")
+
+    try:
+        data1 = timeseries_manager.get_timeseries(filename=filename1, category=category, start=start, end=end)
+        serie1 = metric_service.extract_series_from_dict(data1, category, filename1)
+
+        data2 = timeseries_manager.get_timeseries(filename=filename2, category=category, start=start, end=end)
+        serie2 = metric_service.extract_series_from_dict(data2, category, filename2)
+
+        mae = metric_service.calculate_mae(serie1, serie2, tolerance)
+
+    except (KeyError, ValueError) as e:
+        logger.error("Error calculating MAE for filenames '%s' and '%s' in category '%s': %s",
+                     filename1, filename2, category, e)
+        return jsonify({"error": str(e)}), 400
+
+    if mae is None:
+        return jsonify({"error": "No valid timeseries data provided"}), 400
+
+    logger.info("Successfully calculated MAE for files '%s' and '%s' in category '%s'",
+                filename1, filename2, category)
+
+    return jsonify({"mae": mae}), 200
+
+
+
+@app.route("/api/timeseries/rmse", methods=["GET"])
+def get_rmse():
+    """
+    Calculate RMSE (Root Mean Squared Error) between two timeseries.
+    """
+    filename1 = request.args.get("filename1")
+    filename2 = request.args.get("filename2")
+    category = request.args.get("category")
+    start = request.args.get("start")
+    end = request.args.get("end")
+    tolerance = request.args.get("tolerance")
+
+    try:
+        data1 = timeseries_manager.get_timeseries(filename=filename1, category=category, start=start, end=end)
+        serie1 = metric_service.extract_series_from_dict(data1, category, filename1)
+
+        data2 = timeseries_manager.get_timeseries(filename=filename2, category=category, start=start, end=end)
+        serie2 = metric_service.extract_series_from_dict(data2, category, filename2)
+
+        rmse = metric_service.calculate_rmse(serie1, serie2, tolerance)
+
+    except (KeyError, ValueError) as e:
+        logger.error("Error calculating RMSE for filenames '%s' and '%s' in category '%s': %s",
+                     filename1, filename2, category, e)
+        return jsonify({"error": str(e)}), 400
+
+    if rmse is None:
+        return jsonify({"error": "No valid timeseries data provided"}), 400
+
+    logger.info("Successfully calculated RMSE for files '%s' and '%s' in category '%s'",
+                filename1, filename2, category)
+
+    return jsonify({"rmse": rmse}), 200
+
 
 @app.route("/timeseries/difference", methods=["GET"])
 def get_difference():

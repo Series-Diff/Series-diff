@@ -314,3 +314,201 @@ def calculate_euclidean_distance(series1: dict, series2: dict, tolerance: str | 
     euclidean_distance = float(np.linalg.norm(diffs))
 
     return euclidean_distance
+
+def calculate_cosine_similarity(series1: dict, series2: dict, tolerance: str | None = None) -> float:
+    """
+    Oblicza cosine similarity (podobieństwo cosinusowe) między dwoma szeregami czasowymi
+    dopasowanymi czasowo (asof merge).
+
+    Args:
+        series1 (dict): Pierwszy szereg czasowy {timestamp: value}.
+        series2 (dict): Drugi szereg czasowy {timestamp: value}.
+        tolerance (str | None): Maksymalna różnica czasu do dopasowania punktów, np. '3min'.
+                                Jeśli None, zostanie wyliczona z mediany interwałów.
+
+    Returns:
+        float: Wartość cosine similarity w przedziale [-1, 1].
+               Zwraca np.nan, jeśli nie można obliczyć.
+    """
+    if not isinstance(series1, dict) or not isinstance(series2, dict):
+        return np.nan
+    if not series1 or not series2:
+        return np.nan
+
+    try:
+        df1 = pd.DataFrame({
+            "time": pd.to_datetime(list(series1.keys())),
+            "value1": list(series1.values())
+        }).set_index("time").sort_index()
+
+        df2 = pd.DataFrame({
+            "time": pd.to_datetime(list(series2.keys())),
+            "value2": list(series2.values())
+        }).set_index("time").sort_index()
+    except (ValueError, TypeError):
+        return np.nan
+
+    df1 = df1[~df1.index.duplicated(keep='first')]
+    df2 = df2[~df2.index.duplicated(keep='first')]
+
+    # Automatyczne ustalenie tolerancji (np. dla pomiarów co 3 minuty)
+    if tolerance is None:
+        deltas = []
+        if len(df1.index) > 1:
+            deltas.append((df1.index[1:] - df1.index[:-1]).median())
+        if len(df2.index) > 1:
+            deltas.append((df2.index[1:] - df2.index[:-1]).median())
+
+        if not deltas:
+            return np.nan
+        tolerance_td = max(deltas)
+    else:
+        tolerance_td = pd.Timedelta(tolerance)
+
+    # Dopasowanie czasowe
+    df_merged = pd.merge_asof(
+        df1, df2,
+        left_index=True,
+        right_index=True,
+        direction="nearest",
+        tolerance=tolerance_td
+    ).dropna()
+
+    if df_merged.empty or len(df_merged) < 2:
+        return np.nan
+
+    a = df_merged["value1"].to_numpy()
+    b = df_merged["value2"].to_numpy()
+
+    # Jeśli jedna seria to same zera → brak sensownego podobieństwa
+    if np.all(a == 0) or np.all(b == 0):
+        return np.nan
+
+    numerator = np.dot(a, b)
+    denominator = np.linalg.norm(a) * np.linalg.norm(b)
+
+    if denominator == 0:
+        return np.nan
+
+    return float(numerator / denominator)
+
+def calculate_mae(series1: dict, series2: dict, tolerance: str | None = None) -> float:
+    """
+    Calculates Mean Absolute Error (MAE) between two time series matched by nearest timestamp.
+
+    Args:
+        series1 (dict): First time series
+        series2 (dict): Second time series
+        tolerance (str | None): Max allowed time difference for matching timestamps
+
+    Returns:
+        float: MAE value (or np.nan if cannot compute)
+    """
+    if not isinstance(series1, dict) or not isinstance(series2, dict):
+        return np.nan
+    if not series1 or not series2:
+        return np.nan
+
+    try:
+        df1 = pd.DataFrame({
+            "time": pd.to_datetime(list(series1.keys())),
+            "value1": list(series1.values())
+        }).set_index("time").sort_index()
+
+        df2 = pd.DataFrame({
+            "time": pd.to_datetime(list(series2.keys())),
+            "value2": list(series2.values())
+        }).set_index("time").sort_index()
+    except Exception:
+        return np.nan
+
+    df1 = df1[~df1.index.duplicated(keep='first')]
+    df2 = df2[~df2.index.duplicated(keep='first')]
+
+    # Auto-tolerance based on median deltas
+    if tolerance is None:
+        deltas = []
+        if len(df1.index) > 1:
+            deltas.append((df1.index[1:] - df1.index[:-1]).median())
+        if len(df2.index) > 1:
+            deltas.append((df2.index[1:] - df2.index[:-1]).median())
+        if not deltas:
+            return np.nan
+        tolerance_td = max(deltas)
+    else:
+        tolerance_td = pd.Timedelta(tolerance)
+
+    df_merged = pd.merge_asof(
+        df1, df2,
+        left_index=True,
+        right_index=True,
+        direction="nearest",
+        tolerance=tolerance_td
+    ).dropna()
+
+    if df_merged.empty:
+        return np.nan
+
+    mae = np.mean(np.abs(df_merged["value1"] - df_merged["value2"]))
+    return float(mae)
+
+
+def calculate_rmse(series1: dict, series2: dict, tolerance: str | None = None) -> float:
+    """
+    Calculates Root Mean Square Error (RMSE) between two time series matched by nearest timestamp.
+
+    Args:
+        series1 (dict): First time series
+        series2 (dict): Second time series
+        tolerance (str | None): Max allowed time difference for matching timestamps
+
+    Returns:
+        float: RMSE value (or np.nan if cannot compute)
+    """
+    if not isinstance(series1, dict) or not isinstance(series2, dict):
+        return np.nan
+    if not series1 or not series2:
+        return np.nan
+
+    try:
+        df1 = pd.DataFrame({
+            "time": pd.to_datetime(list(series1.keys())),
+            "value1": list(series1.values())
+        }).set_index("time").sort_index()
+
+        df2 = pd.DataFrame({
+            "time": pd.to_datetime(list(series2.keys())),
+            "value2": list(series2.values())
+        }).set_index("time").sort_index()
+    except Exception:
+        return np.nan
+
+    df1 = df1[~df1.index.duplicated(keep='first')]
+    df2 = df2[~df2.index.duplicated(keep='first')]
+
+    # Auto tolerance
+    if tolerance is None:
+        deltas = []
+        if len(df1.index) > 1:
+            deltas.append((df1.index[1:] - df1.index[:-1]).median())
+        if len(df2.index) > 1:
+            deltas.append((df2.index[1:] - df2.index[:-1]).median())
+        if not deltas:
+            return np.nan
+        tolerance_td = max(deltas)
+    else:
+        tolerance_td = pd.Timedelta(tolerance)
+
+    df_merged = pd.merge_asof(
+        df1, df2,
+        left_index=True,
+        right_index=True,
+        direction="nearest",
+        tolerance=tolerance_td
+    ).dropna()
+
+    if df_merged.empty:
+        return np.nan
+
+    rmse = np.sqrt(np.mean((df_merged["value1"] - df_merged["value2"]) ** 2))
+    return float(rmse)

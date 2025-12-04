@@ -22,16 +22,26 @@ const CorrelationTable: React.FC<CorrelationTableProps> = ({ data, category, onC
   return (
     <div className="card shadow-sm mt-3">
       <div className="card-header bg-light text-center">
-        <h5 className="mb-0">Pearson-Correlation Matrix ({category})</h5>
       </div>
       <div className="card-body p-0">
         <div className="table-responsive">
           {/* Tabela macierzy korelacji */}
           <table className="table table-bordered mb-0 align-middle text-center">
             <thead className="table-light">
+              {category && (
+                <tr>
+                  <th
+                    colSpan={filenames.length + 1}
+                    style={{ fontSize: "0.85em", color: "#555", background: "#f8f9fa" }}
+                    className="py-2"
+                  >
+                    {category}
+                  </th>
+                </tr>
+              )}
+
               <tr>
                 <th scope="col">File</th>
-                {/* Nagłówki kolumn z nazwami plików */}
                 {filenames.map((f) => (
                   <th key={`header-${f}`} scope="col">
                     {f}
