@@ -23,8 +23,7 @@
     import {fetchAllEuclideans} from "../services/fetchAllEuclideans";
     import CorrelationTable from "../components/CorrelationTable/CorrelationTable";
     import StandardTable from "../components/StandardTable/StandardTable";
-    import ScatterPlotModal from "../components/ScatterPlotModal/ScatterPlotModal";
-
+    import ScatterPlotModal, { ScatterPoint } from "../components/ScatterPlotModal/ScatterPlotModal";
     
     function DashboardPage() {
         const [chartData, setChartData] = useState<Record<string, TimeSeriesEntry[]>>({});
@@ -43,7 +42,8 @@
         const [isMaLoading, setIsMaLoading] = useState(false);
         const [dataPreview, setDataPreview] = useState<Record<string, any> | null>(null);
         const [groupedMetrics, setGroupedMetrics] = useState<Record<string, CombinedMetric[]>>({});
-
+        const [scatterPoints, setScatterPoints] = useState<ScatterPoint[]>([]);
+        const [isScatterLoading, setIsScatterLoading] = useState(false);
         const [syncColorsByFile, setSyncColorsByFile] = useState(true);
 
         const [filteredData, setFilteredData] = useState<{
@@ -79,9 +79,30 @@
         const [isScatterOpen, setIsScatterOpen] = useState(false);
     
         // Ustawia aktualną parę plików (file1, file2), a następnie otwiera okno scatter plotu
-        const handleCellClick = (file1: string, file2: string, category: string) => {
+        const handleCellClick = async(file1: string, file2: string, category: string) => {
             setSelectedPair({file1, file2, category});
+            setScatterPoints([]); // Clean old data
+            setIsScatterLoading(true);
             setIsScatterOpen(true);
+
+            try {
+            // Download scatter data from backend
+            const params = new URLSearchParams({
+                filename1: file1,
+                filename2: file2,
+                category: category,
+            });
+
+            const response = await fetch(`/api/timeseries/scatter_data?${params}`);
+            if (!response.ok) throw new Error("Failed to fetch scatter data");
+
+            const data: ScatterPoint[] = await response.json();
+            setScatterPoints(data);
+        } catch (err) {
+            console.error(err);
+        } finally {
+            setIsScatterLoading(false);
+        }
         };
     
         // Czyści wybraną parę plików oraz ustawia flagę modalnego okna na false
@@ -665,8 +686,8 @@
                             onHide={handleCloseScatter}
                             file1={selectedPair.file1}
                             file2={selectedPair.file2}
-                            data1={data1}
-                            data2={data2}
+                            points={scatterPoints}
+                            isLoading={isScatterLoading}
                         />
     
     

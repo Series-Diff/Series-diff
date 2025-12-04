@@ -43,6 +43,51 @@ def extract_series_from_dict(data:dict, category:str, filename:str) -> dict:
     return series
 
 
+def get_aligned_data(series1: dict, series2: dict, tolerance: str | None = None) -> pd.DataFrame:
+    """
+    Helper function to align two series based on timestamp with tolerance.
+    Returns a DataFrame with columns ['value1', 'value2'] indexed by time.
+    """
+    if not isinstance(series1, dict) or not isinstance(series2, dict):
+        raise ValueError("Inputs must be dictionaries")
+
+    df1 = pd.DataFrame({
+        "time": pd.to_datetime(list(series1.keys())),
+        "value1": list(series1.values())
+    }).set_index("time").sort_index()
+
+    df2 = pd.DataFrame({
+        "time": pd.to_datetime(list(series2.keys())),
+        "value2": list(series2.values())
+    }).set_index("time").sort_index()
+
+    df1 = df1[~df1.index.duplicated(keep='first')]
+    df2 = df2[~df2.index.duplicated(keep='first')]
+
+    if tolerance is None:
+        deltas = []
+        if len(df1.index) > 1:
+            deltas.append((df1.index[1:] - df1.index[:-1]).median())
+        if len(df2.index) > 1:
+            deltas.append((df2.index[1:] - df2.index[:-1]).median())
+
+        if not deltas:
+            return pd.DataFrame()
+        tolerance_td = max(deltas)
+    else:
+        tolerance_td = pd.Timedelta(tolerance)
+
+    df_merged = pd.merge_asof(
+        df1,
+        df2,
+        left_index=True,
+        right_index=True,
+        direction="nearest",
+        tolerance=tolerance_td
+    ).dropna()
+
+    return df_merged
+
 # --- Metrics for single time series ---
 def calculate_basic_statistics(series: dict) -> dict:
     """ 
@@ -150,47 +195,11 @@ def calculate_pearson_correlation(series1: dict, series2: dict, tolerance: str |
         return np.nan
 
     try:
-        df1 = pd.DataFrame({
-            "time": pd.to_datetime(list(series1.keys())),
-            "value1": list(series1.values())
-        }).set_index("time").sort_index() # Sort is needed for merge_asof
-
-        df2 = pd.DataFrame({
-            "time": pd.to_datetime(list(series2.keys())),
-            "value2": list(series2.values())
-        }).set_index("time").sort_index()
-
-        df1 = df1[~df1.index.duplicated(keep='first')]
-        df2 = df2[~df2.index.duplicated(keep='first')]
+        df_merged = get_aligned_data(series1, series2, tolerance)
 
     except (ValueError, TypeError) as e:
         return np.nan
 
-    if tolerance is None:
-        deltas = []
-        if len(df1.index) > 1:
-            deltas.append((df1.index[1:] - df1.index[:-1]).median())
-        if len(df2.index) > 1:
-            deltas.append((df2.index[1:] - df2.index[:-1]).median())
-
-        if not deltas:
-            return np.nan
-        tolerance_td = max(deltas)
-    else:
-        tolerance_td = pd.Timedelta(tolerance)
-
-
-    df_merged = pd.merge_asof(
-        df1,
-        df2,
-        left_index=True,
-        right_index=True,
-        direction="nearest",  # Finds nearest point
-        tolerance=tolerance_td
-    ).dropna()
-
-
-    # pearsonr needs at least 2 data points
     if len(df_merged) < 2:
         return np.nan  # Too few overlapping points
 
@@ -219,38 +228,7 @@ def calculate_difference(series1: dict, series2: dict, tolerance: str | None = N
     if not series1 or not series2:
         raise ValueError("Both series must be non-empty dictionaries")
 
-
-    df1 = pd.DataFrame({
-        "time": pd.to_datetime(list(series1.keys())),
-        "value1": list(series1.values())
-    }).set_index("time")
-
-    df2 = pd.DataFrame({
-        "time": pd.to_datetime(list(series2.keys())),
-        "value2": list(series2.values())
-    }).set_index("time")
-
-    if tolerance is None:
-        delta1 = (df1.index[1:] - df1.index[:-1]).median()
-        delta2 = (df2.index[1:] - df2.index[:-1]).median()
-        tolerance = max(delta1, delta2)
-
-    else:
-        tolerance = pd.Timedelta(tolerance)
-
-
-    df1 = df1.sort_index()
-    df2 = df2.sort_index()
-
-
-
-    df_merged = pd.merge_asof(
-        df1, df2,
-        left_index=True,
-        right_index=True,
-        direction="nearest",
-        tolerance=pd.Timedelta(tolerance)
-    ).dropna()
+    df_merged = get_aligned_data(series1, series2, tolerance)
 
     if df_merged.empty:
         raise ValueError("No overlapping timestamps within tolerance")
@@ -323,74 +301,15 @@ def calculate_euclidean_distance(series1: dict, series2: dict, tolerance: str | 
 
     Returns:
         float: Euclidean distance computed from the aligned points.
-
-    Raises:
-        ValueError: If inputs are invalid or no points can be matched.
     """
-    if not isinstance(series1, dict) or not isinstance(series2, dict):
-        raise ValueError("Both series must be dictionaries")
     if not series1 or not series2:
         raise ValueError("Both series must be non-empty dictionaries")
 
-    # Convert to DataFrames and ensure proper datetime index
-    df1 = pd.DataFrame({
-        "time": pd.to_datetime(list(series1.keys())),
-        "value1": list(series1.values())
-    }).set_index("time").sort_index()
-
-    df2 = pd.DataFrame({
-        "time": pd.to_datetime(list(series2.keys())),
-        "value2": list(series2.values())
-    }).set_index("time").sort_index()
-
-    # Remove duplicate timestamps
-    df1 = df1[~df1.index.duplicated(keep='first')]
-    df2 = df2[~df2.index.duplicated(keep='first')]
-
-    # Automatically determine tolerance if not provided
-    if tolerance is None:
-        deltas = []
-        if len(df1.index) > 1:
-            deltas.append((df1.index[1:] - df1.index[:-1]).median())
-        if len(df2.index) > 1:
-            deltas.append((df2.index[1:] - df2.index[:-1]).median())
-
-        if not deltas:
-            raise ValueError("Cannot determine tolerance automatically; provide tolerance explicitly")
-
-        tolerance_td = max(deltas)
-    else:
-        tolerance_td = pd.Timedelta(tolerance)
-
-    # Reset index for merge_asof
-    df1_reset = df1.reset_index().rename(columns={"time": "time1"})
-    df2_reset = df2.reset_index().rename(columns={"time": "time2"})
-
-    df1_reset = df1_reset.sort_values("time1")
-    df2_reset = df2_reset.sort_values("time2")
-
-    # Use nearest timestamp matching
-    df_merged = pd.merge_asof(
-        df1_reset,
-        df2_reset,
-        left_on="time1",
-        right_on="time2",
-        direction="nearest",
-        tolerance=tolerance_td
-    ).dropna(subset=["value1", "value2"])
+    df_merged = get_aligned_data(series1, series2, tolerance)
 
     if df_merged.empty:
         raise ValueError("No overlapping timestamps within tolerance")
 
-    # Convert to numeric and clean invalid values
-    df_merged["value1"] = pd.to_numeric(df_merged["value1"], errors="coerce")
-    df_merged["value2"] = pd.to_numeric(df_merged["value2"], errors="coerce")
-    df_merged = df_merged.dropna(subset=["value1", "value2"])
-
-    if df_merged.empty:
-        raise ValueError("No valid numeric matches after merging")
-
-    # Compute Euclidean distance
     diffs = df_merged["value1"].values - df_merged["value2"].values
     euclidean_distance = float(np.linalg.norm(diffs))
 
