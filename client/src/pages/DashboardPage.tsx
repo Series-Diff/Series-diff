@@ -680,18 +680,18 @@
 
                         {selectedCategory && CosineSimilarityValues[selectedCategory] && (
                         <div className="section-container" style={{ padding: "16px", marginTop: "16px" }}>
-                            <StandardTable
+                            <CorrelationTable
                                 data={CosineSimilarityValues[selectedCategory]}
                                 category={selectedCategory}
-                                metric="Cosine Similarity"
+                                clickable={false}
                             />
 
                             {secondaryCategory && CosineSimilarityValues[secondaryCategory] && (
                             <div style={{ marginTop: "24px" }}>
-                                <StandardTable
+                                <CorrelationTable
                                     data={CosineSimilarityValues[secondaryCategory]}
                                     category={secondaryCategory}
-                                    metric="Cosine Similarity"
+                                    clickable={false}
                                 />
                             </div>
                             )}

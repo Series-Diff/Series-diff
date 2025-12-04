@@ -1,5 +1,7 @@
 // services/fetchAllCosineSimilarities.ts
 
+const API_URL = process.env.REACT_APP_API_URL || '';
+
 // Funkcja pobiera cosine similarity między dwoma plikami
 export async function fetchCosineSimilarity(
   filename1: string,
@@ -7,7 +9,7 @@ export async function fetchCosineSimilarity(
   category: string
 ): Promise<number | null> {
   // Tworzymy adres endpointu API z parametrami
-  const url = `api/timeseries/cosine_similarity?filename1=${filename1}&filename2=${filename2}&category=${category}`;
+  const url = `${API_URL}/api/timeseries/cosine_similarity?filename1=${filename1}&filename2=${filename2}&category=${category}`;
   try {
     const response = await fetch(url);
 

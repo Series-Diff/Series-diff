@@ -1,5 +1,7 @@
 // services/fetchAllMae.ts
 
+const API_URL = process.env.REACT_APP_API_URL || '';
+
 async function fetchMae(
   category: string,
   filename1: string,
@@ -9,7 +11,7 @@ async function fetchMae(
   const tolParam = tolerance ? `&tolerance=${tolerance}` : "";
 
   const resp = await fetch(
-    `api/timeseries/mae?category=${category}&filename1=${filename1}&filename2=${filename2}${tolParam}`
+    `${API_URL}/api/timeseries/mae?category=${category}&filename1=${filename1}&filename2=${filename2}${tolParam}`
   );
 
   if (!resp.ok) {
