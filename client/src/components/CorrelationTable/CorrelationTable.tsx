@@ -2,20 +2,16 @@
 import React from "react";
 
 interface CorrelationTableProps {
-  data: Record<string, Record<string, number>>;
-  category: string;
-  onCellClick?: (file1: string, file2: string) => void;
-  clickable?: boolean; // <-- DODANE
+  data: Record<string, Record<string, number>>; // Dane korelacji w formacie: plik1 -> (plik2 -> wartość)
+  category: string; // Nazwa kategorii
+  onCellClick?: (file1: string, file2: string) => void; // Funkcja wywoływana po kliknięciu komórki
+  clickable?: boolean; // Czy komórki tabeli mają być klikalne
 }
 
-const CorrelationTable: React.FC<CorrelationTableProps> = ({
-  data,
-  category,
-  onCellClick,
-  clickable = true, // <-- DOMYŚLNA WARTOŚĆ
-}) => {
-  const filenames = Object.keys(data);
+const CorrelationTable: React.FC<CorrelationTableProps> = ({ data, category, onCellClick, clickable = true }) => {
+  const filenames = Object.keys(data); // Lista nazw plików z danej kategorii
 
+  // Jeśli brak danych — wyświetl komunikat
   if (filenames.length === 0) {
     return (
       <div className="alert alert-secondary text-center" role="alert">
@@ -31,10 +27,12 @@ const CorrelationTable: React.FC<CorrelationTableProps> = ({
       </div>
       <div className="card-body p-0">
         <div className="table-responsive">
+          {/* Tabela macierzy korelacji */}
           <table className="table table-bordered mb-0 align-middle text-center">
             <thead className="table-light">
               <tr>
                 <th scope="col">File</th>
+                {/* Nagłówki kolumn z nazwami plików */}
                 {filenames.map((f) => (
                   <th key={`header-${f}`} scope="col">
                     {f}
@@ -43,6 +41,7 @@ const CorrelationTable: React.FC<CorrelationTableProps> = ({
               </tr>
             </thead>
             <tbody>
+              {/* Wiersze macierzy korelacji */}
               {filenames.map((f1) => (
                 <tr key={`row-${f1}`}>
                   <th scope="row" className="bg-light text-dark fw-semibold">
@@ -56,7 +55,7 @@ const CorrelationTable: React.FC<CorrelationTableProps> = ({
                     return (
                       <td
                         key={`${f1}-${f2}`}
-                        title={value.toFixed(3)}
+                        title={value.toFixed(3)} // Pokazuj dokładną wartość po najechaniu
                         onClick={() => {
                           if (clickable && onCellClick) {
                             onCellClick(f1, f2);
@@ -65,11 +64,11 @@ const CorrelationTable: React.FC<CorrelationTableProps> = ({
                         style={{
                           backgroundColor,
                           color: "#000",
-                          fontWeight: f1 === f2 ? "bold" : "normal",
-                          cursor: clickable ? "pointer" : "default", // <-- NAJWAŻNIEJSZA ZMIANA
+                          fontWeight: f1 === f2 ? "bold" : "normal", // Wyróżnij przekątną
+                          cursor: clickable ? "pointer" : "default", // Zmień kursor, jeśli klikalne
                         }}
                       >
-                        {value.toFixed(2)}
+                        {value.toFixed(2)} {/* Zaokrąglona wartość korelacji */}
                       </td>
                     );
                   })}
