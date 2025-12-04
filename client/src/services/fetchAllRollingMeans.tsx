@@ -1,5 +1,6 @@
 import {TimeSeriesEntry} from "./fetchTimeSeries"; // Assuming fetchTimeSeries is in the same directory
 
+const API_URL = process.env.REACT_APP_API_URL || '';
 
 export async function fetchRollingMean(
   category: string,
@@ -7,7 +8,7 @@ export async function fetchRollingMean(
   window_size: string
 ): Promise<Record<string, TimeSeriesEntry[]>> {
 
-  const resp = await fetch(`/api/timeseries/rolling_mean?category=${category}&filename=${filename}&window_size=${window_size}`);
+  const resp = await fetch(`${API_URL}/api/timeseries/rolling_mean?category=${category}&filename=${filename}&window_size=${window_size}`);
   if (!resp.ok) throw new Error(await resp.text());
 
   const data = await resp.json();

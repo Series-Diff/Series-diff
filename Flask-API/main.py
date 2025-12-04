@@ -3,7 +3,7 @@ import sys
 
 from services.time_series_manager import TimeSeriesManager
 import services.metric_service as metric_service
-
+from flask_cors import CORS
 from flask import Flask, jsonify, redirect, request, url_for
 from utils.time_utils import convert_timeseries_keys_timezone
 
@@ -12,6 +12,7 @@ sys.stdout.reconfigure(line_buffering=True)
 
 timeseries_manager = TimeSeriesManager()
 app = Flask(__name__)
+CORS(app)
 logger = app.logger
 logger.setLevel("DEBUG")
 

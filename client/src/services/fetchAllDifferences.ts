@@ -2,9 +2,11 @@
 
 import {TimeSeriesEntry} from "../services/fetchTimeSeries";
 
+const API_URL = process.env.REACT_APP_API_URL || '';
+
 async function fetchDifference(category: string, filename1: string, filename2: string, tolerance?: string): Promise<TimeSeriesEntry[] | null> {
     const toleranceParam = tolerance !== undefined ? String(tolerance) : undefined;
-    const resp = await fetch(`/timeseries/difference?category=${category}&filename1=${filename1}&filename2=${filename2}` + (toleranceParam ? `&tolerance=${toleranceParam}` : ""));
+    const resp = await fetch(`${API_URL}/timeseries/difference?category=${category}&filename1=${filename1}&filename2=${filename2}` + (toleranceParam ? `&tolerance=${toleranceParam}` : ""));
     if (!resp.ok) {
         console.error(`Failed to fetch difference for ${filename1} - ${filename2} in ${category}:`, await resp.text());
         return null;

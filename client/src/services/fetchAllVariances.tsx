@@ -1,5 +1,7 @@
+const API_URL = process.env.REACT_APP_API_URL || '';
+
 async function fetchVariance(category: string, filename: string): Promise<number | null>{
-    const resp = await fetch(`api/timeseries/variance?category=${category}&filename=${filename}`);
+    const resp = await fetch(`${API_URL}/api/timeseries/variance?category=${category}&filename=${filename}`);
     if (!resp.ok) {
         console.error("Failed to fetch variance:", await resp.text());
         return null;
