@@ -25,9 +25,9 @@ export const Metrics: React.FC<MetricsProps> = ({ groupedMetrics }) => {
   return (
     <div className="Metrics-container">
       {Object.entries(groupedMetrics).map(([groupName, metrics]) => (
-        <div key={groupName} className='Metric-group'>
+        <div key={groupName} className='Metric-group' id='pdf-content-statistics-horizontal'>
           <div className="Metrics-header">
-            <h3>{groupName} Metrics</h3>
+            <h3>{groupName} Statistics</h3>
           </div>
           <div className="Metric-wrapper">
             {metrics.map((metric) => (

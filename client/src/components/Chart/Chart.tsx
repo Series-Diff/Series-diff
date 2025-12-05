@@ -36,8 +36,8 @@ const MyChart: React.FC<MyChartProps> = ({ primaryData, secondaryData, title, sy
     const traces = buildTraces(primaryData, secondaryData, visibleMap, showMarkers, syncColorsByFile);
 
     return (
-        <>
-            <div ref={containerRef} style={{ width: "100%" }}>
+        <div>
+            <div id='pdf-content-chart' ref={containerRef} style={{ width: "100%" }}>
                 <Plot
                     data={traces}
                     layout={{
@@ -111,8 +111,7 @@ const MyChart: React.FC<MyChartProps> = ({ primaryData, secondaryData, title, sy
                 customY2Min={customY2Min} setCustomY2Min={setCustomY2Min} customY2Max={customY2Max} setCustomY2Max={setCustomY2Max} setCustomRange2={setCustomRange2}
                 hasSecondary={!!secondaryData}
             />
-
-        </>
+        </div>
     );
 };
 export default React.memo(MyChart);
