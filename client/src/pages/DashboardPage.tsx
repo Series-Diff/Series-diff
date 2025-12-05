@@ -52,6 +52,7 @@
         const [scatterPoints, setScatterPoints] = useState<ScatterPoint[]>([]);
         const [isScatterLoading, setIsScatterLoading] = useState(false);
         const [syncColorsByFile, setSyncColorsByFile] = useState(true);
+        const [rangePerCategory, setRangePerCategory] = useState<{ [key: string]: { min: number | '', max: number | '' } }>({});
 
         const [filteredData, setFilteredData] = useState<{
             primary: Record<string, TimeSeriesEntry[]>;
@@ -87,7 +88,43 @@
     
         // czy okno ze scatter plotem jest otwarte
         const [isScatterOpen, setIsScatterOpen] = useState(false);
-    
+    const handleRangeChange = (category: string, min: number | '', max: number | '') => {
+  setRangePerCategory(prev => ({
+    ...prev,
+    [category]: { min, max }
+  }));
+};
+const getFilteredPrimary = () => {
+  if (!selectedCategory || !chartData[selectedCategory]) return {};
+
+  let filtered: Record<string, TimeSeriesEntry[]> = {};
+
+  // wybieramy serie głównej kategorii
+  for (const [key, series] of Object.entries(chartData)) {
+    if (key.startsWith(`${selectedCategory}.`)) {
+filtered[key] = series;
+    }
+  }
+
+
+  const filterCategories = Object.entries(rangePerCategory).filter(
+    ([category, range]) => category !== selectedCategory && (range.min !== '' || range.max !== '')
+  );
+
+
+  filterCategories.forEach(([category, range]) => {
+    const { min, max } = range;
+    filtered = Object.fromEntries(
+      Object.entries(filtered).map(([key, series]) => [
+        key,
+        series.filter(item => (min === '' || item.y >= min) && (max === '' || item.y <= max))
+      ])
+    );
+  });
+
+  return filtered;
+};
+
         // Ustawia aktualną parę plików (file1, file2), a następnie otwiera okno scatter plotu
         const handleCellClick = async(file1: string, file2: string, category: string) => {
             setSelectedPair({file1, file2, category});
@@ -292,59 +329,87 @@
                 handleFetchData();
             }
         }, [handleFetchData]);
-        useEffect(() => {
-            const primary: Record<string, TimeSeriesEntry[]> = {};
-            const secondary: Record<string, TimeSeriesEntry[]> = {};
-            if (selectedCategory) {
-                for (const [key, series] of Object.entries(chartData)) {
-                    if (key.startsWith(`${selectedCategory}.`)) {
-                        primary[key] = series;
-                    }
-                }
-    
-              if (showMovingAverage) {
-                for (const [key, series] of Object.entries(rollingMeanChartData)) {
-                  if (key.startsWith(`${selectedCategory}.`)) {
-    
-                    // key to np. "Value.RZ3221108.rolling_mean"
-                    const parts = key.split('.');
-                    const baseKey = parts.slice(0, -1).join('.');
-    
-                    const legendKey = `${baseKey} (MA ${maWindow})`;
-    
-                    primary[legendKey] = series;
-                  }
-                }
-              }
-            }
-    
-    
-            if (secondaryCategory) {
-                for (const [key, series] of Object.entries(chartData)) {
-                    if (key.startsWith(`${secondaryCategory}.`)) {
-                        secondary[key] = series;
-                    }
-                }
-              if (showMovingAverage) {
-                for (const [key, series] of Object.entries(rollingMeanChartData)) {
-                  if (key.startsWith(`${secondaryCategory}.`)) {
-    
-                    // Ta sama logika, co dla osi głównej
-                    const parts = key.split('.');
-                    const baseKey = parts.slice(0, -1).join('.');
-                    const legendKey = `${baseKey} (MA ${maWindow})`;
-    
-                    secondary[legendKey] = series;
-                  }
-                }
-              }
-            }
-            setFilteredData({
-                primary,
-                secondary: Object.keys(secondary).length > 0 ? secondary : null
-            });
-        }, [chartData, selectedCategory, secondaryCategory, rollingMeanChartData, showMovingAverage, maWindow]);
-    
+useEffect(() => {
+  if (!chartData || Object.keys(chartData).length === 0) return;
+
+  const processCategory = (category: string | null): Record<string, TimeSeriesEntry[]> => {
+  if (!category) return {};
+
+  let result: Record<string, TimeSeriesEntry[]> = {};
+
+  // 1️⃣ Pobieramy wszystkie serie dla tej kategorii
+  for (const [key, series] of Object.entries(chartData)) {
+    if (key.startsWith(`${category}.`)) {
+      result[key] = series;
+    }
+  }
+
+  // 2️⃣ Filtracja po rangePerCategory (min/max) – tylko dla oryginalnych serii
+  const fileIds = Array.from(new Set(Object.keys(result).map(k => k.split(".")[1])));
+
+  fileIds.forEach(fileId => {
+    const seriesKeys = Object.keys(result).filter(k => k.endsWith(`.${fileId}`));
+    let allowedTimestamps: Set<string> | null = null;
+
+    Object.entries(rangePerCategory).forEach(([group, range]) => {
+      if (!range || (range.min === '' && range.max === '')) return;
+
+      const seriesKey = `${group}.${fileId}`;
+      let seriesData = result[seriesKey] || chartData[seriesKey];
+      if (!seriesData) return;
+
+      const timestamps = new Set(
+        seriesData
+          .filter(item =>
+            (range.min === '' || item.y >= Number(range.min)) &&
+            (range.max === '' || item.y <= Number(range.max))
+          )
+          .map(item => item.x)
+      );
+
+      if (allowedTimestamps === null) {
+        allowedTimestamps = timestamps;
+      } else {
+        allowedTimestamps = new Set(
+          Array.from(allowedTimestamps).filter(ts => timestamps.has(ts))
+        );
+      }
+    });
+
+    if (allowedTimestamps) {
+      seriesKeys.forEach(key => {
+        result[key] = result[key].filter(item => allowedTimestamps!.has(item.x));
+      });
+    }
+  });
+
+  // 3️⃣ Dodajemy opcjonalnie MA serie dopiero po filtrze
+  if (showMovingAverage) {
+    for (const [key, series] of Object.entries(rollingMeanChartData)) {
+      if (key.startsWith(`${category}.`)) {
+        const parts = key.split(".");
+        const baseKey = parts.slice(0, -1).join(".");
+        const legendKey = `${baseKey} (MA ${maWindow})`;
+        result[legendKey] = series;
+      }
+    }
+  }
+
+  return result;
+
+
+  };
+
+  const primary = processCategory(selectedCategory);
+  const secondary = processCategory(secondaryCategory);
+
+  setFilteredData({
+    primary,
+    secondary: Object.keys(secondary).length > 0 ? secondary : null
+  });
+
+}, [chartData, selectedCategory, secondaryCategory, rangePerCategory, showMovingAverage, rollingMeanChartData, maWindow]);
+
         useEffect(() => {
             if (Object.keys(filenamesPerCategory).length > 0 && !selectedCategory) {
                 setSelectedCategory(Object.keys(filenamesPerCategory)[0]);
@@ -801,9 +866,14 @@
                 <div className="section-container group-menu d-flex flex-column align-items-center p-3 rounded">
                     <h4>Groups</h4>
                     {Object.entries(filenamesPerCategory).map(([category, files]) => (
-                        <Dropdown key={category} category={category} files={files} onFileClick={() => {
-                        }}/>
-                    ))}
+    <Dropdown
+      key={category}
+      category={category}
+      files={files}
+      onFileClick={(file) => console.log('Kliknięto plik:', file)}
+      onRangeChange={handleRangeChange}
+    />
+  ))}
                 </div>
             </div>
         );
