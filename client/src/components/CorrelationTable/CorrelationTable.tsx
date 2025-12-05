@@ -6,9 +6,10 @@ interface CorrelationTableProps {
   category: string; // Nazwa kategorii
   onCellClick?: (file1: string, file2: string) => void; // Funkcja wywoływana po kliknięciu komórki
   clickable?: boolean; // Czy komórki tabeli mają być klikalne
+  metric: string; // Metric name
 }
 
-const CorrelationTable: React.FC<CorrelationTableProps> = ({ data, category, onCellClick, clickable = true }) => {
+const CorrelationTable: React.FC<CorrelationTableProps> = ({ data, category, onCellClick, clickable = true , metric}) => {
   const filenames = Object.keys(data); // Lista nazw plików z danej kategorii
 
   // Jeśli brak danych — wyświetl komunikat
@@ -23,7 +24,7 @@ const CorrelationTable: React.FC<CorrelationTableProps> = ({ data, category, onC
   return (
     <div className="card shadow-sm mt-3">
       <div className="card-header bg-light text-center">
-        <h5 className="mb-0">Pearson-Correlation Matrix ({category})</h5>
+        <h5 className="mb-0">{metric} Matrix ({category})</h5>
       </div>
       <div className="card-body p-0">
         <div className="table-responsive">

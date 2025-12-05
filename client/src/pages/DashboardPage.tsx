@@ -725,6 +725,7 @@ useEffect(() => {
                                     onCellClick={(file1, file2) =>
                                         handleCellClick(file1, file2, selectedCategory)
                                     }
+                                    metric="Pearson Correlation"
                                 />
     
                                 {/* Jeśli wybrano drugą kategorię, pokaż jej tabelę pod spodem */}
@@ -736,6 +737,7 @@ useEffect(() => {
                                             onCellClick={(file1, file2) =>
                                         handleCellClick(file1, file2, secondaryCategory)
                                     }
+                                    metric="Pearson Correlation"
                                         />
                                     </div>
                                 )}
@@ -748,6 +750,7 @@ useEffect(() => {
                                 data={CosineSimilarityValues[selectedCategory]}
                                 category={selectedCategory}
                                 clickable={false}
+                                metric="Cosine Similarity"
                             />
 
                             {secondaryCategory && CosineSimilarityValues[secondaryCategory] && (
@@ -756,6 +759,7 @@ useEffect(() => {
                                     data={CosineSimilarityValues[secondaryCategory]}
                                     category={secondaryCategory}
                                     clickable={false}
+                                    metric="Cosine Similarity"
                                 />
                             </div>
                             )}
