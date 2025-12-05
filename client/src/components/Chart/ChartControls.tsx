@@ -35,7 +35,7 @@ const ChartControls: React.FC<ChartControlsProps> = ({
             </Form>
 
             {hasSecondary && (
-                <Form className="d-flex justify-content-center align-items-center">
+                <Form className="d-flex justify-content-center align-items-center mb-3">
                     <Form.Label className="me-2 m-0 text-center">Second Y Min:</Form.Label>
                     <Form.Control type="number" value={customY2Min} onChange={(e) => setCustomY2Min(e.target.value)} className="me-2" style={{ width: '60px' }} />
                     <Form.Label className="me-2 m-0 text-center">Second Y Max:</Form.Label>
