@@ -97,8 +97,9 @@ outputs: ## Show stack outputs
 	@. venv/bin/activate && pulumi stack output -s $(STACK)
 
 logs: check-aws ## View ECS task logs (requires stack outputs)
-	@echo "$(GREEN)Fetching ECS logs...$(NC)"
-	@aws logs tail /ecs/flask-api-logs --follow
+	@echo "$(GREEN)Fetching ECS logs for stack $(STACK)...$(NC)"
+	@# Budujemy nazwę: /ecs/flask-api-dev-logs
+	@aws logs tail /ecs/flask-api-$(STACK)-logs --follow
 
 test-lambda: check-aws ## Test Lambda scaling function manually
 	@echo "$(GREEN)Testing Lambda scaling function...$(NC)"
