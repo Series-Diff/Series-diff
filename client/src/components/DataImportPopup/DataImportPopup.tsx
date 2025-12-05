@@ -724,3 +724,5 @@ export const DataImportPopup: React.FC<Props> = ({ show, files, onHide, onComple
     </Modal>
   );
 };
+
+export default DataImportPopup;
