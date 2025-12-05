@@ -337,14 +337,14 @@ useEffect(() => {
 
   let result: Record<string, TimeSeriesEntry[]> = {};
 
-  // 1️⃣ Pobieramy wszystkie serie dla tej kategorii
+ 
   for (const [key, series] of Object.entries(chartData)) {
     if (key.startsWith(`${category}.`)) {
       result[key] = series;
     }
   }
 
-  // 2️⃣ Filtracja po rangePerCategory (min/max) – tylko dla oryginalnych serii
+  
   const fileIds = Array.from(new Set(Object.keys(result).map(k => k.split(".")[1])));
 
   fileIds.forEach(fileId => {
@@ -383,7 +383,6 @@ useEffect(() => {
     }
   });
 
-  // 3️⃣ Dodajemy opcjonalnie MA serie dopiero po filtrze
   if (showMovingAverage) {
     for (const [key, series] of Object.entries(rollingMeanChartData)) {
       if (key.startsWith(`${category}.`)) {
