@@ -10,6 +10,7 @@ services:
       - comparison-tool-network
     volumes:
       - ./Flask-API:/app
+      - /app/.venv
   frontend:
     build: ./client
     ports:

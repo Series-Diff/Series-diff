@@ -1,0 +1,16 @@
+[tool.poetry]
+name = "series-diff-infra"
+version = "0.1.0"
+description = "Infrastructure as Code for Series Diff"
+authors = ["Robertas Tamasauskas"]
+package-mode = false 
+
+[tool.poetry.dependencies]
+python = "^3.11"
+pulumi = ">=3.0.0"
+pulumi-aws = ">=6.0.0"
+pulumi-command = ">=0.9.0"
+
+[build-system]
+requires = ["poetry-core>=1.0.0"]
+build-backend = "poetry.core.masonry.api"

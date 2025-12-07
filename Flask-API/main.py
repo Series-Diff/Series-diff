@@ -29,10 +29,9 @@ def health_check():
 
 @app.route("/", methods=["GET"])
 def index():
-    return redirect(url_for("get_timeseries"))
+    return jsonify({"status": "API is working", "service": "SeriesDiff Backend"}), 200
 
-
-@app.route("/timeseries", methods=["GET"])
+@app.route("/api/timeseries", methods=["GET"])
 def get_timeseries():
 
     """
@@ -203,7 +202,7 @@ def get_mean():
     return jsonify({"mean": mean}), 200
 
 
-@app.route("/timeseries/median", methods=["GET"])
+@app.route("/api/timeseries/median", methods=["GET"])
 def get_median():
     """
     Get the median value of the timeseries for a specific filename and category.
@@ -232,7 +231,7 @@ def get_median():
     return jsonify({"median": median}), 200
 
 
-@app.route("/timeseries/variance", methods=["GET"])
+@app.route("/api/timeseries/variance", methods=["GET"])
 def get_variance():
     """
     Get the variance of the timeseries for a specific filename, category and time interval.
@@ -260,7 +259,7 @@ def get_variance():
     return jsonify({"variance": variance}), 200
 
 
-@app.route("/timeseries/standard_deviation", methods=["GET"])
+@app.route("/api/timeseries/standard_deviation", methods=["GET"])
 def get_standard_deviation():
     """
     Get the standard deviation of the timeseries for a specific filename, category and time interval.
@@ -287,7 +286,7 @@ def get_standard_deviation():
     return jsonify({"standard_deviation": std_dev}), 200
 
 
-@app.route("/timeseries/autocorrelation", methods=["GET"])
+@app.route("/api/timeseries/autocorrelation", methods=["GET"])
 def get_autocorrelation():
     """
     Get the autocorrelation of the timeseries for a specific filename, category and time interval.
@@ -316,7 +315,7 @@ def get_autocorrelation():
     return jsonify({"autocorrelation": acf_value}), 200
 
 
-@app.route("/timeseries/coefficient_of_variation", methods=["GET"])
+@app.route("/api/timeseries/coefficient_of_variation", methods=["GET"])
 def get_coefficient_of_variation():
     """
     Get the coefficient of variation of the timeseries for a specific filename, category and time interval.
@@ -343,7 +342,7 @@ def get_coefficient_of_variation():
     return jsonify({"coefficient_of_variation": cv}), 200
 
 
-@app.route("/timeseries/iqr", methods=["GET"])
+@app.route("/api/timeseries/iqr", methods=["GET"])
 def get_iqr():
     """
     Get the interquartile range (IQR) of the timeseries for a specific filename, category and time interval.
@@ -371,7 +370,7 @@ def get_iqr():
     return jsonify({"iqr": iqr}), 200
 
 
-@app.route("/timeseries/pearson_correlation", methods=["GET"])
+@app.route("/api/timeseries/pearson_correlation", methods=["GET"])
 def get_pearson_correlation():
     """
     Get the Pearson correlation between two timeseries for specific filenames, category and time interval.
@@ -512,7 +511,7 @@ def get_rmse():
     return jsonify({"rmse": rmse}), 200
 
 
-@app.route("/timeseries/difference", methods=["GET"])
+@app.route("/api/timeseries/difference", methods=["GET"])
 def get_difference():
     filename1 = request.args.get("filename1")
     filename2 = request.args.get("filename2")
@@ -534,7 +533,7 @@ def get_difference():
     return jsonify({"difference": difference_series}), 200
 
 
-@app.route("/timeseries/rolling_mean", methods=["GET"])
+@app.route("/api/timeseries/rolling_mean", methods=["GET"])
 def get_rolling_mean():
     filename = request.args.get("filename")
     category = request.args.get("category")
@@ -621,7 +620,7 @@ def add_timeseries():
     return jsonify({"status": "Data uploaded"}), 201
 
 
-@app.route("/clear-timeseries", methods=["DELETE"])
+@app.route("/api/clear-timeseries", methods=["DELETE"])
 def clear_timeseries():
     """
     Clear all timeseries data.

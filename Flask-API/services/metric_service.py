@@ -17,7 +17,7 @@ def extract_series_from_dict(data:dict, category:str, filename:str) -> dict:
         dict: A dictionary containing the extracted time series.
     """
     if not isinstance(data, dict) or not isinstance(category, str) or not isinstance(filename, str):
-        raise ValueError("Invalid data structure")
+        raise ValueError("Invalid data structure for: " + category + " " + filename)
 
     series = {}
     for key in data.keys():

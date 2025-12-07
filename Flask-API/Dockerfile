@@ -6,6 +6,7 @@ WORKDIR /app
 
 # Setup environment
 ENV POETRY_VERSION=2.2.1
+ENV PIP_BREAK_SYSTEM_PACKAGES=1
 
 # Install package manager
 RUN pip install poetry==$POETRY_VERSION
@@ -23,4 +24,4 @@ RUN poetry install --no-root
 COPY . .
 
 # Run app.py when the container launches
-CMD ["poetry", "run", "gunicorn", "--workers=4", "--bind=0.0.0.0:5000", "main:app"]
+CMD ["poetry", "run", "gunicorn", "--workers=1", "--bind=0.0.0.0:5000", "main:app"]
