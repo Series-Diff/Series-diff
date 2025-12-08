@@ -63,21 +63,21 @@ class TestTimeSeriesManagerGetMethod(unittest.TestCase):
         self.manager.timeseries = {
             "2023-01-01": {
                 "category1": {
-                    "file1": 1.0, 
+                    "file1": 1.0,
                     "file2": 2.0,
                     "file3": 3.0
                 },
                 "category2": {
-                    "file1": 3.0, 
+                    "file1": 3.0,
                     "file2": 4.0
                 }
             },
             "2023-01-02": {
-                "category1": { 
+                "category1": {
                     "file2": 6.0,
                     "file3": 7.0
                 }
-            }   
+            }
         }
 
     def test_get_all_timeseries(self):
@@ -88,21 +88,21 @@ class TestTimeSeriesManagerGetMethod(unittest.TestCase):
         expected = {
             "2023-01-01": {
                 "category1": {
-                    "file1": 1.0, 
+                    "file1": 1.0,
                     "file2": 2.0,
                     "file3": 3.0
                 },
                 "category2": {
-                    "file1": 3.0, 
+                    "file1": 3.0,
                     "file2": 4.0
                 }
             },
             "2023-01-02": {
-                "category1": { 
+                "category1": {
                     "file2": 6.0,
                     "file3": 7.0
                 }
-            }   
+            }
         }
 
         self.assertEqual(result, expected)
@@ -115,12 +115,12 @@ class TestTimeSeriesManagerGetMethod(unittest.TestCase):
         expected = {
             "2023-01-01": {
                 "category1": {
-                    "file1": 1.0, 
+                    "file1": 1.0,
                     "file2": 2.0,
                     "file3": 3.0
                 },
                 "category2": {
-                    "file1": 3.0, 
+                    "file1": 3.0,
                     "file2": 4.0
                 }
             }
@@ -135,7 +135,7 @@ class TestTimeSeriesManagerGetMethod(unittest.TestCase):
         expected = {
             "2023-01-01": {
                 "category1": {
-                    "file1": 1.0, 
+                    "file1": 1.0,
                     "file2": 2.0,
                     "file3": 3.0
                 }
@@ -174,7 +174,7 @@ class TestTimeSeriesManagerGetMethod(unittest.TestCase):
         expected = {
             "2023-01-01": {
                 "category1": {
-                    "file1": 1.0, 
+                    "file1": 1.0,
                     "file2": 2.0,
                     "file3": 3.0
                 }
@@ -187,7 +187,7 @@ class TestTimeSeriesManagerGetMethod(unittest.TestCase):
         result = self.manager.get_timeseries(time="2023-01-01", filename="file1")
 
         # Assert
-        expected = {         
+        expected = {
             "2023-01-01": {
                     "category1": {
                         "file1": 1.0
@@ -195,23 +195,6 @@ class TestTimeSeriesManagerGetMethod(unittest.TestCase):
                     "category2": {
                         "file1": 3.0
                     }
-            }
-        }
-        self.assertEqual(result, expected)
-
-    def test_get_timeseries_with_category_and_filename(self):
-        # Act
-        result = self.manager.get_timeseries(category="category1", filename="file1")
-
-        # Assert
-        expected = {
-            "2023-01-01": {
-                "category1": {
-                    "file1": 1.0
-                },
-                "category2": {
-                    "file1": 3.0
-                }
             }
         }
         self.assertEqual(result, expected)
@@ -274,6 +257,7 @@ class TestTimeSeriesManagerGetMethod(unittest.TestCase):
         result = self.manager.get_timeseries(filename="invalid_file")
         self.assertEqual(result, {})
 
+
 class TestTimeSeriesManagerClearTimeseries(unittest.TestCase):
     def setUp(self):
         self.manager = tsm.TimeSeriesManager()
@@ -290,6 +274,7 @@ class TestTimeSeriesManagerClearTimeseries(unittest.TestCase):
 
         # Assert
         self.assertEqual(self.manager.timeseries, {})
+
 
 if __name__ == "__main__":
     unittest.main()

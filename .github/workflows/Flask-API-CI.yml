@@ -42,8 +42,13 @@ jobs:
         if: steps.cached-poetry-dependencies.outputs.cache-hit != 'true'
         run: poetry install --no-interaction --no-root
 
-      # - name: Lint with flake8
-      #   run: make lint
+      - name: flake8 Lint
+        uses: py-actions/flake8@v2
+        with:
+          ignore: "E501, F541"
+          exclude: ".venv, .git, __pycache__, build, dist, .mypy_cache, .pytest_cache"
+          max-line-length: "127"
+          plugins: "flake8-bugbear==22.1.11 flake8-black"
 
       - name: Run tests with coverage
         working-directory: Flask-API

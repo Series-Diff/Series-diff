@@ -5,7 +5,7 @@ import pandas as pd
 from services.time_series_manager import TimeSeriesManager
 import services.metric_service as metric_service
 from flask_cors import CORS
-from flask import Flask, jsonify, redirect, request, url_for
+from flask import Flask, jsonify, request
 from utils.time_utils import convert_timeseries_keys_timezone
 
 sys.stdout.reconfigure(line_buffering=True)
@@ -31,6 +31,7 @@ def health_check():
 def index():
     return jsonify({"status": "API is working", "service": "SeriesDiff Backend"}), 200
 
+
 @app.route("/api/timeseries", methods=["GET"])
 def get_timeseries():
 
@@ -46,7 +47,7 @@ def get_timeseries():
     start = request.args.get("start")
     end = request.args.get("end")
     try:
-        data = timeseries_manager.get_timeseries(time = time, filename=filename, category=category, start=start, end=end)
+        data = timeseries_manager.get_timeseries(time=time, filename=filename, category=category, start=start, end=end)
     except (KeyError, ValueError) as e:
         logger.error("Error fetching timeseries for filename '%s' and category '%s' and time interval '%s - %s': %s", filename, category, start, end, e)
         return jsonify({"error": str(e)}), 400
@@ -173,6 +174,7 @@ def get_scatter_data():
     except Exception as e:
         logger.error(f"Error getting scatter data: {e}")
         return jsonify({"error": str(e)}), 400
+
 
 @app.route("/api/timeseries/mean", methods=["GET"])
 def get_mean():
@@ -378,7 +380,6 @@ def get_pearson_correlation():
     Returns:
         JSON response with the Pearson correlation value or error message.
     """
-    time = request.args.get("time")
     filename1 = request.args.get("filename1")
     filename2 = request.args.get("filename2")
     category = request.args.get("category")
@@ -399,6 +400,7 @@ def get_pearson_correlation():
         return jsonify({"error": "No valid timeseries data provided"}), 400
     logger.info("Successfully calculated Pearson correlation for provided timeseries data for filenames '%s' and '%s' in category '%s'", filename1, filename2, category)
     return jsonify({"pearson_correlation": correlation}), 200
+
 
 @app.route("/api/timeseries/cosine_similarity", methods=["GET"])
 def get_cosine_similarity():
@@ -440,6 +442,7 @@ def get_cosine_similarity():
     logger.info("Successfully calculated cosine similarity for provided timeseries data for filenames '%s' and '%s' in category '%s'", filename1, filename2, category)
     return jsonify({"cosine_similarity": similarity}), 200
 
+
 @app.route("/api/timeseries/mae", methods=["GET"])
 def get_mae():
     """
@@ -473,7 +476,6 @@ def get_mae():
                 filename1, filename2, category)
 
     return jsonify({"mae": mae}), 200
-
 
 
 @app.route("/api/timeseries/rmse", methods=["GET"])
@@ -550,6 +552,7 @@ def get_rolling_mean():
 
     return jsonify({"rolling_mean": rolling_mean_series}), 200
 
+
 @app.route("/api/timeseries/dtw", methods=["GET"])
 def get_dtw():
     filename1 = request.args.get("filename1")
@@ -571,6 +574,7 @@ def get_dtw():
 
     return jsonify({"dtw_distance": dtw_distance}), 200
 
+
 @app.route("/api/timeseries/euclidean_distance", methods=["GET"])
 def get_euclidean_distance():
     filename1 = request.args.get("filename1")
@@ -591,6 +595,7 @@ def get_euclidean_distance():
         return jsonify({"error": str(e)}), 400
 
     return jsonify({"euclidean_distance": euclidean_distances}), 200
+
 
 @app.route("/api/upload-timeseries", methods=["POST"])
 def add_timeseries():
@@ -635,8 +640,10 @@ def clear_timeseries():
         return jsonify({"error": str(e)}), 400
     return jsonify({"status": "All timeseries cleared"}), 200
 
+
 def all_required_services_are_running():
     return True
+
 
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=5000)

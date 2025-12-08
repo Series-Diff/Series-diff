@@ -1,7 +1,7 @@
 import unittest
 import pandas as pd
 import numpy as np
-from services.metric_service import *
+from services.metric_service import extract_series_from_dict, calculate_basic_statistics, calculate_autocorrelation, calculate_coefficient_of_variation, calculate_iqr, calculate_pearson_correlation
 
 
 class TestExtractSeriesFromDict(unittest.TestCase):
@@ -29,7 +29,7 @@ class TestExtractSeriesFromDict(unittest.TestCase):
     def test_empty_data(self):
         # Arrange
         data = {}
-        
+
         # Act
         result = extract_series_from_dict(data, "category", "file")
 
@@ -66,6 +66,7 @@ class TestExtractSeriesFromDict(unittest.TestCase):
         # Act & Assert
         with self.assertRaises(ValueError):
             extract_series_from_dict(data, "category1", "file1")
+
 
 class TestCalculateBasicStatistics(unittest.TestCase):
     def test_typical_series(self):
@@ -116,9 +117,9 @@ class TestCalculateBasicStatistics(unittest.TestCase):
         result = calculate_basic_statistics(series)
         self.assertTrue(isinstance(result, str) or "error" in result)
 
+
 class TestCalculateAutocorrelation(unittest.TestCase):
     def test_typical_series(self):
-
         # Arrange
         series = {
             "2023-01-01": 1,
@@ -128,7 +129,7 @@ class TestCalculateAutocorrelation(unittest.TestCase):
             "2023-01-05": 5
         }
 
-        # Act 
+        # Act
         acf_value = calculate_autocorrelation(series)
 
         # Assert
@@ -168,6 +169,7 @@ class TestCalculateAutocorrelation(unittest.TestCase):
 
         # Assert
         self.assertTrue(np.isnan(acf_value))
+
 
 class TestCalculateCoefficientOfVariation(unittest.TestCase):
     def test_typical_series(self):
@@ -299,6 +301,7 @@ class TestCalculateIQR(unittest.TestCase):
         # Assert
         self.assertTrue(np.isnan(iqr))
 
+
 class TestCalculatePearsonCorrelation(unittest.TestCase):
     def test_typical_series(self):
 
@@ -375,11 +378,12 @@ class TestCalculatePearsonCorrelation(unittest.TestCase):
             "2023-01-03": 6
         }
 
-        #act
+        # Act
         correlation = calculate_pearson_correlation(series1, series2)
 
-        #assert
+        # Assert
         self.assertTrue(np.isnan(correlation))
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -3,6 +3,7 @@ from datetime import datetime
 from zoneinfo import ZoneInfo
 from typing import Dict, Any
 
+
 def parse_iso_maybe_z(ts: str) -> datetime:
     """
     Parse ISO timestamp possibly ending with 'Z' into an aware datetime in UTC.
@@ -22,6 +23,7 @@ def parse_iso_maybe_z(ts: str) -> datetime:
         return dt.replace(tzinfo=ZoneInfo("UTC"))
     return dt
 
+
 def convert_timeseries_keys_timezone(data: Dict[str, Any], tz_str: str = "Europe/Warsaw", keep_offset: bool = False) -> Dict[str, Any]:
     """
     Convert top-level timestamp keys of a nested timeseries dict to specified timezone.
@@ -38,7 +40,7 @@ def convert_timeseries_keys_timezone(data: Dict[str, Any], tz_str: str = "Europe
     for key, value in data.items():
         try:
             dt_utc = parse_iso_maybe_z(key)  # aware (UTC)
-        except Exception as e:
+        except Exception:
             # if key is not a timestamp, keep as-is
             out[key] = value
             continue
