@@ -29,9 +29,9 @@ init: ## Initialize ALL environments (Infra, Backend, Frontend)
 
 dependencies: ## Install/Update dependencies for ALL parts
 	@echo "$(GREEN)Updating Infrastructure dependencies...$(NC)"
-	@poetry install
+	@poetry lock && poetry install
 	@echo "$(GREEN)Updating Backend dependencies...$(NC)"
-	@cd Flask-API && poetry install
+	@cd Flask-API && poetry lock && poetry install
 	@echo "$(GREEN)Updating Frontend dependencies...$(NC)"
 	@cd client && npm install
 	@echo "$(GREEN)✓ All dependencies up to date!$(NC)"
