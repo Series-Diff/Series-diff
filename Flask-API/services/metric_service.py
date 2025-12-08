@@ -21,7 +21,9 @@ def extract_series_from_dict(data: dict, category: str, filename: str) -> dict:
         or not isinstance(category, str)
         or not isinstance(filename, str)
     ):
-        raise ValueError("Invalid data structure for: " + str(category) + " " + str(filename))
+        raise ValueError(
+            "Invalid data structure for: " + str(category) + " " + str(filename)
+        )
 
     series = {}
     for key in data.keys():
