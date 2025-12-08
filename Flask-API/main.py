@@ -15,16 +15,15 @@ sys.stdout.reconfigure(line_buffering=True)
 
 timeseries_manager = TimeSeriesManager()
 app = Flask(__name__)
-app.config['MAX_CONTENT_LENGTH'] = 16 * 1024 * 1024  # 16MB max
+app.config["MAX_CONTENT_LENGTH"] = 16 * 1024 * 1024  # 16MB max
 CORS(app)
 logger = app.logger
 logger.setLevel("DEBUG")
 
 limiter = Limiter(
-    app=app,
-    key_func=get_remote_address,
-    default_limits=["200 per day", "50 per hour"]
+    app=app, key_func=get_remote_address, default_limits=["200 per day", "50 per hour"]
 )
+
 
 @app.route("/health")
 def health_check():
