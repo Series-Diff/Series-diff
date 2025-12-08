@@ -65,6 +65,14 @@ def get_aligned_data(
     """
     Helper function to align two series based on timestamp with tolerance.
     Returns a DataFrame with columns ['value1', 'value2'] indexed by time.
+
+    Args:
+        series1 (dict): First time series.
+        series2 (dict): Second time series.
+        tolerance (str | None): Optional tolerance for aligning timestamps.
+
+    Returns:
+        pd.DataFrame: Aligned data with columns ['value1', 'value2'] indexed by time.
     """
     if not isinstance(series1, dict) or not isinstance(series2, dict):
         raise ValueError("Inputs must be dictionaries")

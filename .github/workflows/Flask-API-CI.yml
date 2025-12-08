@@ -46,7 +46,7 @@ jobs:
         uses: py-actions/flake8@v2
         with:
           path: "./Flask-API"
-          ignore: "E501,F541"
+          ignore: "E501,W503,F541"
           exclude: ".venv"
           max-line-length: "127"
           plugins: "flake8-bugbear flake8-black"
