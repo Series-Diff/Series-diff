@@ -1,7 +1,14 @@
 import unittest
 import pandas as pd
 import numpy as np
-from services.metric_service import extract_series_from_dict, calculate_basic_statistics, calculate_autocorrelation, calculate_coefficient_of_variation, calculate_iqr, calculate_pearson_correlation
+from services.metric_service import (
+    extract_series_from_dict,
+    calculate_basic_statistics,
+    calculate_autocorrelation,
+    calculate_coefficient_of_variation,
+    calculate_iqr,
+    calculate_pearson_correlation,
+)
 
 
 class TestExtractSeriesFromDict(unittest.TestCase):
@@ -11,18 +18,14 @@ class TestExtractSeriesFromDict(unittest.TestCase):
         data = {
             "2023-01-01": {"category1": {"file1": 1, "file2": 2}},
             "2023-01-02": {"category1": {"file1": 3, "file2": 4}},
-            "2023-01-03": {"category1": {"file1": 5, "file2": 6}}
+            "2023-01-03": {"category1": {"file1": 5, "file2": 6}},
         }
 
         # Act
         result = extract_series_from_dict(data, "category1", "file1")
 
         # Assert
-        expected = {
-            "2023-01-01": 1,
-            "2023-01-02": 3,
-            "2023-01-03": 5
-        }
+        expected = {"2023-01-01": 1, "2023-01-02": 3, "2023-01-03": 5}
 
         self.assertEqual(result, expected)
 
@@ -48,7 +51,7 @@ class TestExtractSeriesFromDict(unittest.TestCase):
         # Arrange
         data = {
             "2023-01-01": {"category1": {"file1": 1, "file2": 2}},
-            "2023-01-02": {"category1": {"file1": 3, "file2": 4}}
+            "2023-01-02": {"category1": {"file1": 3, "file2": 4}},
         }
 
         # Act & Assert
@@ -60,7 +63,7 @@ class TestExtractSeriesFromDict(unittest.TestCase):
         # Arrange
         data = {
             "2023-01-01": {"category1": {"file1": 1, "file2": 2}},
-            "2023-01-02": {"category1": {"file1": "invalid", "file2": 4}}
+            "2023-01-02": {"category1": {"file1": "invalid", "file2": 4}},
         }
 
         # Act & Assert
@@ -75,7 +78,7 @@ class TestCalculateBasicStatistics(unittest.TestCase):
             "2023-01-02": 2,
             "2023-01-03": 3,
             "2023-01-04": 4,
-            "2023-01-05": 5
+            "2023-01-05": 5,
         }
         stats = calculate_basic_statistics(series)
         self.assertAlmostEqual(stats["mean"], 3.0)
@@ -98,11 +101,7 @@ class TestCalculateBasicStatistics(unittest.TestCase):
         self.assertTrue(np.isnan(stats["std_dev"]))
 
     def test_nan_values(self):
-        series = {
-            "2023-01-01": np.nan,
-            "2023-01-02": 2,
-            "2023-01-03": 3
-        }
+        series = {"2023-01-01": np.nan, "2023-01-02": 2, "2023-01-03": 3}
         stats = calculate_basic_statistics(series)
         self.assertFalse(pd.isna(stats["mean"]))
         self.assertFalse(pd.isna(stats["median"]))
@@ -110,10 +109,7 @@ class TestCalculateBasicStatistics(unittest.TestCase):
         self.assertFalse(pd.isna(stats["std_dev"]))
 
     def test_string_values(self):
-        series = {
-            "2023-01-01": "a",
-            "2023-01-02": "b"
-        }
+        series = {"2023-01-01": "a", "2023-01-02": "b"}
         result = calculate_basic_statistics(series)
         self.assertTrue(isinstance(result, str) or "error" in result)
 
@@ -126,7 +122,7 @@ class TestCalculateAutocorrelation(unittest.TestCase):
             "2023-01-02": 2,
             "2023-01-03": 3,
             "2023-01-04": 4,
-            "2023-01-05": 5
+            "2023-01-05": 5,
         }
 
         # Act
@@ -158,11 +154,7 @@ class TestCalculateAutocorrelation(unittest.TestCase):
     def test_nan_values(self):
 
         # Arrange
-        series = {
-            "2023-01-01": np.nan,
-            "2023-01-02": 2,
-            "2023-01-03": 3
-        }
+        series = {"2023-01-01": np.nan, "2023-01-02": 2, "2023-01-03": 3}
 
         # Act
         acf_value = calculate_autocorrelation(series)
@@ -180,7 +172,7 @@ class TestCalculateCoefficientOfVariation(unittest.TestCase):
             "2023-01-02": 2,
             "2023-01-03": 3,
             "2023-01-04": 4,
-            "2023-01-05": 5
+            "2023-01-05": 5,
         }
 
         # Act
@@ -219,7 +211,7 @@ class TestCalculateCoefficientOfVariation(unittest.TestCase):
             "2023-01-02": 2,
             "2023-01-03": 3,
             "2023-01-04": 4,
-            "2023-01-05": 5
+            "2023-01-05": 5,
         }
 
         # Act
@@ -231,11 +223,7 @@ class TestCalculateCoefficientOfVariation(unittest.TestCase):
     def test_zero_mean(self):
 
         # Arrange
-        series = {
-            "2023-01-01": 0,
-            "2023-01-02": 0,
-            "2023-01-03": 0
-        }
+        series = {"2023-01-01": 0, "2023-01-02": 0, "2023-01-03": 0}
 
         # Act
         cv = calculate_coefficient_of_variation(series)
@@ -253,7 +241,7 @@ class TestCalculateIQR(unittest.TestCase):
             "2023-01-02": 2,
             "2023-01-03": 3,
             "2023-01-04": 4,
-            "2023-01-05": 5
+            "2023-01-05": 5,
         }
 
         # Act
@@ -292,7 +280,7 @@ class TestCalculateIQR(unittest.TestCase):
             "2023-01-02": 2,
             "2023-01-03": 3,
             "2023-01-04": 4,
-            "2023-01-05": 5
+            "2023-01-05": 5,
         }
 
         # Act
@@ -311,7 +299,7 @@ class TestCalculatePearsonCorrelation(unittest.TestCase):
             "2023-01-02": 2,
             "2023-01-03": 3,
             "2023-01-04": 4,
-            "2023-01-05": 5
+            "2023-01-05": 5,
         }
 
         series2 = {
@@ -319,7 +307,7 @@ class TestCalculatePearsonCorrelation(unittest.TestCase):
             "2023-01-02": 4,
             "2023-01-03": 3,
             "2023-01-04": 2,
-            "2023-01-05": 1
+            "2023-01-05": 1,
         }
 
         # Act
@@ -342,10 +330,7 @@ class TestCalculatePearsonCorrelation(unittest.TestCase):
 
     def test_one_series_empty(self):
         # Arrange
-        series1 = {
-            "2023-01-01": 1,
-            "2023-01-02": 2
-        }
+        series1 = {"2023-01-01": 1, "2023-01-02": 2}
         series2 = {}
 
         # Act
@@ -367,16 +352,8 @@ class TestCalculatePearsonCorrelation(unittest.TestCase):
 
     def test_nan_values(self):
         # Arrange
-        series1 = {
-            "2023-01-01": np.nan,
-            "2023-01-02": 2,
-            "2023-01-03": 3
-        }
-        series2 = {
-            "2023-01-01": 5,
-            "2023-01-02": np.nan,
-            "2023-01-03": 6
-        }
+        series1 = {"2023-01-01": np.nan, "2023-01-02": 2, "2023-01-03": 3}
+        series2 = {"2023-01-01": 5, "2023-01-02": np.nan, "2023-01-03": 6}
 
         # Act
         correlation = calculate_pearson_correlation(series1, series2)

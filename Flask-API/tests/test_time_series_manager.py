@@ -11,7 +11,7 @@ class TestTimeSeriesManagerAddMethod(unittest.TestCase):
         time = "2023-01-01"
         data = {
             "category1": {"file1": 1.0, "file2": 2.0},
-            "category2": {"file3": 3.0, "file4": 4.0}
+            "category2": {"file3": 3.0, "file4": 4.0},
         }
 
         # Act
@@ -37,9 +37,7 @@ class TestTimeSeriesManagerAddMethod(unittest.TestCase):
     def test_add_timeseries_invalid_category(self):
         # Arrange
         time = "2023-01-01"
-        data = {
-            "category1": ["invalid_file_data"]
-        }
+        data = {"category1": ["invalid_file_data"]}
 
         # Act & Assert
         with self.assertRaises(ValueError):
@@ -48,9 +46,7 @@ class TestTimeSeriesManagerAddMethod(unittest.TestCase):
     def test_add_timeseries_invalid_file_data(self):
         # Arrange
         time = "2023-01-01"
-        data = {
-            "category1": {"file1": "invalid_data"}
-        }
+        data = {"category1": {"file1": "invalid_data"}}
 
         # Act & Assert
         with self.assertRaises(ValueError):
@@ -62,22 +58,10 @@ class TestTimeSeriesManagerGetMethod(unittest.TestCase):
         self.manager = tsm.TimeSeriesManager()
         self.manager.timeseries = {
             "2023-01-01": {
-                "category1": {
-                    "file1": 1.0,
-                    "file2": 2.0,
-                    "file3": 3.0
-                },
-                "category2": {
-                    "file1": 3.0,
-                    "file2": 4.0
-                }
+                "category1": {"file1": 1.0, "file2": 2.0, "file3": 3.0},
+                "category2": {"file1": 3.0, "file2": 4.0},
             },
-            "2023-01-02": {
-                "category1": {
-                    "file2": 6.0,
-                    "file3": 7.0
-                }
-            }
+            "2023-01-02": {"category1": {"file2": 6.0, "file3": 7.0}},
         }
 
     def test_get_all_timeseries(self):
@@ -87,22 +71,10 @@ class TestTimeSeriesManagerGetMethod(unittest.TestCase):
         # Assert
         expected = {
             "2023-01-01": {
-                "category1": {
-                    "file1": 1.0,
-                    "file2": 2.0,
-                    "file3": 3.0
-                },
-                "category2": {
-                    "file1": 3.0,
-                    "file2": 4.0
-                }
+                "category1": {"file1": 1.0, "file2": 2.0, "file3": 3.0},
+                "category2": {"file1": 3.0, "file2": 4.0},
             },
-            "2023-01-02": {
-                "category1": {
-                    "file2": 6.0,
-                    "file3": 7.0
-                }
-            }
+            "2023-01-02": {"category1": {"file2": 6.0, "file3": 7.0}},
         }
 
         self.assertEqual(result, expected)
@@ -114,15 +86,8 @@ class TestTimeSeriesManagerGetMethod(unittest.TestCase):
         # Assert
         expected = {
             "2023-01-01": {
-                "category1": {
-                    "file1": 1.0,
-                    "file2": 2.0,
-                    "file3": 3.0
-                },
-                "category2": {
-                    "file1": 3.0,
-                    "file2": 4.0
-                }
+                "category1": {"file1": 1.0, "file2": 2.0, "file3": 3.0},
+                "category2": {"file1": 3.0, "file2": 4.0},
             }
         }
         self.assertEqual(result, expected)
@@ -133,19 +98,8 @@ class TestTimeSeriesManagerGetMethod(unittest.TestCase):
 
         # Assert
         expected = {
-            "2023-01-01": {
-                "category1": {
-                    "file1": 1.0,
-                    "file2": 2.0,
-                    "file3": 3.0
-                }
-            },
-            "2023-01-02": {
-                "category1": {
-                    "file2": 6.0,
-                    "file3": 7.0
-                }
-            }
+            "2023-01-01": {"category1": {"file1": 1.0, "file2": 2.0, "file3": 3.0}},
+            "2023-01-02": {"category1": {"file2": 6.0, "file3": 7.0}},
         }
         self.assertEqual(result, expected)
 
@@ -155,14 +109,7 @@ class TestTimeSeriesManagerGetMethod(unittest.TestCase):
 
         # Assert
         expected = {
-            "2023-01-01": {
-                "category1": {
-                    "file1": 1.0
-                },
-                "category2": {
-                    "file1": 3.0
-                }
-            }
+            "2023-01-01": {"category1": {"file1": 1.0}, "category2": {"file1": 3.0}}
         }
         self.assertEqual(result, expected)
 
@@ -172,13 +119,7 @@ class TestTimeSeriesManagerGetMethod(unittest.TestCase):
 
         # Assert
         expected = {
-            "2023-01-01": {
-                "category1": {
-                    "file1": 1.0,
-                    "file2": 2.0,
-                    "file3": 3.0
-                }
-            }
+            "2023-01-01": {"category1": {"file1": 1.0, "file2": 2.0, "file3": 3.0}}
         }
         self.assertEqual(result, expected)
 
@@ -188,14 +129,7 @@ class TestTimeSeriesManagerGetMethod(unittest.TestCase):
 
         # Assert
         expected = {
-            "2023-01-01": {
-                    "category1": {
-                        "file1": 1.0
-                    },
-                    "category2": {
-                        "file1": 3.0
-                    }
-            }
+            "2023-01-01": {"category1": {"file1": 1.0}, "category2": {"file1": 3.0}}
         }
         self.assertEqual(result, expected)
 
@@ -204,27 +138,17 @@ class TestTimeSeriesManagerGetMethod(unittest.TestCase):
         result = self.manager.get_timeseries(category="category1", filename="file1")
 
         # Assert
-        expected = {
-            "2023-01-01": {
-                "category1": {
-                    "file1": 1.0
-                }
-            }
-        }
+        expected = {"2023-01-01": {"category1": {"file1": 1.0}}}
         self.assertEqual(result, expected)
 
     def test_get_timeseries_with_time_category_and_filename(self):
         # Act
-        result = self.manager.get_timeseries(time="2023-01-01", category="category1", filename="file1")
+        result = self.manager.get_timeseries(
+            time="2023-01-01", category="category1", filename="file1"
+        )
 
         # Assert
-        expected = {
-            "2023-01-01": {
-                "category1": {
-                    "file1": 1.0
-                }
-            }
-        }
+        expected = {"2023-01-01": {"category1": {"file1": 1.0}}}
         self.assertEqual(result, expected)
 
     def test_get_timeseries_no_data(self):
@@ -245,7 +169,7 @@ class TestTimeSeriesManagerGetMethod(unittest.TestCase):
     def test_get_timeseries_invalid_data_type(self):
         # Act & Assert
         with self.assertRaises(ValueError):
-            self.manager.get_timeseries(time=2023-1-1)
+            self.manager.get_timeseries(time=2023 - 1 - 1)
 
     def test_get_timeseries_invalid_category(self):
         # Act & Assert
@@ -264,7 +188,7 @@ class TestTimeSeriesManagerClearTimeseries(unittest.TestCase):
         self.manager.timeseries = {
             "2023-01-01": {
                 "category1": {"file1": 1.0, "file2": 2.0},
-                "category2": {"file3": 3.0, "file4": 4.0}
+                "category2": {"file3": 3.0, "file4": 4.0},
             }
         }
 

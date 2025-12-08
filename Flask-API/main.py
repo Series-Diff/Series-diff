@@ -18,13 +18,13 @@ logger = app.logger
 logger.setLevel("DEBUG")
 
 
-@app.route('/health')
+@app.route("/health")
 def health_check():
     # Add your custom health check logic here
     if all_required_services_are_running():
-        return 'OK', 200
+        return "OK", 200
     else:
-        return 'Service Unavailable', 500
+        return "Service Unavailable", 500
 
 
 @app.route("/", methods=["GET"])
@@ -34,7 +34,6 @@ def index():
 
 @app.route("/api/timeseries", methods=["GET"])
 def get_timeseries():
-
     """
     Get timeseries data for a specific filename, category and time interval.
 
@@ -47,24 +46,60 @@ def get_timeseries():
     start = request.args.get("start")
     end = request.args.get("end")
     try:
-        data = timeseries_manager.get_timeseries(time=time, filename=filename, category=category, start=start, end=end)
+        data = timeseries_manager.get_timeseries(
+            time=time, filename=filename, category=category, start=start, end=end
+        )
     except (KeyError, ValueError) as e:
-        logger.error("Error fetching timeseries for filename '%s' and category '%s' and time interval '%s - %s': %s", filename, category, start, end, e)
+        logger.error(
+            "Error fetching timeseries for filename '%s' and category '%s' and time interval '%s - %s': %s",
+            filename,
+            category,
+            start,
+            end,
+            e,
+        )
         return jsonify({"error": str(e)}), 400
     except Exception as e:
-        logger.error("Unexpected error fetching timeseries for filename '%s' and category '%s' and time interval '%s - %s': %s", filename, category, start, end, e)
+        logger.error(
+            "Unexpected error fetching timeseries for filename '%s' and category '%s' and time interval '%s - %s': %s",
+            filename,
+            category,
+            start,
+            end,
+            e,
+        )
         return jsonify({"error": "Unexpected error occurred"}), 500
     tz_param = request.args.get("tz", "Europe/Warsaw")
-    keep_offset_param = request.args.get("keep_offset", "false").lower() in ("1", "true", "yes")
+    keep_offset_param = request.args.get("keep_offset", "false").lower() in (
+        "1",
+        "true",
+        "yes",
+    )
     if data:
         try:
-            data = convert_timeseries_keys_timezone(data, tz_str=tz_param, keep_offset=keep_offset_param)
+            data = convert_timeseries_keys_timezone(
+                data, tz_str=tz_param, keep_offset=keep_offset_param
+            )
         except Exception as e:
-            logger.warning("Time conversion failed: %s. Returning original timestamps.", e)
+            logger.warning(
+                "Time conversion failed: %s. Returning original timestamps.", e
+            )
     if data is None:
-        logger.warning("Timeseries not found for filename '%s' and category '%s' and time interval '%s - %s'", filename, category, start, end)
+        logger.warning(
+            "Timeseries not found for filename '%s' and category '%s' and time interval '%s - %s'",
+            filename,
+            category,
+            start,
+            end,
+        )
         return jsonify({"error": "Timeseries not found"}), 404
-    logger.info("Successfully fetched timeseries for filename '%s' and category '%s' and time interval '%s - %s'", filename, category, start, end)
+    logger.info(
+        "Successfully fetched timeseries for filename '%s' and category '%s' and time interval '%s - %s'",
+        filename,
+        category,
+        start,
+        end,
+    )
     return jsonify(data), 200
 
 
@@ -146,14 +181,22 @@ def get_scatter_data():
         # Pobranie danych
         data1 = timeseries_manager.get_timeseries(filename=filename1, category=category)
         tz_param = request.args.get("tz", "Europe/Warsaw")
-        keep_offset_param = request.args.get("keep_offset", "false").lower() in ("1", "true", "yes")
+        keep_offset_param = request.args.get("keep_offset", "false").lower() in (
+            "1",
+            "true",
+            "yes",
+        )
         if data1:
-            data1 = convert_timeseries_keys_timezone(data1, tz_str=tz_param, keep_offset=keep_offset_param)
+            data1 = convert_timeseries_keys_timezone(
+                data1, tz_str=tz_param, keep_offset=keep_offset_param
+            )
         serie1 = metric_service.extract_series_from_dict(data1, category, filename1)
 
         data2 = timeseries_manager.get_timeseries(filename=filename2, category=category)
         if data2:
-            data2 = convert_timeseries_keys_timezone(data2, tz_str=tz_param, keep_offset=keep_offset_param)
+            data2 = convert_timeseries_keys_timezone(
+                data2, tz_str=tz_param, keep_offset=keep_offset_param
+            )
         serie2 = metric_service.extract_series_from_dict(data2, category, filename2)
 
         # Użycie wspólnej logiki alignowania
@@ -163,11 +206,9 @@ def get_scatter_data():
         # Format: [{x: 10, y: 12, time: "2023-01-01..."}, ...]
         result = []
         for index, row in df_merged.iterrows():
-            result.append({
-                "x": row["value1"],
-                "y": row["value2"],
-                "time": index.isoformat()
-            })
+            result.append(
+                {"x": row["value1"], "y": row["value2"], "time": index.isoformat()}
+            )
 
         return jsonify(result), 200
 
@@ -190,16 +231,37 @@ def get_mean():
     start = request.args.get("start")
     end = request.args.get("end")
     try:
-        data = timeseries_manager.get_timeseries(filename=filename, category=category, start=start, end=end)
+        data = timeseries_manager.get_timeseries(
+            filename=filename, category=category, start=start, end=end
+        )
         serie = metric_service.extract_series_from_dict(data, category, filename)
-        mean = metric_service.calculate_basic_statistics(serie)['mean']
+        mean = metric_service.calculate_basic_statistics(serie)["mean"]
     except (KeyError, ValueError) as e:
-        logger.error("Error calculating mean for filename '%s' and category '%s' and time interval '%s - %s': %s", filename, category, start, end, e)
+        logger.error(
+            "Error calculating mean for filename '%s' and category '%s' and time interval '%s - %s': %s",
+            filename,
+            category,
+            start,
+            end,
+            e,
+        )
         return jsonify({"error": str(e)}), 400
     if mean is None:
-        logger.warning("No valid timeseries data provided for mean calculation for filename '%s' and category '%s' and time interval '%s - %s'", filename, category, start, end)
+        logger.warning(
+            "No valid timeseries data provided for mean calculation for filename '%s' and category '%s' and time interval '%s - %s'",
+            filename,
+            category,
+            start,
+            end,
+        )
         return jsonify({"error": "No valid timeseries data provided"}), 400
-    logger.info("Successfully calculated mean for provided timeseries data: filename '%s', category '%s', time interval '%s - %s'", filename, category, start, end)
+    logger.info(
+        "Successfully calculated mean for provided timeseries data: filename '%s', category '%s', time interval '%s - %s'",
+        filename,
+        category,
+        start,
+        end,
+    )
 
     return jsonify({"mean": mean}), 200
 
@@ -218,17 +280,45 @@ def get_median():
     start = request.args.get("start")
     end = request.args.get("end")
     try:
-        data = timeseries_manager.get_timeseries(filename=filename, category=category, start=start, end=end)
+        data = timeseries_manager.get_timeseries(
+            filename=filename, category=category, start=start, end=end
+        )
         serie = metric_service.extract_series_from_dict(data, category, filename)
-        median = metric_service.calculate_basic_statistics(serie)['median']
-        logger.debug("Calculated median: %s for filename '%s' and category '%s' and time interval '%s - %s'", median, filename, category, start, end)
+        median = metric_service.calculate_basic_statistics(serie)["median"]
+        logger.debug(
+            "Calculated median: %s for filename '%s' and category '%s' and time interval '%s - %s'",
+            median,
+            filename,
+            category,
+            start,
+            end,
+        )
     except (KeyError, ValueError) as e:
-        logger.error("Error calculating median for filename '%s' and category '%s' and time interval '%s - %s': %s", filename, category, start, end, e)
+        logger.error(
+            "Error calculating median for filename '%s' and category '%s' and time interval '%s - %s': %s",
+            filename,
+            category,
+            start,
+            end,
+            e,
+        )
         return jsonify({"error": str(e)}), 400
     if median is None:
-        logger.warning("No valid timeseries data provided for median calculation for filename '%s' and category '%s' and time interval '%s - %s'", filename, category, start, end)
+        logger.warning(
+            "No valid timeseries data provided for median calculation for filename '%s' and category '%s' and time interval '%s - %s'",
+            filename,
+            category,
+            start,
+            end,
+        )
         return jsonify({"error": "No valid timeseries data provided"}), 400
-    logger.info("Successfully calculated median for provided timeseries data for filename '%s' and category '%s' and time interval '%s - %s'", filename, category, start, end)
+    logger.info(
+        "Successfully calculated median for provided timeseries data for filename '%s' and category '%s' and time interval '%s - %s'",
+        filename,
+        category,
+        start,
+        end,
+    )
 
     return jsonify({"median": median}), 200
 
@@ -247,16 +337,37 @@ def get_variance():
     start = request.args.get("start")
     end = request.args.get("end")
     try:
-        data = timeseries_manager.get_timeseries(filename=filename, category=category, start=start, end=end)
+        data = timeseries_manager.get_timeseries(
+            filename=filename, category=category, start=start, end=end
+        )
         serie = metric_service.extract_series_from_dict(data, category, filename)
         variance = metric_service.calculate_basic_statistics(serie)["variance"]
     except (KeyError, ValueError) as e:
-        logger.error("Error calculating variance for filename '%s' and category '%s' and time interval '%s - %s': %s", filename, category, start, end, e)
+        logger.error(
+            "Error calculating variance for filename '%s' and category '%s' and time interval '%s - %s': %s",
+            filename,
+            category,
+            start,
+            end,
+            e,
+        )
         return jsonify({"error": str(e)}), 400
     if variance is None:
-        logger.warning("No valid timeseries data provided for variance calculation for filename '%s' and category '%s' and time interval '%s - %s'", filename, category, start, end)
+        logger.warning(
+            "No valid timeseries data provided for variance calculation for filename '%s' and category '%s' and time interval '%s - %s'",
+            filename,
+            category,
+            start,
+            end,
+        )
         return jsonify({"error": "No valid timeseries data provided"}), 400
-    logger.info("Successfully calculated variance for provided timeseries data for filename '%s' and category '%s' and time interval '%s - %s'", filename, category, start, end)
+    logger.info(
+        "Successfully calculated variance for provided timeseries data for filename '%s' and category '%s' and time interval '%s - %s'",
+        filename,
+        category,
+        start,
+        end,
+    )
 
     return jsonify({"variance": variance}), 200
 
@@ -274,16 +385,37 @@ def get_standard_deviation():
     start = request.args.get("start")
     end = request.args.get("end")
     try:
-        data = timeseries_manager.get_timeseries(filename=filename, category=category, start=start, end=end)
+        data = timeseries_manager.get_timeseries(
+            filename=filename, category=category, start=start, end=end
+        )
         serie = metric_service.extract_series_from_dict(data, category, filename)
         std_dev = metric_service.calculate_basic_statistics(serie)["std_dev"]
     except (KeyError, ValueError) as e:
-        logger.error("Error calculating standard deviation for filename '%s' and category '%s' and time interval '%s - %s': %s", filename, category, start, end, e)
+        logger.error(
+            "Error calculating standard deviation for filename '%s' and category '%s' and time interval '%s - %s': %s",
+            filename,
+            category,
+            start,
+            end,
+            e,
+        )
         return jsonify({"error": str(e)}), 400
     if std_dev is None:
-        logger.warning("No valid timeseries data provided for standard deviation calculation for filename '%s' and category '%s' and time interval '%s - %s'", filename, category, start, end)
+        logger.warning(
+            "No valid timeseries data provided for standard deviation calculation for filename '%s' and category '%s' and time interval '%s - %s'",
+            filename,
+            category,
+            start,
+            end,
+        )
         return jsonify({"error": "No valid timeseries data provided"}), 400
-    logger.info("Successfully calculated standard deviation for provided timeseries data for filename '%s' and category '%s' and time interval '%s - %s'", filename, category, start, end)
+    logger.info(
+        "Successfully calculated standard deviation for provided timeseries data for filename '%s' and category '%s' and time interval '%s - %s'",
+        filename,
+        category,
+        start,
+        end,
+    )
 
     return jsonify({"standard_deviation": std_dev}), 200
 
@@ -297,22 +429,48 @@ def get_autocorrelation():
     """
     if not request.args.get("filename") or not request.args.get("category"):
         logger.error("Missing required parameters: 'filename' and 'category'")
-        return jsonify({"error": "Missing required parameters: 'filename' and 'category'"}), 400
+        return (
+            jsonify(
+                {"error": "Missing required parameters: 'filename' and 'category'"}
+            ),
+            400,
+        )
     filename = request.args.get("filename")
     category = request.args.get("category")
     start = request.args.get("start")
     end = request.args.get("end")
     try:
-        data = timeseries_manager.get_timeseries(filename=filename, category=category, start=start, end=end)
+        data = timeseries_manager.get_timeseries(
+            filename=filename, category=category, start=start, end=end
+        )
         serie = metric_service.extract_series_from_dict(data, category, filename)
         acf_value = metric_service.calculate_autocorrelation(serie)
     except (KeyError, ValueError) as e:
-        logger.error("Error calculating autocorrelation for filename '%s' and category '%s' and time interval '%s - %s': %s", filename, category, start, end, e)
+        logger.error(
+            "Error calculating autocorrelation for filename '%s' and category '%s' and time interval '%s - %s': %s",
+            filename,
+            category,
+            start,
+            end,
+            e,
+        )
         return jsonify({"error": str(e)}), 400
     if acf_value is None:
-        logger.warning("No valid timeseries data provided for autocorrelation calculation for filename '%s' and category '%s' and time interval '%s - %s'", filename, category, start, end)
+        logger.warning(
+            "No valid timeseries data provided for autocorrelation calculation for filename '%s' and category '%s' and time interval '%s - %s'",
+            filename,
+            category,
+            start,
+            end,
+        )
         return jsonify({"error": "No valid timeseries data provided"}), 400
-    logger.info("Successfully calculated autocorrelation for provided timeseries data for filename '%s' and category '%s' and time interval '%s - %s'", filename, category, start, end)
+    logger.info(
+        "Successfully calculated autocorrelation for provided timeseries data for filename '%s' and category '%s' and time interval '%s - %s'",
+        filename,
+        category,
+        start,
+        end,
+    )
 
     return jsonify({"autocorrelation": acf_value}), 200
 
@@ -330,16 +488,37 @@ def get_coefficient_of_variation():
     start = request.args.get("start")
     end = request.args.get("end")
     try:
-        data = timeseries_manager.get_timeseries(filename=filename, category=category, start=start, end=end)
+        data = timeseries_manager.get_timeseries(
+            filename=filename, category=category, start=start, end=end
+        )
         serie = metric_service.extract_series_from_dict(data, category, filename)
         cv = metric_service.calculate_coefficient_of_variation(serie)
     except (KeyError, ValueError) as e:
-        logger.error("Error calculating coefficient of variation for filename '%s' and category '%s' and time interval '%s - %s': %s", filename, category, start, end, e)
+        logger.error(
+            "Error calculating coefficient of variation for filename '%s' and category '%s' and time interval '%s - %s': %s",
+            filename,
+            category,
+            start,
+            end,
+            e,
+        )
         return jsonify({"error": str(e)}), 400
     if cv is None:
-        logger.warning("No valid timeseries data provided for coefficient of variation calculation for filename '%s' and category '%s' and time interval '%s - %s'", filename, category, start, end)
+        logger.warning(
+            "No valid timeseries data provided for coefficient of variation calculation for filename '%s' and category '%s' and time interval '%s - %s'",
+            filename,
+            category,
+            start,
+            end,
+        )
         return jsonify({"error": "No valid timeseries data provided"}), 400
-    logger.info("Successfully calculated coefficient of variation for provided timeseries data for filename '%s' and category '%s' and time interval '%s - %s'", filename, category, start, end)
+    logger.info(
+        "Successfully calculated coefficient of variation for provided timeseries data for filename '%s' and category '%s' and time interval '%s - %s'",
+        filename,
+        category,
+        start,
+        end,
+    )
 
     return jsonify({"coefficient_of_variation": cv}), 200
 
@@ -358,16 +537,37 @@ def get_iqr():
     start = request.args.get("start")
     end = request.args.get("end")
     try:
-        data = timeseries_manager.get_timeseries(filename=filename, category=category, start=start, end=end)
+        data = timeseries_manager.get_timeseries(
+            filename=filename, category=category, start=start, end=end
+        )
         serie = metric_service.extract_series_from_dict(data, category, filename)
         iqr = metric_service.calculate_iqr(serie)
     except (KeyError, ValueError) as e:
-        logger.error("Error calculating IQR for filename '%s' and category '%s' and time interval '%s - %s': %s", filename, category, start, end, e)
+        logger.error(
+            "Error calculating IQR for filename '%s' and category '%s' and time interval '%s - %s': %s",
+            filename,
+            category,
+            start,
+            end,
+            e,
+        )
         return jsonify({"error": str(e)}), 400
     if iqr is None:
-        logger.warning("No valid timeseries data provided for IQR calculation for filename '%s' and category '%s' and time interval '%s - %s'", filename, category, start, end)
+        logger.warning(
+            "No valid timeseries data provided for IQR calculation for filename '%s' and category '%s' and time interval '%s - %s'",
+            filename,
+            category,
+            start,
+            end,
+        )
         return jsonify({"error": "No valid timeseries data provided"}), 400
-    logger.info("Successfully calculated IQR for provided timeseries data for filename '%s' and category '%s' and time interval '%s - %s'", filename, category, start, end)
+    logger.info(
+        "Successfully calculated IQR for provided timeseries data for filename '%s' and category '%s' and time interval '%s - %s'",
+        filename,
+        category,
+        start,
+        end,
+    )
 
     return jsonify({"iqr": iqr}), 200
 
@@ -387,18 +587,40 @@ def get_pearson_correlation():
     end = request.args.get("end")
     tolerance = request.args.get("tolerance")
     try:
-        data1 = timeseries_manager.get_timeseries(filename=filename1, category=category, start=start, end=end)
+        data1 = timeseries_manager.get_timeseries(
+            filename=filename1, category=category, start=start, end=end
+        )
         serie1 = metric_service.extract_series_from_dict(data1, category, filename1)
-        data2 = timeseries_manager.get_timeseries(filename=filename2, category=category, start=start, end=end)
+        data2 = timeseries_manager.get_timeseries(
+            filename=filename2, category=category, start=start, end=end
+        )
         serie2 = metric_service.extract_series_from_dict(data2, category, filename2)
-        correlation = metric_service.calculate_pearson_correlation(serie1, serie2, tolerance)
+        correlation = metric_service.calculate_pearson_correlation(
+            serie1, serie2, tolerance
+        )
     except (KeyError, ValueError) as e:
-        logger.error("Error calculating Pearson correlation for filenames '%s' and '%s' in category '%s': %s", filename1, filename2, category, e)
+        logger.error(
+            "Error calculating Pearson correlation for filenames '%s' and '%s' in category '%s': %s",
+            filename1,
+            filename2,
+            category,
+            e,
+        )
         return jsonify({"error": str(e)}), 400
     if correlation is None:
-        logger.warning("No valid timeseries data provided for Pearson correlation calculation for filenames '%s' and '%s' in category '%s'", filename1, filename2, category)
+        logger.warning(
+            "No valid timeseries data provided for Pearson correlation calculation for filenames '%s' and '%s' in category '%s'",
+            filename1,
+            filename2,
+            category,
+        )
         return jsonify({"error": "No valid timeseries data provided"}), 400
-    logger.info("Successfully calculated Pearson correlation for provided timeseries data for filenames '%s' and '%s' in category '%s'", filename1, filename2, category)
+    logger.info(
+        "Successfully calculated Pearson correlation for provided timeseries data for filenames '%s' and '%s' in category '%s'",
+        filename1,
+        filename2,
+        category,
+    )
     return jsonify({"pearson_correlation": correlation}), 200
 
 
@@ -419,27 +641,49 @@ def get_cosine_similarity():
 
     try:
         # Pobierz dane dla obu plików
-        data1 = timeseries_manager.get_timeseries(filename=filename1, category=category, start=start, end=end)
+        data1 = timeseries_manager.get_timeseries(
+            filename=filename1, category=category, start=start, end=end
+        )
         serie1 = metric_service.extract_series_from_dict(data1, category, filename1)
 
-        data2 = timeseries_manager.get_timeseries(filename=filename2, category=category, start=start, end=end)
+        data2 = timeseries_manager.get_timeseries(
+            filename=filename2, category=category, start=start, end=end
+        )
         serie2 = metric_service.extract_series_from_dict(data2, category, filename2)
 
         # Oblicz cosine similarity
-        similarity = metric_service.calculate_cosine_similarity(serie1, serie2, tolerance)
+        similarity = metric_service.calculate_cosine_similarity(
+            serie1, serie2, tolerance
+        )
 
     except (KeyError, ValueError) as e:
-        logger.error("Error calculating cosine similarity for filenames '%s' and '%s' in category '%s': %s", filename1, filename2, category, e)
+        logger.error(
+            "Error calculating cosine similarity for filenames '%s' and '%s' in category '%s': %s",
+            filename1,
+            filename2,
+            category,
+            e,
+        )
         return jsonify({"error": str(e)}), 400
     except Exception as e:
         logger.error("Unexpected error calculating cosine similarity: %s", e)
         return jsonify({"error": "Unexpected error occurred"}), 500
 
     if similarity is None:
-        logger.warning("No valid timeseries data provided for cosine similarity calculation for filenames '%s' and '%s' in category '%s'", filename1, filename2, category)
+        logger.warning(
+            "No valid timeseries data provided for cosine similarity calculation for filenames '%s' and '%s' in category '%s'",
+            filename1,
+            filename2,
+            category,
+        )
         return jsonify({"error": "No valid timeseries data provided"}), 400
 
-    logger.info("Successfully calculated cosine similarity for provided timeseries data for filenames '%s' and '%s' in category '%s'", filename1, filename2, category)
+    logger.info(
+        "Successfully calculated cosine similarity for provided timeseries data for filenames '%s' and '%s' in category '%s'",
+        filename1,
+        filename2,
+        category,
+    )
     return jsonify({"cosine_similarity": similarity}), 200
 
 
@@ -456,24 +700,37 @@ def get_mae():
     tolerance = request.args.get("tolerance")
 
     try:
-        data1 = timeseries_manager.get_timeseries(filename=filename1, category=category, start=start, end=end)
+        data1 = timeseries_manager.get_timeseries(
+            filename=filename1, category=category, start=start, end=end
+        )
         serie1 = metric_service.extract_series_from_dict(data1, category, filename1)
 
-        data2 = timeseries_manager.get_timeseries(filename=filename2, category=category, start=start, end=end)
+        data2 = timeseries_manager.get_timeseries(
+            filename=filename2, category=category, start=start, end=end
+        )
         serie2 = metric_service.extract_series_from_dict(data2, category, filename2)
 
         mae = metric_service.calculate_mae(serie1, serie2, tolerance)
 
     except (KeyError, ValueError) as e:
-        logger.error("Error calculating MAE for filenames '%s' and '%s' in category '%s': %s",
-                     filename1, filename2, category, e)
+        logger.error(
+            "Error calculating MAE for filenames '%s' and '%s' in category '%s': %s",
+            filename1,
+            filename2,
+            category,
+            e,
+        )
         return jsonify({"error": str(e)}), 400
 
     if mae is None:
         return jsonify({"error": "No valid timeseries data provided"}), 400
 
-    logger.info("Successfully calculated MAE for files '%s' and '%s' in category '%s'",
-                filename1, filename2, category)
+    logger.info(
+        "Successfully calculated MAE for files '%s' and '%s' in category '%s'",
+        filename1,
+        filename2,
+        category,
+    )
 
     return jsonify({"mae": mae}), 200
 
@@ -491,24 +748,37 @@ def get_rmse():
     tolerance = request.args.get("tolerance")
 
     try:
-        data1 = timeseries_manager.get_timeseries(filename=filename1, category=category, start=start, end=end)
+        data1 = timeseries_manager.get_timeseries(
+            filename=filename1, category=category, start=start, end=end
+        )
         serie1 = metric_service.extract_series_from_dict(data1, category, filename1)
 
-        data2 = timeseries_manager.get_timeseries(filename=filename2, category=category, start=start, end=end)
+        data2 = timeseries_manager.get_timeseries(
+            filename=filename2, category=category, start=start, end=end
+        )
         serie2 = metric_service.extract_series_from_dict(data2, category, filename2)
 
         rmse = metric_service.calculate_rmse(serie1, serie2, tolerance)
 
     except (KeyError, ValueError) as e:
-        logger.error("Error calculating RMSE for filenames '%s' and '%s' in category '%s': %s",
-                     filename1, filename2, category, e)
+        logger.error(
+            "Error calculating RMSE for filenames '%s' and '%s' in category '%s': %s",
+            filename1,
+            filename2,
+            category,
+            e,
+        )
         return jsonify({"error": str(e)}), 400
 
     if rmse is None:
         return jsonify({"error": "No valid timeseries data provided"}), 400
 
-    logger.info("Successfully calculated RMSE for files '%s' and '%s' in category '%s'",
-                filename1, filename2, category)
+    logger.info(
+        "Successfully calculated RMSE for files '%s' and '%s' in category '%s'",
+        filename1,
+        filename2,
+        category,
+    )
 
     return jsonify({"rmse": rmse}), 200
 
@@ -527,7 +797,9 @@ def get_difference():
         data2 = timeseries_manager.get_timeseries(filename=filename2, category=category)
         serie2 = metric_service.extract_series_from_dict(data2, category, filename2)
 
-        difference_series = metric_service.calculate_difference(serie1, serie2, tolerance)
+        difference_series = metric_service.calculate_difference(
+            serie1, serie2, tolerance
+        )
 
     except Exception as e:
         return jsonify({"error": str(e)}), 400
@@ -562,9 +834,13 @@ def get_dtw():
     end = request.args.get("end")
 
     try:
-        data1 = timeseries_manager.get_timeseries(filename=filename1, category=category, start=start, end=end)
+        data1 = timeseries_manager.get_timeseries(
+            filename=filename1, category=category, start=start, end=end
+        )
         series1 = metric_service.extract_series_from_dict(data1, category, filename1)
-        data2 = timeseries_manager.get_timeseries(filename=filename2, category=category, start=start, end=end)
+        data2 = timeseries_manager.get_timeseries(
+            filename=filename2, category=category, start=start, end=end
+        )
         series2 = metric_service.extract_series_from_dict(data2, category, filename2)
 
         dtw_distance = metric_service.calculate_dtw(series1, series2)
@@ -589,7 +865,9 @@ def get_euclidean_distance():
         data2 = timeseries_manager.get_timeseries(filename=filename2, category=category)
         series2 = metric_service.extract_series_from_dict(data2, category, filename2)
 
-        euclidean_distances = metric_service.calculate_euclidean_distance(series1, series2, tolerance)
+        euclidean_distances = metric_service.calculate_euclidean_distance(
+            series1, series2, tolerance
+        )
 
     except Exception as e:
         return jsonify({"error": str(e)}), 400
@@ -607,13 +885,27 @@ def add_timeseries():
     """
     data = request.get_json()
     if not isinstance(data, dict):
-        logger.error("Invalid data format: Expected a JSON object with keys as identifiers")
-        return jsonify({"error": "Expected a JSON object with keys as identifiers"}), 400
+        logger.error(
+            "Invalid data format: Expected a JSON object with keys as identifiers"
+        )
+        return (
+            jsonify({"error": "Expected a JSON object with keys as identifiers"}),
+            400,
+        )
     current_timeseries = timeseries_manager.timeseries.copy()
     for time, values in data.items():
         if not isinstance(values, dict):
-            logger.error("Invalid data format for time '%s': Expected a dictionary", time)
-            return jsonify({f"error": "Invalid data format for time '{time}': Expected a dictionary"}), 400
+            logger.error(
+                "Invalid data format for time '%s': Expected a dictionary", time
+            )
+            return (
+                jsonify(
+                    {
+                        f"error": "Invalid data format for time '{time}': Expected a dictionary"
+                    }
+                ),
+                400,
+            )
         try:
             timeseries_manager.add_timeseries(time, values)
             current_timeseries[time] = values

@@ -16,34 +16,52 @@ def extract_series_from_dict(data: dict, category: str, filename: str) -> dict:
     Returns:
         dict: A dictionary containing the extracted time series.
     """
-    if not isinstance(data, dict) or not isinstance(category, str) or not isinstance(filename, str):
+    if (
+        not isinstance(data, dict)
+        or not isinstance(category, str)
+        or not isinstance(filename, str)
+    ):
         raise ValueError("Invalid data structure for: " + category + " " + filename)
 
     series = {}
     for key in data.keys():
         # Error handling
         if not isinstance(data[key], dict):
-            raise ValueError(f"Invalid data structure at key \'{key}\': expected a dictionary")
+            raise ValueError(
+                f"Invalid data structure at key '{key}': expected a dictionary"
+            )
 
         if category not in data[key] or not isinstance(data[key][category], dict):
-            raise ValueError(f"Category \'{category}\' not found in data at key \'{key}\' or bad structure")
+            raise ValueError(
+                f"Category '{category}' not found in data at key '{key}' or bad structure"
+            )
 
-        if filename not in data[key][category] or not isinstance(data[key][category][filename], (int, float)):
-            raise ValueError(f"Filename \'{filename}\' not found in category \'{category}\' at key \'{key}\' or bad structure")
+        if filename not in data[key][category] or not isinstance(
+            data[key][category][filename], (int, float)
+        ):
+            raise ValueError(
+                f"Filename '{filename}' not found in category '{category}' at key '{key}' or bad structure"
+            )
 
         if not isinstance(data[key][category][filename], (int, float)):
-            raise ValueError(f"Unsupported data type for key \'{key}\': {type(data[key][category][filename])}")
+            raise ValueError(
+                f"Unsupported data type for key '{key}': {type(data[key][category][filename])}"
+            )
 
         # extracting the value and converting it to float
         try:
             series[key] = float(data[key][category][filename])
         except (ValueError, TypeError) as exc:
-            raise ValueError(f"Invalid value for key '{key}': {data[key][category][filename]}") from exc
+            raise ValueError(
+                f"Invalid value for key '{key}': {data[key][category][filename]}"
+            ) from exc
 
     return series
 
 
-def get_aligned_data(series1: dict, series2: dict, tolerance: str | None = None) -> pd.DataFrame:
+def get_aligned_data(
+    series1: dict, series2: dict, tolerance: str | None = None
+) -> pd.DataFrame:
     """
     Helper function to align two series based on timestamp with tolerance.
     Returns a DataFrame with columns ['value1', 'value2'] indexed by time.
@@ -51,18 +69,30 @@ def get_aligned_data(series1: dict, series2: dict, tolerance: str | None = None)
     if not isinstance(series1, dict) or not isinstance(series2, dict):
         raise ValueError("Inputs must be dictionaries")
 
-    df1 = pd.DataFrame({
-        "time": pd.to_datetime(list(series1.keys())),
-        "value1": list(series1.values())
-    }).set_index("time").sort_index()
+    df1 = (
+        pd.DataFrame(
+            {
+                "time": pd.to_datetime(list(series1.keys())),
+                "value1": list(series1.values()),
+            }
+        )
+        .set_index("time")
+        .sort_index()
+    )
 
-    df2 = pd.DataFrame({
-        "time": pd.to_datetime(list(series2.keys())),
-        "value2": list(series2.values())
-    }).set_index("time").sort_index()
+    df2 = (
+        pd.DataFrame(
+            {
+                "time": pd.to_datetime(list(series2.keys())),
+                "value2": list(series2.values()),
+            }
+        )
+        .set_index("time")
+        .sort_index()
+    )
 
-    df1 = df1[~df1.index.duplicated(keep='first')]
-    df2 = df2[~df2.index.duplicated(keep='first')]
+    df1 = df1[~df1.index.duplicated(keep="first")]
+    df2 = df2[~df2.index.duplicated(keep="first")]
 
     if tolerance is None:
         deltas = []
@@ -83,7 +113,7 @@ def get_aligned_data(series1: dict, series2: dict, tolerance: str | None = None)
         left_index=True,
         right_index=True,
         direction="nearest",
-        tolerance=tolerance_td
+        tolerance=tolerance_td,
     ).dropna()
 
     return df_merged
@@ -99,9 +129,21 @@ def calculate_basic_statistics(series: dict) -> dict:
         dict: Dictionary with four statistics: mean, median, variance, std_dev.
     """
     if not series or not isinstance(series, dict):
-        return {"mean": np.nan, "median": np.nan, "variance": np.nan, "std_dev": np.nan, "error": "series must be a non-empty dictionary"}
+        return {
+            "mean": np.nan,
+            "median": np.nan,
+            "variance": np.nan,
+            "std_dev": np.nan,
+            "error": "series must be a non-empty dictionary",
+        }
     if not all(isinstance(v, (int, float)) for v in series.values()):
-        return {"mean": np.nan, "median": np.nan, "variance": np.nan, "std_dev": np.nan, "error": "series values must be numeric"}
+        return {
+            "mean": np.nan,
+            "median": np.nan,
+            "variance": np.nan,
+            "std_dev": np.nan,
+            "error": "series values must be numeric",
+        }
     try:
         # Convert the dictionary to a pandas Series
         series: pd.Series = pd.Series(series)
@@ -111,7 +153,7 @@ def calculate_basic_statistics(series: dict) -> dict:
         "mean": series.mean(),
         "median": series.median(),
         "variance": series.var(ddof=0),  # ddof=0 for population variance
-        "std_dev": series.std(ddof=0)   # ddof=0 for population standard deviation
+        "std_dev": series.std(ddof=0),  # ddof=0 for population standard deviation
     }
 
 
@@ -129,7 +171,7 @@ def calculate_autocorrelation(series: dict) -> float:
         return np.nan
     try:
         series: pd.Series = pd.Series(series)
-        data = pd.to_numeric(series, errors='coerce').dropna().values
+        data = pd.to_numeric(series, errors="coerce").dropna().values
     except (ValueError, TypeError) as e:
         raise ValueError("could not convert series to pd.Series: " + str(e)) from e
     # acf from statsmodels returns the autocorrelation values for lags 0 to nlags
@@ -156,7 +198,7 @@ def calculate_coefficient_of_variation(series: dict) -> float:
         raise ValueError("could not convert series to pd.Series: " + str(e)) from e
     if series.mean() == 0:
         return np.nan  # Avoid division by zero
-    return series.std()*100 / series.mean()
+    return series.std() * 100 / series.mean()
 
 
 def calculate_iqr(series: dict) -> float:
@@ -178,7 +220,9 @@ def calculate_iqr(series: dict) -> float:
     return series.quantile(0.75) - series.quantile(0.25)
 
 
-def calculate_pearson_correlation(series1: dict, series2: dict, tolerance: str | None = None) -> float:
+def calculate_pearson_correlation(
+    series1: dict, series2: dict, tolerance: str | None = None
+) -> float:
     """
     Calculates the Pearson correlation coefficient between two series,
     matching them using the "asof" (nearest timestamp) method with tolerance.
@@ -215,7 +259,9 @@ def calculate_pearson_correlation(series1: dict, series2: dict, tolerance: str |
     return corr
 
 
-def calculate_difference(series1: dict, series2: dict, tolerance: str | None = None) -> dict:
+def calculate_difference(
+    series1: dict, series2: dict, tolerance: str | None = None
+) -> dict:
     """
     Calculates the difference between two time series by nearest timestamp matching.
 
@@ -291,7 +337,9 @@ def calculate_dtw(series1: dict, series2: dict) -> float:
     return dtw_distance
 
 
-def calculate_euclidean_distance(series1: dict, series2: dict, tolerance: str | None = None) -> float:
+def calculate_euclidean_distance(
+    series1: dict, series2: dict, tolerance: str | None = None
+) -> float:
     """
     Computes the Euclidean distance between two time series by aligning points
     using pandas.merge_asof with nearest timestamp matching.
@@ -320,7 +368,9 @@ def calculate_euclidean_distance(series1: dict, series2: dict, tolerance: str | 
     return euclidean_distance
 
 
-def calculate_cosine_similarity(series1: dict, series2: dict, tolerance: str | None = None) -> float:
+def calculate_cosine_similarity(
+    series1: dict, series2: dict, tolerance: str | None = None
+) -> float:
     """
     Computes the cosine similarity between two time series
     aligned in time (asof merge).
