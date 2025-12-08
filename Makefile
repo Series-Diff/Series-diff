@@ -111,7 +111,8 @@ logs: check-aws ## View ECS task logs
 
 lint: ## Run code linting
 	@echo "$(GREEN)Running flake8 linter...$(NC)"
-	@cd Flask-API && poetry run black . && poetry run flake8 .
+	@cd Flask-API && poetry run black . && poetry run flake8 --ignore E501,W503,F541 --exclude .venv --max-line-length 127 .
+	@echo "$(GREEN)✓ Linting complete!$(NC)"
 
 ECR_REPOSITORY ?= flask-api
 ECR_REGISTRY ?= local

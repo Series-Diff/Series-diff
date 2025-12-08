@@ -1,9 +1,7 @@
 import sys
-
-import pandas as pd
-
 from services.time_series_manager import TimeSeriesManager
 import services.metric_service as metric_service
+from utils.data_utils import pivot_file
 from flask_cors import CORS
 from flask import Flask, jsonify, request
 from flask_limiter import Limiter
@@ -117,63 +115,32 @@ def transform_pivot():
     Pivots uploaded data (CSV or JSON) using Pandas.
     Returns the transformed data as a JSON list of records.
     """
-    if 'file' not in request.files:
+    if "file" not in request.files:
         return jsonify({"error": "No file part"}), 400
 
-    file = request.files['file']
-    if file.filename == '':
+    file = request.files["file"]
+    if file.filename == "":
         return jsonify({"error": "No selected file"}), 400
 
-    index_col = request.form.get('index_col')
-    columns_col = request.form.get('columns_col')
-    values_col = request.form.get('values_col')
+    index_col = request.form.get("index_col")
+    columns_col = request.form.get("columns_col")
+    values_col = request.form.get("values_col")
 
     if not all([index_col, columns_col, values_col]):
-        return jsonify({"error": "Please select columns for Index, Category and Value."}), 400
-
-    try:
-        if file.filename.lower().endswith('.csv'):
-            df = pd.read_csv(file)
-        elif file.filename.lower().endswith('.json'):
-            df = pd.read_json(file)
-        else:
-            return jsonify({"error": "Unsupported file format. Use CSV or JSON."}), 400
-
-        # Check if required columns exist
-        missing_cols = [col for col in [index_col, columns_col, values_col] if col not in df.columns]
-        if missing_cols:
-            return jsonify({"error": f"Missing columns in file: {', '.join(missing_cols)}"}), 400
-
-        # Pivot the Dataframe using pivot_table, using mean as aggregation function for duplicates
-        pivot_df = df.pivot_table(
-            index=index_col,
-            columns=columns_col,
-            values=values_col,
-            aggfunc='mean'
+        return (
+            jsonify({"error": "Please select columns for Index, Category and Value."}),
+            400,
         )
 
-        # Flatten column names (e.g. (30, 31) --> 'data_type_30', 'data_type_31')
-        pivot_df.columns = [f"{columns_col}_{col}" for col in pivot_df.columns]
-
-        # Reset index, so that index_col becomes a column again
-        pivot_df.reset_index(inplace=True)
-
-        # Date conversion: ensure index_col is string if it contains dates
-        if index_col in pivot_df.columns:
-            # If it's date then conversion to string
-            try:
-                pivot_df[index_col] = pivot_df[index_col].astype(str)
-            except:
-                pass
-
-        # Convert the pivoted DataFrame to a list of records (dicts)
-        result_data = pivot_df.to_dict(orient='records')
+    try:
+        result_data = pivot_file(file, index_col, columns_col, values_col)
 
         return jsonify(result_data), 200
 
     except Exception as e:
         logger.error(f"Error pivoting data: {e}")
         return jsonify({"error": str(e)}), 500
+
 
 @app.route("/api/timeseries/scatter_data", methods=["GET"])
 def get_scatter_data():
