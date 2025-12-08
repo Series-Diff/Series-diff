@@ -6,6 +6,8 @@ from services.time_series_manager import TimeSeriesManager
 import services.metric_service as metric_service
 from flask_cors import CORS
 from flask import Flask, jsonify, request
+from flask_limiter import Limiter
+from flask_limiter.util import get_remote_address
 from utils.time_utils import convert_timeseries_keys_timezone
 
 sys.stdout.reconfigure(line_buffering=True)
@@ -13,10 +15,16 @@ sys.stdout.reconfigure(line_buffering=True)
 
 timeseries_manager = TimeSeriesManager()
 app = Flask(__name__)
+app.config['MAX_CONTENT_LENGTH'] = 16 * 1024 * 1024  # 16MB max
 CORS(app)
 logger = app.logger
 logger.setLevel("DEBUG")
 
+limiter = Limiter(
+    app=app,
+    key_func=get_remote_address,
+    default_limits=["200 per day", "50 per hour"]
+)
 
 @app.route("/health")
 def health_check():
@@ -33,6 +41,7 @@ def index():
 
 
 @app.route("/api/timeseries", methods=["GET"])
+@limiter.limit("10 per minute")
 def get_timeseries():
     """
     Get timeseries data for a specific filename, category and time interval.
