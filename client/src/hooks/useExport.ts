@@ -18,8 +18,6 @@ export const useExport = (chartData: Record<string, any>) => {
       await exportToPDF(chartData, reportTitle, setIsExporting);
     } catch (err) {
       console.error('Error during export:', err);
-    } finally {
-      setIsExporting(false);
     }
   };
 

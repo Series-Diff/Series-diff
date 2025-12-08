@@ -12,7 +12,7 @@ export const useChartConfiguration = (
         const savedCategory = localStorage.getItem('selectedCategory');
         return savedCategory ? savedCategory : null;
     });
-    
+
     const [secondaryCategory, setSecondaryCategory] = useState(() => {
         const savedCategory = localStorage.getItem('secondaryCategory');
         return savedCategory ? savedCategory : null;
@@ -42,10 +42,24 @@ export const useChartConfiguration = (
     };
 
     useEffect(() => {
-        if (Object.keys(filenamesPerCategory).length > 0 && !selectedCategory) {
+        if (Object.keys(filenamesPerCategory).length > 0 && selectedCategory == null) {
             setSelectedCategory(Object.keys(filenamesPerCategory)[0]);
         }
     }, [filenamesPerCategory, selectedCategory]);
+
+    useEffect(() => {
+        if (selectedCategory) {
+            localStorage.setItem('selectedCategory', selectedCategory);
+        }
+    }, [selectedCategory]);
+
+    useEffect(() => {
+        if (secondaryCategory) {
+            localStorage.setItem('secondaryCategory', secondaryCategory);
+        } else {
+            localStorage.removeItem('secondaryCategory');
+        }
+    }, [secondaryCategory]);
 
     useEffect(() => {
         if (!chartData || Object.keys(chartData).length === 0) return;

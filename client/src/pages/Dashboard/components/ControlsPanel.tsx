@@ -102,7 +102,7 @@ const ControlsPanel: React.FC<ControlsPanelProps> = ({
                                 role="switch"
                                 id="color-sync-toggle"
                                 checked={syncColorsByFile}
-                                onChange={() => setSyncColorsByFile(!syncColorsByFile)}
+                                onChange={() => setSyncColorsByFile(prev => !prev)}
                             />
                             <label className="form-check-label" htmlFor="color-sync-toggle">
                                 Sync Colors

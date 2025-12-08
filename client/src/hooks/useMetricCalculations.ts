@@ -169,12 +169,15 @@ export const useMetricCalculations = (
 
     useEffect(() => {
         const allMetrics = [...singleMetrics, ...allCorrelationMetrics, ...perCategoryCorrelationMetrics];
+        const metricMap: Record<string, any> = {
+            meanValues, medianValues, varianceValues, stdDevsValues,
+            autoCorrelationValues, maeValues, rmseValues,
+            PearsonCorrelationValues, DTWValues, EuclideanValues,
+            CosineSimilarityValues
+        };
         allMetrics.forEach(({ key }) => {
-            const value = {
-                meanValues, medianValues, varianceValues, stdDevsValues, autoCorrelationValues, maeValues, rmseValues,
-                PearsonCorrelationValues, DTWValues, EuclideanValues, CosineSimilarityValues
-            }[key.split('Values')[0]]; // Map key to value
-            if (Object.keys(value || {}).length > 0) {
+            const value = metricMap[key];
+            if (value && Object.keys(value).length > 0) {
                 localStorage.setItem(key, JSON.stringify(value));
             }
         });
@@ -193,6 +196,19 @@ export const useMetricCalculations = (
         setEuclideanValues({});
         setCosineSimilarityValues({});
         setGroupedMetrics({});
+
+        // Clear from localStorage
+        localStorage.removeItem('meanValues');
+        localStorage.removeItem('medianValues');
+        localStorage.removeItem('varianceValues');
+        localStorage.removeItem('stdDevsValues');
+        localStorage.removeItem('autoCorrelationValues');
+        localStorage.removeItem('maeValues');
+        localStorage.removeItem('rmseValues');
+        localStorage.removeItem('PearsonCorrelationValues');
+        localStorage.removeItem('DTWValues');
+        localStorage.removeItem('EuclideanValues');
+        localStorage.removeItem('CosineSimilarityValues');
     };
 
     return {
