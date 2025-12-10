@@ -42,7 +42,7 @@ export const useChartConfiguration = (
     };
 
     useEffect(() => {
-        if (Object.keys(filenamesPerCategory).length > 0 && selectedCategory == null) {
+        if (Object.keys(filenamesPerCategory).length > 0 && selectedCategory === null) {
             setSelectedCategory(Object.keys(filenamesPerCategory)[0]);
         }
     }, [filenamesPerCategory, selectedCategory]);
