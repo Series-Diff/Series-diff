@@ -3,6 +3,7 @@ from datetime import datetime
 from zoneinfo import ZoneInfo
 from typing import Dict, Any
 
+
 def parse_iso_maybe_z(ts: str) -> datetime:
     """
     Parse ISO timestamp possibly ending with 'Z' into an aware datetime in UTC.
@@ -22,7 +23,10 @@ def parse_iso_maybe_z(ts: str) -> datetime:
         return dt.replace(tzinfo=ZoneInfo("UTC"))
     return dt
 
-def convert_timeseries_keys_timezone(data: Dict[str, Any], tz_str: str = "Europe/Warsaw", keep_offset: bool = False) -> Dict[str, Any]:
+
+def convert_timeseries_keys_timezone(
+    data: Dict[str, Any], tz_str: str = "Europe/Warsaw", keep_offset: bool = False
+) -> Dict[str, Any]:
     """
     Convert top-level timestamp keys of a nested timeseries dict to specified timezone.
     - data: { "2024-11-01T23:00:01.000Z": { "Value": { "file": val } }, ... }
@@ -38,7 +42,7 @@ def convert_timeseries_keys_timezone(data: Dict[str, Any], tz_str: str = "Europe
     for key, value in data.items():
         try:
             dt_utc = parse_iso_maybe_z(key)  # aware (UTC)
-        except Exception as e:
+        except Exception:
             # if key is not a timestamp, keep as-is
             out[key] = value
             continue
@@ -47,10 +51,10 @@ def convert_timeseries_keys_timezone(data: Dict[str, Any], tz_str: str = "Europe
         dt_local = dt_utc.astimezone(target_tz)
 
         if keep_offset:
-            new_key = dt_local.isoformat(timespec='seconds')
+            new_key = dt_local.isoformat(timespec="seconds")
         else:
             # produce naive local ISO (no tz info) e.g. 2024-11-02T00:00:01
-            new_key = dt_local.replace(tzinfo=None).isoformat(timespec='seconds')
+            new_key = dt_local.replace(tzinfo=None).isoformat(timespec="seconds")
 
         # avoid key collision (if two UTC keys map to same local timestamp)
         # if collision, append a suffix (rare)

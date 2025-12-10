@@ -17,8 +17,80 @@ class TimeSeriesManager:
     def __init__(self):
         self.timeseries = {}
 
-    def add_timeseries(self, time: str, data: dict):
+    def _validate_parameters(
+        self, time: str, filename: str, category: str, start: str, end: str
+    ):
+        """Validate input parameters."""
+        for param, param_type in [
+            (time, "time"),
+            (filename, "filename"),
+            (category, "category"),
+            (start, "start"),
+            (end, "end"),
+        ]:
+            if param and not isinstance(param, str):
+                raise ValueError(
+                    f"Invalid {param_type} format: {param}. Expected a string."
+                )
 
+        if start and end and start > end:
+            raise ValueError(f"Start date {start} is after end date {end}.")
+
+    def _parse_dates(self, start: str, end: str) -> tuple:
+        """Parse ISO format dates."""
+        try:
+            datetime_start = datetime.fromisoformat(start) if start else None
+            datetime_end = datetime.fromisoformat(end) if end else None
+            return datetime_start, datetime_end
+        except ValueError as e:
+            raise ValueError(
+                "Invalid date format for start or end. Expected ISO format."
+            ) from e
+
+    def _matches_time_filter(
+        self, timeseries: str, time: str, datetime_start, datetime_end
+    ) -> bool:
+        """Check if timeseries matches time filters."""
+        if time and timeseries != time:
+            return False
+
+        if datetime_start or datetime_end:
+            try:
+                ts_datetime = datetime.fromisoformat(timeseries)
+            except ValueError as e:
+                raise ValueError(
+                    f"Invalid time format in timeseries key: {timeseries}. Expected ISO format."
+                ) from e
+
+            if datetime_start and ts_datetime < datetime_start:
+                return False
+            if datetime_end and ts_datetime > datetime_end:
+                return False
+
+        return True
+
+    def _add_matching_data(
+        self,
+        result: dict,
+        timeseries: str,
+        categories: dict,
+        category: str,
+        filename: str,
+    ):
+        """Add matching data to result dictionary."""
+        for ts_category, ts_filenames in categories.items():
+            if category and ts_category != category:
+                continue
+
+            for file, value in ts_filenames.items():
+                if filename and file != filename:
+                    continue
+
+                result.setdefault(timeseries, {}).setdefault(ts_category, {})[
+                    file
+                ] = value
+
+    def add_timeseries(self, time: str, data: dict):
         """
         Add a timeseries to the manager.
 
@@ -41,11 +113,20 @@ class TimeSeriesManager:
                     raise ValueError(f"Invalid category '{timeserie}': {categories}")
                 for category, files in categories.items():
                     if not isinstance(files, (float, int)):
-                        raise ValueError(f"Invalid file data for category '{category}': {files}")
+                        raise ValueError(
+                            f"Invalid file data for category '{category}': {files}"
+                        )
             return True
         return False
 
-    def get_timeseries(self, time:str = None, filename:str = None, category:str = None, start:str = None, end:str = None) -> dict:
+    def get_timeseries(
+        self,
+        time: str = None,
+        filename: str = None,
+        category: str = None,
+        start: str = None,
+        end: str = None,
+    ) -> dict:
         """
         Retrieve timeseries data.
 
@@ -58,59 +139,27 @@ class TimeSeriesManager:
         Returns:
             dict: Timeseries data for the specified time or all timeseries if no key is provided
         """
+        self._validate_parameters(time, filename, category, start, end)
+        datetime_start, datetime_end = self._parse_dates(start, end)
 
         result = {}
         if not self.timeseries:
             return result
-        if time and not isinstance(time, str):
-            raise ValueError(f"Invalid time format: {time}. Expected a string.")
-
-        if filename and not isinstance(filename, str):
-            raise ValueError(f"Invalid filename format: {filename}. Expected a string.")
-
-        if category and not isinstance(category, str):
-            raise ValueError(f"Invalid category format: {category}. Expected a string.")
-        if start and not isinstance(start, str):
-            raise ValueError(f"Invalid start format: {start}. Expected a string.")
-        if end and not isinstance(end, str):
-            raise ValueError(f"Invalid end format: {end}. Expected a string.")
-        if start and end and start > end:
-            raise ValueError(f"Start date {start} is after end date {end}.")
-        try:            
-            datetime_start = datetime.fromisoformat(start) if start else None
-            datetime_end = datetime.fromisoformat(end) if end else None
-        except ValueError as e:
-            raise ValueError(f"Invalid date format for start or end. Expected ISO format.") from e
 
         for timeseries, categories in self.timeseries.items():
-            if time and timeseries != time:
+            if not self._matches_time_filter(
+                timeseries, time, datetime_start, datetime_end
+            ):
                 continue
-            if datetime_start or datetime_end:
-                try:
-                    timeseries_datetime = datetime.fromisoformat(timeseries)
-                except ValueError as e:
-                    raise ValueError(f"Invalid time format in timeseries key: {timeseries}. Expected ISO format.") from e
-
-                if datetime_start and timeseries_datetime < datetime_start:
-                    continue
-                if datetime_end and timeseries_datetime > datetime_end:
-                    continue
-
-            for timeseries_category, timeseries_filenames in categories.items():
-                if category and timeseries_category != category:
-                    continue
-
-                for file, value in timeseries_filenames.items():
-                    if filename and file != filename:
-                        continue
-
-                    result.setdefault(timeseries, {}).setdefault(timeseries_category, {})[file] = value
+            self._add_matching_data(result, timeseries, categories, category, filename)
 
         return result
-    def clear_timeseries(self):
 
+    def clear_timeseries(self):
         """
         Clear all timeseries data.
+        Returns:
+            dict: Message indicating the result of the operation
         """
         try:
             self.timeseries.clear()
