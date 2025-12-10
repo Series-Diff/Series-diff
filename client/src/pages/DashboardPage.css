@@ -11,7 +11,7 @@ body{
 
 
 .App-main-content {
-  overflow-y: auto;
+  overflow-y: clip;
 }
 
 
