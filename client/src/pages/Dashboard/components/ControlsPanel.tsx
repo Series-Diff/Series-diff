@@ -40,7 +40,7 @@ const ControlsPanel: React.FC<ControlsPanelProps> = ({
     handleReset,
 }) => {
     return (
-        <div className="d-flex justify-content-between align-items-center w-100 mb-3">
+        <div className="d-flex justify-content-between align-items-center w-100">
             <div className="d-flex align-items-center gap-3">
                 {Object.keys(filenamesPerCategory).length > 0 && (
                     <>

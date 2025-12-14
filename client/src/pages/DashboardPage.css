@@ -29,11 +29,6 @@ button,
 
 }
 
-button:hover,
-.custom-file-upload:hover {
-  background-color: #0056b3;
-}
-
 .group-menu {
   width: 256px;
   max-width: 256px;

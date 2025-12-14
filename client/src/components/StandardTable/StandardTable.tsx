@@ -21,7 +21,7 @@ const StandardTable: React.FC<StandardTableProps> = ({data, category, metric}) =
     }
 
     return (
-        <div className="card shadow-sm mt-3" id="pdf-content-metrics-vertical">
+        <div className="card shadow-sm" id="pdf-content-metrics-vertical">
             <div className="card-header bg-light text-center">
                 <h5 className="mb-0">{metric} Matrix ({category})</h5>
             </div>
