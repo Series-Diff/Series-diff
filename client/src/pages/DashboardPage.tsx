@@ -25,10 +25,21 @@ function DashboardPage() {
     resetFileUpload();
   };
 
+  const hasData = Object.keys(chartData).length > 0;
+
+  const mainStyle = {
+    gap: "16px",
+    height: !hasData ? `calc(100vh - var(--nav-height) - 2 * var(--section-margin))` : undefined
+  };
+
+  const flexColumnClass = `d-flex flex-column gap-3 w-100 ${!hasData ? 'h-100' : ''}`;
+
+  const chartContainerClass = `Chart-container section-container ${!hasData ? 'h-100' : ''}`;
+
   return (
-    <div className="d-flex" style={{ gap: "16px" }}>
+    <div className="d-flex" style={mainStyle}>
       <div className="App-main-content flex-grow-1 d-flex align-items-start w-100 rounded">
-        <div className="d-flex flex-column gap-3 w-100">
+        <div className={flexColumnClass}>
           <ControlsPanel
             selectedCategory={selectedCategory}
             secondaryCategory={secondaryCategory}
@@ -48,12 +59,12 @@ function DashboardPage() {
             handleReset={handleReset}
           />
           {error && <p className="text-danger text-center">Error: {error}</p>}
-          <div className="Chart-container section-container">
-            {isLoading && Object.keys(chartData).length === 0 &&
-              <p className="text-center p-4">Loading chart...</p>}
-            {!isLoading && Object.keys(chartData).length === 0 && !error &&
-              <p className="text-center p-4">Load data to visualize</p>}
-            {!isLoading && Object.keys(chartData).length > 0 && (
+          <div className={chartContainerClass}>
+            {isLoading && !hasData &&
+              <div className="p-4">Loading chart...</div>}
+            {!isLoading && !hasData && !error &&
+              <div className="p-4">Load data to visualize</div>}
+            {!isLoading && hasData && (
               <div className="chart-wrapper">
                 <components.MyChart primaryData={filteredData.primary}
                   secondaryData={filteredData.secondary || undefined}
@@ -68,7 +79,7 @@ function DashboardPage() {
                 <Button
                   variant="secondary"
                   onClick={handleExportClick}
-                  disabled={Object.keys(chartData).length === 0 || isExporting}
+                  disabled={!hasData || isExporting}
                 >
                   {isExporting ? 'Exporting...' : 'Export to PDF'}
                 </Button>
@@ -103,7 +114,7 @@ function DashboardPage() {
           )}
 
           {selectedCategory && CosineSimilarityValues[selectedCategory] && (
-            <div className="section-container" style={{ padding: "16px", marginTop: "16px" }}>
+            <div className="section-container" style={{ padding: "16px" }}>
               <components.CorrelationTable
                 data={CosineSimilarityValues[selectedCategory]}
                 category={selectedCategory}
@@ -125,7 +136,7 @@ function DashboardPage() {
           )}
 
           {selectedCategory && maeValues[selectedCategory] && (
-            <div className="section-container" style={{ padding: "16px", marginTop: "16px" }}>
+            <div className="section-container" style={{ padding: "16px" }}>
               <components.StandardTable
                 data={maeValues[selectedCategory]}
                 category={selectedCategory}
@@ -145,7 +156,7 @@ function DashboardPage() {
           )}
 
           {selectedCategory && rmseValues[selectedCategory] && (
-            <div className="section-container" style={{ padding: "16px", marginTop: "16px" }}>
+            <div className="section-container" style={{ padding: "16px" }}>
               <components.StandardTable
                 data={rmseValues[selectedCategory]}
                 category={selectedCategory}
