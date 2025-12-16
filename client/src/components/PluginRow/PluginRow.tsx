@@ -56,7 +56,7 @@ export const PluginRow: React.FC<PluginRowProps> = ({
             </div>
             {isUser && (
                 <div className="buttons d-flex gap-2">
-                    <Button variant="outline-secondary" size="sm" onClick={onEdit}>
+                    <Button variant="outline-secondary" size="sm" onClick={onEdit} aria-label="Edit metric">
                         <Pencil />
                     </Button>
                     <Button variant="outline-danger" size="sm" onClick={onDelete}>
