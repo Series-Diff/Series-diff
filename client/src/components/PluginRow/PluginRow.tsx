@@ -59,7 +59,7 @@ export const PluginRow: React.FC<PluginRowProps> = ({
                     <Button variant="outline-secondary" size="sm" onClick={onEdit} aria-label="Edit metric">
                         <Pencil />
                     </Button>
-                    <Button variant="outline-danger" size="sm" onClick={onDelete}>
+                    <Button variant="outline-danger" size="sm" onClick={onDelete} aria-label="Delete metric">
                         <Trash />
                     </Button>
                 </div>
