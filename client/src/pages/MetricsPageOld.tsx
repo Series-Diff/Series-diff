@@ -238,7 +238,7 @@ const handleApplyTolerance = async () => {
         <div className="d-flex" style={{ gap: "16px" }}>
 
             <div className="flex-grow-1">
-                <div className="section-container chart-section">
+                <div className="section-container chart-section p-0">
                     {isLoading && <p className="text-center p-4">Loading data and differences...</p>}
                     {!isLoading && !error && Object.keys(chartPrimaryData).length === 0 && (
                         <p className="text-center p-4">Select a category and one or more difference series to visualize.</p>
@@ -249,7 +249,7 @@ const handleApplyTolerance = async () => {
                     {error && <p className="text-danger text-center">Error: {error}</p>}
                 </div>
             </div>
-            <div className="section-container group-menu d-flex flex-column align-items-center p-3 rounded" style={{ minWidth: 350 }}>
+            <div className="section-container group-menu d-flex flex-column align-items-center rounded" style={{ minWidth: 350 }}>
                 <h4>Difference Selection</h4>
                 <Select
                     id="category-select-metrics"

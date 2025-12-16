@@ -3,7 +3,7 @@ import { Form } from 'react-bootstrap';
 
 type SelectProps = {
   id: string;
-  label?: string; // Made optional
+  label?: string;
   selected: string;
   categories: string[];
   onChange: (e: React.ChangeEvent<HTMLSelectElement>) => void;
