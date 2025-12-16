@@ -1,9 +1,8 @@
-// src/components/PluginRow/PluginRow.tsx
 import React from 'react';
 import { Badge as BootstrapBadge, Button, Form } from 'react-bootstrap';
-import { Gear, InfoCircle, Pencil, Trash } from 'react-bootstrap-icons';
+import { Pencil, Trash } from 'react-bootstrap-icons';
 
-interface PluginRowProps {
+interface MetricRowProps {
     checkbox: boolean;
     currentlyActiveBadge: boolean;
     className?: string;
@@ -17,7 +16,7 @@ interface PluginRowProps {
     onDelete?: () => void;
 }
 
-export const PluginRow: React.FC<PluginRowProps> = ({
+export const MetricRow: React.FC<MetricRowProps> = ({
     checkbox,
     currentlyActiveBadge,
     className,
@@ -31,7 +30,7 @@ export const PluginRow: React.FC<PluginRowProps> = ({
     onDelete,
 }) => {
     return (
-        <div className={`plugin-row ${className || ''}`}>
+        <div className={`metric-row ${className || ''}`}>
             {showCheckbox && (
                 <div className="checkbox-margin">
                     <Form.Check

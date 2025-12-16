@@ -32,14 +32,14 @@ function DashboardPage() {
     height: !hasData ? `calc(100vh - var(--nav-height) - 2 * var(--section-margin))` : undefined
   };
 
-  const flexColumnClass = `d-flex flex-column gap-3 w-100 ${!hasData ? 'h-100' : ''}`;
+  const chartLayoutClass = `d-flex flex-column gap-3 w-100 ${!hasData ? 'h-100' : ''}`;
 
   const chartContainerClass = `Chart-container section-container ${!hasData ? 'h-100' : ''}`;
 
   return (
     <div className="d-flex" style={mainStyle}>
       <div className="App-main-content flex-grow-1 d-flex align-items-start w-100 rounded">
-        <div className={flexColumnClass}>
+        <div className={chartLayoutClass}>
           <ControlsPanel
             selectedCategory={selectedCategory}
             secondaryCategory={secondaryCategory}
@@ -73,7 +73,7 @@ function DashboardPage() {
             )}
           </div>
           {Object.keys(groupedMetrics).length > 0 && (
-            <div className="section-container" style={{ padding: "16px" }}>
+            <div className="section-container p-3">
               <div className="d-flex justify-content-end align-items-center">
                 {isExporting && <Spinner animation="border" size="sm" className="me-2" />}
                 <Button
@@ -88,7 +88,7 @@ function DashboardPage() {
             </div>
           )}
           {selectedCategory && PearsonCorrelationValues[selectedCategory] && (
-            <div className="section-container" style={{ padding: "16px" }}>
+            <div className="section-container p-3">
               <components.CorrelationTable
                 data={PearsonCorrelationValues[selectedCategory]}
                 category={selectedCategory}
@@ -114,7 +114,7 @@ function DashboardPage() {
           )}
 
           {selectedCategory && CosineSimilarityValues[selectedCategory] && (
-            <div className="section-container" style={{ padding: "16px" }}>
+            <div className="section-container p-3">
               <components.CorrelationTable
                 data={CosineSimilarityValues[selectedCategory]}
                 category={selectedCategory}
@@ -136,7 +136,7 @@ function DashboardPage() {
           )}
 
           {selectedCategory && maeValues[selectedCategory] && (
-            <div className="section-container" style={{ padding: "16px" }}>
+            <div className="section-container p-3">
               <components.StandardTable
                 data={maeValues[selectedCategory]}
                 category={selectedCategory}
@@ -156,7 +156,7 @@ function DashboardPage() {
           )}
 
           {selectedCategory && rmseValues[selectedCategory] && (
-            <div className="section-container" style={{ padding: "16px" }}>
+            <div className="section-container p-3">
               <components.StandardTable
                 data={rmseValues[selectedCategory]}
                 category={selectedCategory}
@@ -176,7 +176,7 @@ function DashboardPage() {
           )}
 
           {selectedCategory && DTWValues[selectedCategory] && (
-            <div className="section-container" style={{ padding: "16px" }}>
+            <div className="section-container p-3">
               <components.StandardTable
                 data={DTWValues[selectedCategory]}
                 category={selectedCategory}
@@ -196,7 +196,7 @@ function DashboardPage() {
           )}
 
           {selectedCategory && EuclideanValues[selectedCategory] && (
-            <div className="section-container" style={{ padding: "16px" }}>
+            <div className="section-container p-3">
               <components.StandardTable
                 data={EuclideanValues[selectedCategory]}
                 category={selectedCategory}
@@ -227,7 +227,7 @@ function DashboardPage() {
           <components.DataImportPopup show={isPopupOpen} onHide={handlePopupClose} files={selectedFiles} onComplete={handlePopupComplete} />
         </div>
       </div>
-      <div className="section-container group-menu d-flex flex-column align-items-center p-3 rounded">
+      <div className="section-container group-menu d-flex flex-column align-items-center rounded">
         <h4>Groups</h4>
         {Object.entries(filenamesPerCategory).map(([category, files]) => (
           <components.Dropdown
