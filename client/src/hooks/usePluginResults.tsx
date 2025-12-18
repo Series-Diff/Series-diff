@@ -22,7 +22,7 @@ export interface UsePluginResultsReturn {
 
 export const usePluginResults = (
     filenamesPerCategory: Record<string, string[]>,
-    plugins: LocalPlugin[] // DODANO: Lista pluginów z localStorage
+    plugins: LocalPlugin[]
 ): UsePluginResultsReturn => {
     const [pluginResults, setPluginResults] = useState<PluginResultsMap>({});
     const [isLoadingPlugins, setIsLoadingPlugins] = useState(false);
@@ -50,17 +50,7 @@ export const usePluginResults = (
                     newResults[plugin.id][category] = {};
                     
                     const files = filenamesPerCategory[category];
-                    // Dla uproszczenia wykonujemy obliczenia tylko dla pierwszej pary lub
-                    // musisz zaimplementować pętlę po wszystkich parach plików w serwisie.
-                    // Poniżej założenie: executePluginCode oblicza macierz dla całej kategorii
-                    // lub musisz tu zrobić pętlę po plikach.
-                    
-                    // UWAGA: Aby nie "zabić" przeglądarki setkami requestów, 
-                    // najlepiej, aby executePluginCode (backend) przyjmował listę plików 
-                    // i zwracał macierz. Jeśli backend przyjmuje tylko 2 pliki, 
-                    // musisz zrobić pętlę tutaj (co może być wolne).
-                    
-                    // Przykład pętli (uproszczony):
+
                     for (const file1 of files) {
                         newResults[plugin.id][category][file1] = {};
                         for (const file2 of files) {
