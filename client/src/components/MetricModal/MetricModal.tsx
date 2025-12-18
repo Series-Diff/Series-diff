@@ -134,7 +134,6 @@ const MetricModal: React.FC<MetricModalProps> = ({
                                     type="file"
                                     onChange={handleFileChange}
                                     isInvalid={!!fileError}
-                                    lang="en"
                                 />
                             </OverlayTrigger>
                             {fileError && (

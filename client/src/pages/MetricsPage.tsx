@@ -17,7 +17,8 @@ function MetricsPage() {
             try {
                 return JSON.parse(storedMetrics);
             } catch (error) {
-                // Consider implementing more robust error handling here, such as showing a user notification or attempting data recovery.
+                // Error parsing stored metrics - clearing corrupted data
+                // Future enhancement: Show user notification about data loss and offer backup/recovery
                 console.error('Failed to parse user metrics from localStorage:', error);
                 localStorage.removeItem('userMetrics');
                 return [];
@@ -75,8 +76,10 @@ function MetricsPage() {
             description: metricData.description,
             category: metricData.category,
             fileName: editingMetric ? editingMetric.fileName : (metricData.file ? metricData.file.name : undefined),
-            // TODO: Implement actual file upload functionality.
-            // Currently, the file is not stored or processed - only the filename is saved.
+            // TODO: Implement file upload handling here.
+            // Currently, the file is not stored or uploaded; only the file name is saved.
+            // When implementing, ensure the file is uploaded to the server or appropriate storage,
+            // and update the metric object with the file's storage location or identifier.
         };
 
         if (editingMetric) {
@@ -154,7 +157,6 @@ function MetricsPage() {
                                     <MetricRow
                                         key={opt.value}
                                         checkbox={false}
-                                        onShowChange={() => { }}
                                         currentlyActiveBadge={false}
                                         className="metric-row-instance w-100"
                                         text={opt.label}
@@ -202,7 +204,6 @@ function MetricsPage() {
                                     <MetricRow
                                         key={opt.value}
                                         checkbox={false}
-                                        onShowChange={() => { }}
                                         currentlyActiveBadge={false}
                                         className="metric-row-instance w-100"
                                         text={opt.label}

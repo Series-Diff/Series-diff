@@ -27,6 +27,8 @@ const MyChart: React.FC<MyChartProps> = ({ primaryData, secondaryData, title, sy
         customY2Max, setCustomY2Max,
         visibleMap, setVisibleMap,
         handleRelayout,
+        primaryDataBounds,
+        secondaryDataBounds,
     } = useChartState(primaryData, secondaryData);
 
     // Extract interaction handlers from hook
@@ -36,8 +38,8 @@ const MyChart: React.FC<MyChartProps> = ({ primaryData, secondaryData, title, sy
     const traces = buildTraces(primaryData, secondaryData, visibleMap, showMarkers, syncColorsByFile);
 
     return (
-        <div>
-            <div id='pdf-content-chart' ref={containerRef} style={{ width: "100%" }}>
+        <div className="d-flex flex-column h-100 gap-2">
+            <div id='pdf-content-chart' ref={containerRef} style={{ width: "100%", flex: 1, minHeight: 0 }}>
                 <Plot
                     data={traces}
                     layout={{
@@ -72,8 +74,11 @@ const MyChart: React.FC<MyChartProps> = ({ primaryData, secondaryData, title, sy
                         yaxis: {
                             title: { text: Object.keys(primaryData)[0]?.split('.')[0] || 'Y-Axis' },
                             side: 'left',
-                            autorange: customRange ? false : true,
-                            range: customRange ? [parseFloat(customYMin), parseFloat(customYMax)] : undefined,
+                            // Only disable autorange when BOTH min and max are provided
+                            autorange: !(customRange && customYMin !== '' && customYMax !== ''),
+                            range: customRange && customYMin !== '' && customYMax !== '' 
+                                ? [parseFloat(customYMin), parseFloat(customYMax)] 
+                                : undefined,
                             showspikes: true,
                             spikemode: 'across',
                             spikedash: "solid",
@@ -82,20 +87,24 @@ const MyChart: React.FC<MyChartProps> = ({ primaryData, secondaryData, title, sy
                         yaxis2: {
                             title: { text: secondaryData ? Object.keys(secondaryData)[0]?.split('.')[0] || 'Second Y-Axis' : '' },
                             overlaying: 'y',
-                            autorange: customRange2 ? false : true,
-                            range: customRange2 ? [parseFloat(customY2Min), parseFloat(customY2Max)] : undefined,
+                            // Only disable autorange when BOTH min and max are provided
+                            autorange: !(customRange2 && customY2Min !== '' && customY2Max !== ''),
+                            range: customRange2 && customY2Min !== '' && customY2Max !== '' 
+                                ? [parseFloat(customY2Min), parseFloat(customY2Max)] 
+                                : undefined,
                             showspikes: true,
                             spikemode: 'across',
                             spikedash: "solid",
                             side: 'right',
                             spikethickness: 1
                         },
-                        height: 600,
+                        height: undefined,
+                        autosize: true,
                         legend: { orientation: "h" },
                         plot_bgcolor: 'white',
                         dragmode: 'pan',
                     }}
-                    style={{ width: '100%' }}
+                    style={{ width: '100%', height: '100%' }}
                     config={{
                         responsive: true,
                         scrollZoom: true,
@@ -107,9 +116,19 @@ const MyChart: React.FC<MyChartProps> = ({ primaryData, secondaryData, title, sy
                 />
             </div>
             <ChartControls
-                customYMin={customYMin} setCustomYMin={setCustomYMin} customYMax={customYMax} setCustomYMax={setCustomYMax} setCustomRange={setCustomRange}
-                customY2Min={customY2Min} setCustomY2Min={setCustomY2Min} customY2Max={customY2Max} setCustomY2Max={setCustomY2Max} setCustomRange2={setCustomRange2}
+                customYMin={customYMin}
+                setCustomYMin={setCustomYMin}
+                customYMax={customYMax}
+                setCustomYMax={setCustomYMax}
+                setCustomRange={setCustomRange}
+                customY2Min={customY2Min}
+                setCustomY2Min={setCustomY2Min}
+                customY2Max={customY2Max}
+                setCustomY2Max={setCustomY2Max}
+                setCustomRange2={setCustomRange2}
                 hasSecondary={!!secondaryData}
+                primaryDataBounds={primaryDataBounds}
+                secondaryDataBounds={secondaryDataBounds}
             />
         </div>
     );

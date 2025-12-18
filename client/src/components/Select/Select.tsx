@@ -9,6 +9,7 @@ type SelectProps = {
   onChange: (e: React.ChangeEvent<HTMLSelectElement>) => void;
   disabledCategory?: string;
   allowNoneOption?: boolean;
+  ariaLabel?: string;
 };
 
 export const Select: React.FC<SelectProps> = ({
@@ -19,11 +20,12 @@ export const Select: React.FC<SelectProps> = ({
   onChange,
   disabledCategory,
   allowNoneOption = false,
+  ariaLabel,
 }) => {
   const selectElement = (
     <Form.Select
       id={id}
-      aria-label={label || 'Select option'} // Use label or a default for accessibility
+      aria-label={ariaLabel || label || `Select ${id.replace(/-/g, ' ')}`}
       style={{ width: '224px' }}
       value={selected}
       onChange={onChange}

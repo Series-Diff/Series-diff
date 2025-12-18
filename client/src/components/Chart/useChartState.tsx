@@ -9,6 +9,7 @@ import { TimeSeriesEntry } from "@/services/fetchTimeSeries";
  * - Tick formats and markers based on zoom level.
  * - Visibility map for traces.
  * - Initial X-range setup after data load.
+ * - Data bounds for Y-axes (used for partial range input)
  */
 
 export const useChartState = (
@@ -28,6 +29,27 @@ export const useChartState = (
 
     // Memoized allData to stabilize dependencies
     const allData = useMemo(() => ({ ...primaryData, ...(secondaryData || {}) }), [primaryData, secondaryData]);
+
+    // Calculate data bounds for primary Y-axis
+    const primaryDataBounds = useMemo(() => {
+        const allYValues = Object.values(primaryData).flat().map(d => d.y);
+        if (allYValues.length === 0) return { min: 0, max: 100 };
+        return {
+            min: Math.min(...allYValues),
+            max: Math.max(...allYValues)
+        };
+    }, [primaryData]);
+
+    // Calculate data bounds for secondary Y-axis
+    const secondaryDataBounds = useMemo(() => {
+        if (!secondaryData) return { min: 0, max: 100 };
+        const allYValues = Object.values(secondaryData).flat().map(d => d.y);
+        if (allYValues.length === 0) return { min: 0, max: 100 };
+        return {
+            min: Math.min(...allYValues),
+            max: Math.max(...allYValues)
+        };
+    }, [secondaryData]);
 
     // Set initial X-range based on data
     // This hook allows for dynamic X-axis range right after loading data, without it you need to refresh the page first
@@ -74,5 +96,6 @@ export const useChartState = (
     return {
         xaxisRange, tickFormat, showMarkers, customRange, setCustomRange, customYMin, setCustomYMin, customYMax, setCustomYMax,
         customRange2, setCustomRange2, customY2Min, setCustomY2Min, customY2Max, setCustomY2Max, visibleMap, setVisibleMap, handleRelayout,
+        primaryDataBounds, secondaryDataBounds,
     };
 };

@@ -16,19 +16,20 @@ const handleSessionToken = (response: Response) => {
 };
 
 async function fetchDifference(category: string, filename1: string, filename2: string, tolerance?: string): Promise<TimeSeriesEntry[] | null> {
-    const toleranceParam = tolerance !== undefined ? String(tolerance) : undefined;
-    const resp = await fetch(`${API_URL}/api/timeseries/difference?category=${category}&filename1=${filename1}&filename2=${filename2}` + (toleranceParam ? `&tolerance=${toleranceParam}` : ""), {
-      headers: {
-        ...getAuthHeaders(),
-      },
-    });
-    handleSessionToken(resp);
-    
-    if (!resp.ok) {
-        console.error(`Failed to fetch difference for ${filename1} - ${filename2} in ${category}:`, await resp.text());
-        return null;
-    }
-    const data = await resp.json();
+  const toleranceParam = tolerance !== undefined ? String(tolerance) : undefined;
+  const resp = await fetch(`${API_URL}/api/timeseries/difference?category=${category}&filename1=${filename1}&filename2=${filename2}` + (toleranceParam ? `&tolerance=${toleranceParam}` : ""), {
+    headers: {
+      ...getAuthHeaders(),
+    },
+  });
+  handleSessionToken(resp);
+  
+  if (!resp.ok) {
+    const msg = await resp.text();
+    throw new Error(msg || `Failed to fetch difference for ${filename1} - ${filename2} in ${category}`);
+  }
+  
+  const data = await resp.json();
     if (data.difference) {
         return Object.entries(data.difference).map(([x, y]) => ({ x, y: y as number }));
     }
@@ -42,7 +43,7 @@ export async function fetchAllDifferences(
 ): Promise<Record<string, Record<string, TimeSeriesEntry[]>>> {
   const differenceValues: Record<string, Record<string, TimeSeriesEntry[]>> = {};
 
-    const toleranceString = tolerance !== null ? `${tolerance}T` : undefined;
+    const toleranceString = tolerance !== null && tolerance !== undefined ? `${tolerance}T` : undefined;
 
   for (const category of Object.keys(filenamesPerCategory)) {
     const files = filenamesPerCategory[category];
@@ -71,6 +72,7 @@ export async function fetchAllDifferences(
 
         } catch (err) {
           console.warn(`Error fetching difference for ${category}.${differenceKey}:`, err);
+          throw err;
         }
       }
     }

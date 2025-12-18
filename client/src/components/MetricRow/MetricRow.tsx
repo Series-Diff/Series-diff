@@ -8,7 +8,7 @@ interface MetricRowProps {
     className?: string;
     text: string;
     description: string;
-    onShowChange: () => void;
+    onShowChange?: () => void;
     category: string;
     showCheckbox?: boolean;
     isUser?: boolean;
