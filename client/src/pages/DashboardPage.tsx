@@ -7,6 +7,7 @@ import * as components from '../components';
 import * as hooks from '../hooks';
 
 import ControlsPanel from './Dashboard/components/ControlsPanel';
+import {useState} from "react";
 
 function DashboardPage() {
   const { chartData, error, setError, isLoading, setIsLoading, filenamesPerCategory, handleFetchData, handleReset: baseReset } = hooks.useDataFetching();
@@ -17,15 +18,25 @@ function DashboardPage() {
   const { showTitleModal, setShowTitleModal, reportTitle, setReportTitle, isExporting, handleExportClick, handleExportToPDF } = hooks.useExport(chartData);
   const { isPopupOpen, selectedFiles, handleFileUpload, handlePopupComplete, handlePopupClose, resetFileUpload } = hooks.useFileUpload(handleFetchData, setError, setIsLoading);
 
+
+  const { plugins } = hooks.useLocalPlugins();
+const {
+    pluginResults,
+    isLoadingPlugins,
+    refreshPluginResults,
+    resetPluginResults
+  } = hooks.usePluginResults(filenamesPerCategory, plugins);
   const handleReset = async () => {
     await baseReset();
     resetMetrics();
     resetChartConfig();
     resetMovingAverage();
     resetFileUpload();
+    resetPluginResults();
   };
 
   const hasData = Object.keys(chartData).length > 0;
+  const enabledPlugins = plugins.filter(p => p.enabled);
 
   const mainStyle = {
     gap: "16px",
@@ -212,6 +223,58 @@ function DashboardPage() {
                   />
                 </div>
               )}
+            </div>
+          )}
+
+{/* --- CUSTOM PLUGINS SECTION --- */}
+          {enabledPlugins.length > 0 && selectedCategory && (
+            <div className="section-container" style={{ padding: "16px" }}>
+              <div className="d-flex justify-content-between align-items-center mb-3">
+                <h3 style={{ margin: 0 }}>Plugins</h3>
+                <div className="d-flex align-items-center gap-2">
+                   {isLoadingPlugins && <Spinner animation="border" size="sm" />}
+                   <Button
+                     variant="outline-secondary"
+                     size="sm"
+                     onClick={refreshPluginResults}
+                     disabled={isLoadingPlugins}
+                   >
+                     Refresh
+                   </Button>
+                </div>
+              </div>
+
+              {enabledPlugins.map((plugin) => {
+                const categoryData = pluginResults[plugin.id]?.[selectedCategory];
+                // Renderuj tylko jeśli są dane dla tej kategorii
+                if (!categoryData || Object.keys(categoryData).length === 0) {
+                  return null;
+                }
+
+                return (
+                  <components.StandardTable
+                    data={categoryData}
+                    category={selectedCategory}
+                    metric={plugin.name}
+                  />
+                );
+              })}
+
+              {secondaryCategory && enabledPlugins.map((plugin) => {
+                const categoryData = pluginResults[plugin.id]?.[secondaryCategory];
+                if (!categoryData || Object.keys(categoryData).length === 0) {
+                  return null;
+                }
+                return (
+                  <div key={`${plugin.id}-${secondaryCategory}`} style={{ marginTop: "32px" }}>
+                    <components.StandardTable
+                      data={categoryData}
+                      category={secondaryCategory}
+                      metric={plugin.name}
+                    />
+                  </div>
+                );
+              })}
             </div>
           )}
 

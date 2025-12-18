@@ -7,6 +7,7 @@ from flask import Flask, jsonify, request
 from flask_limiter import Limiter
 from flask_limiter.util import get_remote_address
 from utils.time_utils import convert_timeseries_keys_timezone
+# from services.plugin_service import get_plugin_manager
 
 sys.stdout.reconfigure(line_buffering=True)
 
@@ -908,9 +909,102 @@ def clear_timeseries():
     return jsonify({"status": "All timeseries cleared"}), 200
 
 
+from services.plugin_service import validate_plugin_code, execute_plugin_code, get_template
+
+
+@app.route("/api/plugins/validate", methods=["POST"])
+def api_validate_plugin_code():
+    """
+    Validate plugin code for security and correctness.
+
+    Request body:
+        code: Python code to validate
+
+    Returns:
+        Validation result with valid (bool) and optionally error (str).
+    """
+    data = request.get_json()
+
+    if not data or "code" not in data:
+        return jsonify({"error": "No code provided"}), 400
+
+    result = validate_plugin_code(data["code"])
+
+    return jsonify(result), 200
+
+
+@app.route("/api/plugins/execute", methods=["POST"])
+def api_execute_plugin():
+    """
+    Execute plugin code on two time series.
+
+    NOTE: Plugin code is sent directly from the client (stored in localStorage).
+    This keeps plugins private to each user.
+
+    Request body:
+        code: Python code implementing calculate(series1, series2) function
+        filename1: First file name
+        filename2: Second file name
+        category: Category name
+        start: Optional start time
+        end: Optional end time
+
+    Returns:
+        Result value or error.
+    """
+    data = request.get_json()
+
+    if not data:
+        return jsonify({"error": "No data provided"}), 400
+
+    required_fields = ["code", "filename1", "filename2", "category"]
+    for field in required_fields:
+        if field not in data:
+            return jsonify({"error": f"Missing required field: {field}"}), 400
+
+    try:
+        # Fetch time series data
+        data1 = timeseries_manager.get_timeseries(
+            filename=data["filename1"],
+            category=data["category"],
+            start=data.get("start"),
+            end=data.get("end")
+        )
+        series1 = metric_service.extract_series_from_dict(
+            data1, data["category"], data["filename1"]
+        )
+
+        data2 = timeseries_manager.get_timeseries(
+            filename=data["filename2"],
+            category=data["category"],
+            start=data.get("start"),
+            end=data.get("end")
+        )
+        series2 = metric_service.extract_series_from_dict(
+            data2, data["category"], data["filename2"]
+        )
+
+        # Execute the plugin code (sandboxed)
+        result = execute_plugin_code(data["code"], series1, series2)
+
+        if "error" in result:
+            logger.error("Plugin execution error: %s", result["error"])
+            return jsonify(result), 400
+
+        logger.info(
+            "Plugin executed successfully on %s and %s",
+            data["filename1"], data["filename2"]
+        )
+        return jsonify(result), 200
+
+    except Exception as e:
+        logger.error("Error executing plugin: %s", e)
+        return jsonify({"error": str(e)}), 400
+
+
 def all_required_services_are_running():
     return True
 
 
 if __name__ == "__main__":
-    app.run(host="0.0.0.0", port=5000)
+    app.run(host="0.0.0.0", port=3000)

@@ -1,59 +1,59 @@
-import React, { useState, useEffect } from 'react';
-import { Modal, Form, Button, OverlayTrigger, Tooltip } from 'react-bootstrap';
+import React, {useState, useEffect} from 'react';
+import {Modal, Form, Button} from 'react-bootstrap';
 import Select from '../Select/Select';
 
 interface MetricData {
     label: string;
     description: string;
     category: string;
-    file?: File;
+    code?: string;
 }
 
 interface MetricModalProps {
     show: boolean;
     onHide: () => void;
     onSave: (data: MetricData) => void;
-    editingMetric: { label: string; description: string; category: string; fileName?: string; file?: File } | null;
+    // Zmieniono typ editingMetric, aby wyraźnie uwzględniał kod (który jest opcjonalny w interfejsie Metric, ale potrzebny tutaj)
+    editingMetric: { label: string; description: string; category: string; code?: string; value?: string } | null;
     categories: string[];
     existingLabels: string[];
 }
 
 const MetricModal: React.FC<MetricModalProps> = ({
-    show,
-    onHide,
-    onSave,
-    editingMetric,
-    categories,
-    existingLabels
-}) => {
+                                                     show,
+                                                     onHide,
+                                                     onSave,
+                                                     editingMetric,
+                                                     categories,
+                                                     existingLabels
+                                                 }) => {
     const [label, setLabel] = useState('');
     const [description, setDescription] = useState('');
     const [category, setCategory] = useState(categories[0] || '');
-    const [file, setFile] = useState<File | undefined>(undefined);
+    const [code, setCode] = useState('');
     const [titleError, setTitleError] = useState<string | null>(null);
-    const [fileError, setFileError] = useState<string | null>(null);
+    const [codeError, setCodeError] = useState<string | null>(null);
     const isEditing = !!editingMetric;
 
-    // Reset form only when modal opens (show changes to true) or editingMetric changes
     useEffect(() => {
         if (show) {
             if (editingMetric) {
                 setLabel(editingMetric.label);
                 setDescription(editingMetric.description);
                 setCategory(editingMetric.category);
+                // Wypełniamy kod, jeśli istnieje
+                setCode(editingMetric.code || '');
             } else {
                 setLabel('');
+                setCode('');
                 setDescription('');
                 setCategory(categories.length > 0 ? categories[0] : '');
             }
-            setFile(undefined);
             setTitleError(null);
-            setFileError(null);
+            setCodeError(null);
         }
-    }, [show, editingMetric]); // eslint-disable-line react-hooks/exhaustive-deps
-    // Intentionally not including categories to avoid resetting form on category changes
+    }, [show, editingMetric, categories]);
 
-    // Sync category state if categories prop changes and current category becomes invalid
     useEffect(() => {
         if (categories.length > 0 && !categories.includes(category)) {
             setCategory(categories[0]);
@@ -70,38 +70,30 @@ const MetricModal: React.FC<MetricModalProps> = ({
             setTitleError('Title is required.');
             hasError = true;
         } else {
-            // Check for duplicate title (case-insensitive, trimmed)
             const isDuplicate = existingLabels.some(
                 existingLabel => existingLabel.toLowerCase() === trimmedLabel.toLowerCase()
             );
             if (isDuplicate) {
-                setTitleError(`A metric with the title "${trimmedLabel}" already exists. Please choose a different title.`);
+                setTitleError(`A metric with the title "${trimmedLabel}" already exists.`);
                 hasError = true;
             } else {
                 setTitleError(null);
             }
         }
 
-        if (!isEditing && !file) {
-            setFileError('File is required for new metrics.');
+        // Walidacja kodu - kod jest wymagany zawsze, nawet przy edycji, aby plugin działał
+        if (!code.trim()) {
+            setCodeError('Code is required.');
             hasError = true;
         } else {
-            setFileError(null);
+            setCodeError(null);
         }
 
-        // Also check for duplicate title error from parent
         if (hasError) {
             return;
         }
 
-        onSave({ label: trimmedLabel, description, category, file });
-    };
-
-    const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-        if (e.target.files && e.target.files[0]) {
-            setFile(e.target.files[0]);
-            setFileError(null);
-        }
+        onSave({label: trimmedLabel, description, category, code});
     };
 
     const handleLabelChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -111,46 +103,13 @@ const MetricModal: React.FC<MetricModalProps> = ({
         }
     };
 
-    const fileUploadTooltip = (
-        <Tooltip id="file-upload-tooltip">
-            Once uploaded, the metric file cannot be changed. You will need to delete and re-create the metric to use a different file.
-        </Tooltip>
-    );
-
     return (
-        <Modal show={show} onHide={onHide} centered>
+        <Modal show={show} onHide={onHide} centered size="lg">
             <Modal.Header closeButton>
                 <Modal.Title>{isEditing ? 'Edit Metric' : 'Add Your Custom Metric'}</Modal.Title>
             </Modal.Header>
             <Modal.Body>
                 <Form onSubmit={handleSubmit} noValidate>
-                    {!isEditing && (
-                        <Form.Group className="mb-3">
-                            <Form.Label>
-                                File <span className="text-danger">*</span>
-                            </Form.Label>
-                            <OverlayTrigger placement="right" overlay={fileUploadTooltip}>
-                                <Form.Control
-                                    type="file"
-                                    onChange={handleFileChange}
-                                    isInvalid={!!fileError}
-                                    lang="en"
-                                />
-                            </OverlayTrigger>
-                            {fileError && (
-                                <Form.Text className="text-danger">
-                                    {fileError}
-                                </Form.Text>
-                            )}
-                        </Form.Group>
-                    )}
-                    {isEditing && editingMetric?.fileName && (
-                        <p className="text-muted">
-                            <strong>Current file:</strong> {editingMetric.fileName}
-                            <br />
-                            <small className="text-secondary">Note: The file cannot be changed after creation.</small>
-                        </p>
-                    )}
                     <Form.Group className="mb-3">
                         <Form.Label>
                             Title <span className="text-danger">*</span>
@@ -184,9 +143,36 @@ const MetricModal: React.FC<MetricModalProps> = ({
                             onChange={(e) => setCategory(e.target.value)}
                         />
                     </Form.Group>
+
+                    <Form.Group className="mb-3">
+                        <Form.Label>Python code <span className="text-danger">*</span></Form.Label>
+                        <Form.Control
+                            as="textarea"
+                            rows={15}
+                            value={code}
+                            onChange={(e) => {
+                                setCode(e.target.value);
+                                if (e.target.value.trim()) setCodeError(null);
+                            }}
+                            isInvalid={!!codeError}
+                            style={{fontFamily: 'monospace', fontSize: '0.85em'}}
+                        />
+                        {codeError && (
+                             <Form.Text className="text-danger d-block">
+                                {codeError}
+                            </Form.Text>
+                        )}
+                        <Form.Text className="text-muted">
+                            Plugin needs to implement function <br/> <code>calculate(series1, series2) -&gt; float</code>
+                        </Form.Text>
+                    </Form.Group>
+
                 </Form>
             </Modal.Body>
             <Modal.Footer className="justify-content-end">
+                <Button variant="secondary" onClick={onHide} className="me-2">
+                    Cancel
+                </Button>
                 <Button variant="primary" onClick={handleSubmit}>
                     Save
                 </Button>
