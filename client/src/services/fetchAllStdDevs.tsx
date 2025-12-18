@@ -1,7 +1,24 @@
 const API_URL = process.env.REACT_APP_API_URL || '';
 
+const getAuthHeaders = (): HeadersInit => {
+  const token = localStorage.getItem('session_token');
+  return token ? { 'X-Session-ID': token } : {};
+};
+
+const handleSessionToken = (response: Response) => {
+  const newToken = response.headers.get('X-Session-ID');
+  if (newToken) {
+    localStorage.setItem('session_token', newToken);
+  }
+};
+
 async function fetchStdDev(category: string, filename: string): Promise<number | null>{
-    const resp = await fetch(`${API_URL}/api/timeseries/standard_deviation?category=${category}&filename=${filename}`);
+    const resp = await fetch(`${API_URL}/api/timeseries/standard_deviation?category=${category}&filename=${filename}`, {
+      headers: {
+        ...getAuthHeaders(),
+      },
+    });
+    handleSessionToken(resp);
     if (!resp.ok) {
         console.error("Failed to fetch standard deviation:", await resp.text());
         return null;

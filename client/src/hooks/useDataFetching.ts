@@ -26,6 +26,18 @@ export const useDataFetching = () => {
         }
     }, []);
 
+    const getAuthHeaders = (): HeadersInit => {
+        const token = localStorage.getItem('session_token');
+        return token ? { 'X-Session-ID': token } : {};
+    };
+
+    const handleSessionToken = (response: Response) => {
+    const newToken = response.headers.get('X-Session-ID');
+    if (newToken) {
+        localStorage.setItem('session_token', newToken);
+    }
+    };
+
     const handleReset = async () => {
         setIsLoading(true);
         setError(null);
@@ -37,7 +49,9 @@ export const useDataFetching = () => {
         localStorage.removeItem('secondaryCategory');
 
         try {
-            const resp = await fetch(`${API_URL}/api/clear-timeseries`, { method: 'DELETE' });
+            
+            const resp = await fetch(`${API_URL}/api/clear-timeseries`, { method: 'DELETE', headers: { ...getAuthHeaders() } });
+            handleSessionToken(resp);
             if (!resp.ok) {
                 const errorText = await resp.text();
                 console.error("Failed to clear timeseries on backend:", errorText);

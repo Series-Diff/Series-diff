@@ -1,4 +1,5 @@
 from datetime import datetime
+from typing import Any, Dict, Optional
 
 
 class TimeSeriesManager:
@@ -15,10 +16,15 @@ class TimeSeriesManager:
     """
 
     def __init__(self):
-        self.timeseries = {}
+        self.sessions: Dict[str, Dict[str, Any]] = {}
 
     def _validate_parameters(
-        self, time: str, filename: str, category: str, start: str, end: str
+        self,
+        time: Optional[str],
+        filename: Optional[str],
+        category: Optional[str],
+        start: Optional[str],
+        end: Optional[str],
     ):
         """Validate input parameters."""
         for param, param_type in [
@@ -35,6 +41,12 @@ class TimeSeriesManager:
 
         if start and end and start > end:
             raise ValueError(f"Start date {start} is after end date {end}.")
+
+    def _get_session_data(self, token: str) -> Dict[str, Any]:
+        """Retrieve session data for a given token."""
+        if token not in self.sessions:
+            self.sessions[token] = {}
+        return self.sessions[token]
 
     def _parse_dates(self, start: str, end: str) -> tuple:
         """Parse ISO format dates."""
@@ -90,7 +102,7 @@ class TimeSeriesManager:
                     file
                 ] = value
 
-    def add_timeseries(self, time: str, data: dict):
+    def add_timeseries(self, token: str, time: str, data: dict):
         """
         Add a timeseries to the manager.
 
@@ -107,7 +119,8 @@ class TimeSeriesManager:
             bool: True if added successfully, False otherwise
         """
         if isinstance(data, dict):
-            self.timeseries[time] = data
+            session_data = self._get_session_data(token)
+            session_data[time] = data
             for timeserie, categories in data.items():
                 if not isinstance(categories, dict):
                     raise ValueError(f"Invalid category '{timeserie}': {categories}")
@@ -121,6 +134,7 @@ class TimeSeriesManager:
 
     def get_timeseries(
         self,
+        token: str,
         time: str = None,
         filename: str = None,
         category: str = None,
@@ -142,11 +156,11 @@ class TimeSeriesManager:
         self._validate_parameters(time, filename, category, start, end)
         datetime_start, datetime_end = self._parse_dates(start, end)
 
-        result = {}
-        if not self.timeseries:
+        result = self._get_session_data(token)
+        if not self.sessions[token]:
             return result
 
-        for timeseries, categories in self.timeseries.items():
+        for timeseries, categories in self.sessions[token].items():
             if not self._matches_time_filter(
                 timeseries, time, datetime_start, datetime_end
             ):
@@ -155,14 +169,14 @@ class TimeSeriesManager:
 
         return result
 
-    def clear_timeseries(self):
+    def clear_timeseries(self, token: str) -> dict:
         """
         Clear all timeseries data.
         Returns:
             dict: Message indicating the result of the operation
         """
         try:
-            self.timeseries.clear()
+            self.sessions[token].clear()
             return {"message": "All timeseries data cleared successfully."}, 200
         except Exception as e:
             return {"error": str(e)}, 500

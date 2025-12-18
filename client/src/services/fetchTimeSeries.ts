@@ -8,8 +8,26 @@ export type TimeSeriesResponse = Record<string, TimeSeriesEntry[]>;
 
 const API_URL = process.env.REACT_APP_API_URL || '';
 
+const getAuthHeaders = (): HeadersInit => {
+  const token = localStorage.getItem('session_token');
+  return token ? { 'X-Session-ID': token } : {};
+};
+
+const handleSessionToken = (response: Response) => {
+  const newToken = response.headers.get('X-Session-ID');
+  if (newToken) {
+    localStorage.setItem('session_token', newToken);
+  }
+};
+
 export const fetchTimeSeriesData = async (): Promise<TimeSeriesResponse> => {
-  const resp = await fetch(`${API_URL}/api/timeseries`);
+  const resp = await fetch(`${API_URL}/api/timeseries`, {
+    headers: {
+      ...getAuthHeaders(),
+      'Content-Type': 'application/json',
+    },
+  });
+  handleSessionToken(resp);
   if (!resp.ok) throw new Error(await resp.text());
   const json: Record<string, Record<string, Record<string, number>>> = await resp.json();
   const out: TimeSeriesResponse = {};

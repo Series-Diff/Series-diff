@@ -41,9 +41,7 @@ def extract_series_from_dict(data: dict, category: str, filename: str) -> dict:
         if filename not in data[key][category] or not isinstance(
             data[key][category][filename], (int, float)
         ):
-            raise ValueError(
-                f"Filename '{filename}' not found in category '{category}' at key '{key}' or bad structure"
-            )
+            continue  # not good solution, but gotta find out what to do when there's missing data for some timestamps
 
         if not isinstance(data[key][category][filename], (int, float)):
             raise ValueError(

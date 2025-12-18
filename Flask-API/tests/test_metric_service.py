@@ -66,9 +66,12 @@ class TestExtractSeriesFromDict(unittest.TestCase):
             "2023-01-02": {"category1": {"file1": "invalid", "file2": 4}},
         }
 
-        # Act & Assert
-        with self.assertRaises(ValueError):
-            extract_series_from_dict(data, "category1", "file1")
+        # Act
+        result = extract_series_from_dict(data, "category1", "file1")
+
+        # Assert: invalid value should be skipped (no error raised)
+        expected = {"2023-01-01": 1}
+        self.assertEqual(result, expected)
 
 
 class TestCalculateBasicStatistics(unittest.TestCase):
