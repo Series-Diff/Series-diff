@@ -18,17 +18,24 @@ async function fetchRmse(
   category: string,
   filename1: string,
   filename2: string,
+  start?: string,
+  end?: string,
   tolerance?: string
 ): Promise<number | null> {
-  const tolParam = tolerance ? `&tolerance=${encodeURIComponent(tolerance)}` : "";
+  const params = new URLSearchParams({
+    category: category.trim(),
+    filename1: filename1.trim(),
+    filename2: filename2.trim(),
+    ...(start && { start }),
+    ...(end && { end }),
+    ...(tolerance && { tolerance }),
+  });
 
-  const resp = await fetch(
-    `${API_URL}/api/timeseries/rmse?category=${encodeURIComponent(category.trim())}&filename1=${encodeURIComponent(filename1.trim())}&filename2=${encodeURIComponent(filename2.trim())}${tolParam}`
-  , {
-      headers: {
-        ...getAuthHeaders(),
-      },
-    });
+  const resp = await fetch(`${API_URL}/api/timeseries/rmse?${params.toString()}`, {
+    headers: {
+      ...getAuthHeaders(),
+    },
+  });
 
   handleSessionToken(resp);
 
@@ -43,7 +50,9 @@ async function fetchRmse(
 
 export async function fetchAllRmse(
   filenamesPerCategory: Record<string, string[]>,
-  tolerance?: string
+  tolerance?: string,
+  start?: string,
+  end?: string
 ): Promise<Record<string, Record<string, Record<string, number>>>> {
   const rmseValues: Record<string, Record<string, Record<string, number>>> = {};
 
@@ -55,7 +64,7 @@ export async function fetchAllRmse(
         if (f1 === f2) continue;
 
         try {
-          const rmse = await fetchRmse(category, f1, f2, tolerance);
+          const rmse = await fetchRmse(category, f1, f2, start, end, tolerance);
 
           if (!rmseValues[category]) rmseValues[category] = {};
           if (!rmseValues[category][f1]) rmseValues[category][f1] = {};

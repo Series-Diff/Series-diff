@@ -25,10 +25,7 @@ type PerCategoryCorrelationMetricEntry = {
 };
 
 export const useMetricCalculations = (
-    filenamesPerCategory: Record<string, string[]>,
-    selectedCategory: string | null,
-    secondaryCategory: string | null
-) => {
+filenamesPerCategory: Record<string, string[]>, selectedCategory: string | null, secondaryCategory: string | null, startDate: Date | null, endDate: Date | null) => {
     const [meanValues, setMeanValues] = useState<SingleMetricType>({});
     const [medianValues, setMedianValues] = useState<SingleMetricType>({});
     const [varianceValues, setVarianceValues] = useState<SingleMetricType>({});
