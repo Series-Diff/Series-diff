@@ -40,7 +40,7 @@ def _get_session_token():
     token = request.headers.get("X-Session-ID")
     is_new_token = False
     if not token or token == "null" or len(token.strip()) < 10:
-        token = token = str(uuid.uuid4())
+        token = str(uuid.uuid4())
         logger.info(f"Generated new session token: {token}")
         is_new_token = True
     return token, is_new_token
