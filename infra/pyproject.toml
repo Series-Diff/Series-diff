@@ -11,6 +11,7 @@ pulumi = "^3.0.0"
 pulumi-aws = "^6.0.0"
 pulumi-docker = "^4.0.0"
 pulumi-command = "^1.0.0"
+pulumi-docker-build = "^0.0.15"
 
 [build-system]
 requires = ["poetry-core>=1.0.0"]
