@@ -16,25 +16,28 @@ const handleSessionToken = (response: Response) => {
 export async function fetchDTW(
   filename1: string,
   filename2: string,
-  category: string
+  category: string,
+  start?: string,
+  end?: string
 ): Promise<number | null> {
-  // Tworzymy adres endpointu API z parametrami
-  const url = `${API_URL}/api/timeseries/dtw?filename1=${encodeURIComponent(filename1.trim())}&filename2=${encodeURIComponent(filename2.trim())}&category=${encodeURIComponent(category.trim())}`;
+  let url = `${API_URL}/api/timeseries/dtw?filename1=${encodeURIComponent(encodeURIComponent(filename1.trim()))}&filename2=${encodeURIComponent(encodeURIComponent(filename2.trim()))}&category=${encodeURIComponent(encodeURIComponent(category.trim()))}`;
+  if (start) url += `&start=${encodeURIComponent(start)}`;
+  if (end) url += `&end=${encodeURIComponent(end)}`;
+
   try {
     const response = await fetch(url, {
       headers: {
         ...getAuthHeaders(),
       },
     });
+
     handleSessionToken(response);
 
-    // Jeśli zapytanie nie powiodło się — logujemy błąd i zwracamy null
     if (!response.ok) {
       console.error(`Failed to fetch DTW for ${filename1} vs ${filename2}:`, await response.text());
       return null;
     }
 
-    // Parsujemy odpowiedź JSON i zwracamy wartość DTW (lub null, jeśli brak)
     const data = await response.json();
     return data.dtw_distance ?? 0;
   } catch (err) {
@@ -43,37 +46,37 @@ export async function fetchDTW(
   }
 }
 
-// Funkcja pobiera macierz DTW między wszystkimi plikami w danej kategorii
 export async function fetchAllDTWs(
   filenames: string[],
-  category: string
+  category: string,
+  start?: string,
+  end?: string
 ): Promise<Record<string, Record<string, number>>> {
   const DTWs: Record<string, Record<string, number>> = {};
   const numFiles = filenames.length;
-  // Dla każdej pary plików pobieramy DTW z API
+
+  // Inicjalizacja macierzy DTW
   for (const file1 of filenames) {
     DTWs[file1] = {};
     for (const file2 of filenames) {
-        DTWs[file1][file2] = 0.0;
+      DTWs[file1][file2] = 0.0;
     }
   }
-  // Oblicz tylko górny trójkąt macierzy (unikalne pary)
+
+  // Obliczamy tylko górny trójkąt macierzy (unikalne pary)
   for (let i = 0; i < numFiles; i++) {
     const file1 = filenames[i];
 
-    // Przekątna jest zawsze 0 (DTW(A, A) = 0), nie musimy jej obliczać
-
-    // Pętla wewnętrzna startuje od i + 1, aby uniknąć duplikatów i przekątnej
     for (let j = i + 1; j < numFiles; j++) {
       const file2 = filenames[j];
 
-      const value = await fetchDTW(file1, file2, category);
+      const value = await fetchDTW(file1, file2, category, start, end);
       const dtwValue = value ?? 0;
 
-      // Ustawiamy wartość symetrycznie
-      DTWs[file1][file2] = dtwValue; // np. DTW(A, B)
-      DTWs[file2][file1] = dtwValue; // np. DTW(B, A)
+      DTWs[file1][file2] = dtwValue;
+      DTWs[file2][file1] = dtwValue;
     }
   }
+
   return DTWs;
 }

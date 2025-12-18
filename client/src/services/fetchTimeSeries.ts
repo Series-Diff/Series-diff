@@ -1,8 +1,7 @@
 export type TimeSeriesEntry = {
-        x: string;
-        y: number;
-    };
-
+  x: string; // ISO string timestamp
+  y: number;
+};
 
 export type TimeSeriesResponse = Record<string, TimeSeriesEntry[]>;
 
@@ -20,60 +19,57 @@ const handleSessionToken = (response: Response) => {
   }
 };
 
-export const fetchTimeSeriesData = async (): Promise<TimeSeriesResponse> => {
-  const resp = await fetch(`${API_URL}/api/timeseries`, {
+export const fetchTimeSeriesData = async (
+  start?: string,
+  end?: string
+): Promise<TimeSeriesResponse> => {
+  let url = `${API_URL}/api/timeseries`;
+  const params: string[] = [];
+  if (start) params.push(`start=${encodeURIComponent(start)}`);
+  if (end) params.push(`end=${encodeURIComponent(end)}`);
+  if (params.length > 0) url += `?${params.join('&')}`;
+
+  const resp = await fetch(url, {
     headers: {
       ...getAuthHeaders(),
       'Content-Type': 'application/json',
     },
   });
+
   handleSessionToken(resp);
+
   if (!resp.ok) throw new Error(await resp.text());
+
   const json: Record<string, Record<string, Record<string, number>>> = await resp.json();
   const out: TimeSeriesResponse = {};
 
-  // Iterujemy po każdym wpisie w obiekcie, gdzie kluczem jest `timestamp`.
   for (const [timestamp, timestampData] of Object.entries(json)) {
     if (typeof timestampData !== 'object' || timestampData === null) continue;
 
-    // Iterujemy po grupach w danym punkcie czasowym (np. "humidity", "temperature").
     for (const [groupName, seriesData] of Object.entries(timestampData)) {
       if (typeof seriesData !== 'object' || seriesData === null) continue;
 
-      // Iterujemy po konkretnych seriach danych dla danej grupy.
       for (const [seriesName, value] of Object.entries(seriesData)) {
         if (typeof value !== 'number') continue;
 
-        // Tworzymy unikalny, złożony klucz dla serii danych, np. "humidity.data_1".
         const compositeKey = `${groupName}.${seriesName}`;
-
-        // Jeśli tablica dla tego klucza jeszcze nie istnieje w wynikowym obiekcie, tworzymy ją.
-        if (!out[compositeKey]) {
-          out[compositeKey] = [];
-        }
-
-        // Dodajemy nowy punkt danych (wpis szeregu czasowego) do odpowiedniej serii.
-        out[compositeKey].push({
-          x: timestamp, // `x` to nasz klucz główny z oryginalnego JSON
-          y: value,     // `y` to wartość liczbowa
-        });
+        if (!out[compositeKey]) out[compositeKey] = [];
+        out[compositeKey].push({ x: timestamp, y: value });
       }
     }
-  }
-
-
-  for (const key in out) {
-      out[key].sort((a, b) => new Date(a.x).getTime() - new Date(b.x).getTime());
   }
 
   return out;
 };
 
-
 export const fetchRawTimeSeriesData = async (): Promise<Record<string, any[]>> => {
-  const resp = await fetch(`${API_URL}/api/timeseries`);
+  const resp = await fetch(`${API_URL}/api/timeseries`, {
+    headers: getAuthHeaders(),
+  });
+
+  handleSessionToken(resp);
+
   if (!resp.ok) throw new Error(await resp.text());
 
-  const rawJson = await resp.json();
-  return rawJson;
+  return await resp.json();
 };
