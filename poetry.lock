@@ -241,14 +241,14 @@ semver = ">=3.0,<4.0"
 
 [[package]]
 name = "pulumi-aws"
-version = "7.12.0"
+version = "6.83.2"
 description = "A Pulumi package for creating and managing Amazon Web Services (AWS) cloud resources."
 optional = false
 python-versions = ">=3.9"
 groups = ["main"]
 files = [
-    {file = "pulumi_aws-7.12.0-py3-none-any.whl", hash = "sha256:e5c0a56d5f3fd583bcdaa6b044a1d69d4bdbf70649a6e9137939551644875254"},
-    {file = "pulumi_aws-7.12.0.tar.gz", hash = "sha256:57e2b76714eae3308c2ad472b64de81b2f650422375331247b01800a765aa4bf"},
+    {file = "pulumi_aws-6.83.2-py3-none-any.whl", hash = "sha256:c7041960c814f3a4660e4eaf4fa55c3b5485474bda215228f163f07614f83b61"},
+    {file = "pulumi_aws-6.83.2.tar.gz", hash = "sha256:dea49f7ea3079dc44f24d9fffe874e75d0918032e60cc7ffc1a47ad00f43c59b"},
 ]
 
 [package.dependencies]
@@ -266,6 +266,23 @@ groups = ["main"]
 files = [
     {file = "pulumi_command-1.1.3-py3-none-any.whl", hash = "sha256:0708a009079470dfe76fed401ba00bc3c8bfa355ebad0e1a3a70c0ccce20e209"},
     {file = "pulumi_command-1.1.3.tar.gz", hash = "sha256:6cd18d0270cdcb9fd4db66fca9403c3d2855483959730332dd15f97bc088670f"},
+]
+
+[package.dependencies]
+parver = ">=0.2.1"
+pulumi = ">=3.165.0,<4.0.0"
+semver = ">=2.8.1"
+
+[[package]]
+name = "pulumi-docker"
+version = "4.10.0"
+description = "A Pulumi package for interacting with Docker in Pulumi programs"
+optional = false
+python-versions = ">=3.9"
+groups = ["main"]
+files = [
+    {file = "pulumi_docker-4.10.0-py3-none-any.whl", hash = "sha256:6c9ebde223aa1b49a8c4447c742bc7e7f0abafeadc9e9f80b4f461a57c5e2b17"},
+    {file = "pulumi_docker-4.10.0.tar.gz", hash = "sha256:2f1e97842189e7e26dfc7eff0bd22e86690c57a67c1635afae9feaee56072538"},
 ]
 
 [package.dependencies]
@@ -383,4 +400,4 @@ files = [
 [metadata]
 lock-version = "2.1"
 python-versions = "^3.11"
-content-hash = "142087a285d92ebad208be1c1223000a08654d452b51fbf5ffb39e004bc0b170"
+content-hash = "c299c97e524f243ece1f280d1ab0e7ec71436633be8a1361b3cc2b5695b0dd79"
