@@ -2,6 +2,18 @@
 
 const API_URL = process.env.REACT_APP_API_URL || '';
 
+const getAuthHeaders = (): HeadersInit => {
+  const token = localStorage.getItem('session_token');
+  return token ? { 'X-Session-ID': token } : {};
+};
+
+const handleSessionToken = (response: Response) => {
+  const newToken = response.headers.get('X-Session-ID');
+  if (newToken) {
+    localStorage.setItem('session_token', newToken);
+  }
+};
+
 async function fetchMae(
   category: string,
   filename1: string,
@@ -12,7 +24,12 @@ async function fetchMae(
 
   const resp = await fetch(
     `${API_URL}/api/timeseries/mae?category=${category}&filename1=${filename1}&filename2=${filename2}${tolParam}`
-  );
+  , {
+      headers: {
+        ...getAuthHeaders(),
+      },
+    });
+  handleSessionToken(resp);
 
   if (!resp.ok) {
     console.error("Failed to fetch MAE:", await resp.text());

@@ -2,6 +2,18 @@
 
 const API_URL = process.env.REACT_APP_API_URL || '';
 
+const getAuthHeaders = (): HeadersInit => {
+  const token = localStorage.getItem('session_token');
+  return token ? { 'X-Session-ID': token } : {};
+};
+
+const handleSessionToken = (response: Response) => {
+  const newToken = response.headers.get('X-Session-ID');
+  if (newToken) {
+    localStorage.setItem('session_token', newToken);
+  }
+};
+
 // Funkcja pobiera cosine similarity między dwoma plikami
 export async function fetchCosineSimilarity(
   filename1: string,
@@ -11,7 +23,12 @@ export async function fetchCosineSimilarity(
   // Tworzymy adres endpointu API z parametrami
   const url = `${API_URL}/api/timeseries/cosine_similarity?filename1=${filename1}&filename2=${filename2}&category=${category}`;
   try {
-    const response = await fetch(url);
+    const response = await fetch(url, {
+      headers: {
+        ...getAuthHeaders(),
+      },
+    });
+    handleSessionToken(response);
 
     // Jeśli zapytanie nie powiodło się — logujemy błąd i zwracamy null
     if (!response.ok) {

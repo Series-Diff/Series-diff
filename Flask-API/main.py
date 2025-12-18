@@ -36,8 +36,10 @@ def _get_session_token():
     Retrieve or generate a session token from request headers.
     """
     token = request.headers.get("X-Session-ID")
+    is_new_token = False
     if not token or token == "null" or len(token.strip()) < 10:
         token = token = str(uuid.uuid4())
+        logger.info(f"Generated new session token: {token}")
         is_new_token = True
     return token, is_new_token
 
@@ -68,11 +70,11 @@ def health_check():
 
 @app.route("/", methods=["GET"])
 def index():
-    return jsonify({"status": "API is working", "service": "SeriesDiff Backend"}), 200
+    return _create_response({"status": "API is working", "service": "SeriesDiff Backend"}, 200)
 
 
 @app.route("/api/timeseries", methods=["GET"])
-@limiter.limit("10 per minute")
+@limiter.limit("100 per minute")
 def get_timeseries():
     """
     Get timeseries data for a specific filename, category and time interval.
@@ -104,7 +106,7 @@ def get_timeseries():
             end,
             e,
         )
-        return jsonify({"error": str(e)}), 400
+        return _create_response({"error": str(e)}, 400)
     except Exception as e:
         logger.error(
             "Unexpected error fetching timeseries for filename '%s' and category '%s' and time interval '%s - %s': %s",
@@ -114,7 +116,7 @@ def get_timeseries():
             end,
             e,
         )
-        return jsonify({"error": "Unexpected error occurred"}), 500
+        return _create_response({"error": "Unexpected error occurred"}, 500)
     tz_param = request.args.get("tz", "Europe/Warsaw")
     keep_offset_param = request.args.get("keep_offset", "false").lower() in (
         "1",
@@ -138,7 +140,7 @@ def get_timeseries():
             start,
             end,
         )
-        return jsonify({"error": "Timeseries not found"}), 404
+        return _create_response({"error": "Timeseries not found"}, 404)
     logger.info(
         "Successfully fetched timeseries for filename '%s' and category '%s' and time interval '%s - %s'",
         filename,
@@ -146,7 +148,7 @@ def get_timeseries():
         start,
         end,
     )
-    return jsonify(data), 200
+    return _create_response(data, 200, token=token)
 
 
 @app.route("/api/transform/pivot", methods=["POST"])
@@ -156,30 +158,27 @@ def transform_pivot():
     Returns the transformed data as a JSON list of records.
     """
     if "file" not in request.files:
-        return jsonify({"error": "No file part"}), 400
+        return _create_response({"error": "No file part in the request"}, 400)
 
     file = request.files["file"]
     if file.filename == "":
-        return jsonify({"error": "No selected file"}), 400
+        return _create_response({"error": "No selected file"}, 400)
 
     index_col = request.form.get("index_col")
     columns_col = request.form.get("columns_col")
     values_col = request.form.get("values_col")
 
     if not all([index_col, columns_col, values_col]):
-        return (
-            jsonify({"error": "Please select columns for Index, Category and Value."}),
-            400,
-        )
+        return _create_response({"error": "Please select columns for Index, Category and Value."}, 400)
 
     try:
         result_data = pivot_file(file, index_col, columns_col, values_col)
 
-        return jsonify(result_data), 200
+        return _create_response(result_data, 200)
 
     except Exception as e:
         logger.error(f"Error pivoting data: {e}")
-        return jsonify({"error": str(e)}), 500
+        return _create_response({"error": str(e)}, 500)
 
 
 @app.route("/api/timeseries/scatter_data", methods=["GET"])
@@ -230,12 +229,11 @@ def get_scatter_data():
                 {"x": row["value1"], "y": row["value2"], "time": index.isoformat()}
             )
 
-        return jsonify(result), 200
+        return _create_response(result, 200)
 
     except Exception as e:
         logger.error(f"Error getting scatter data: {e}")
-        return jsonify({"error": str(e)}), 400
-
+        return _create_response({"error": str(e)}, 400)
 
 @app.route("/api/timeseries/mean", methods=["GET"])
 def get_mean():
@@ -265,7 +263,7 @@ def get_mean():
             end,
             e,
         )
-        return jsonify({"error": str(e)}), 400
+        return _create_response({"error": str(e)}, 400)
     if mean is None:
         logger.warning(
             "No valid timeseries data provided for mean calculation for filename '%s' and category '%s' and time interval '%s - %s'",
@@ -274,7 +272,7 @@ def get_mean():
             start,
             end,
         )
-        return jsonify({"error": "No valid timeseries data provided"}), 400
+        return _create_response({"error": "No valid timeseries data provided"}, 400)
     logger.info(
         "Successfully calculated mean for provided timeseries data: filename '%s', category '%s', time interval '%s - %s'",
         filename,
@@ -283,7 +281,7 @@ def get_mean():
         end,
     )
 
-    return jsonify({"mean": mean}), 200
+    return _create_response({"mean": mean}, 200)
 
 
 @app.route("/api/timeseries/median", methods=["GET"])
@@ -323,7 +321,7 @@ def get_median():
             end,
             e,
         )
-        return jsonify({"error": str(e)}), 400
+        return _create_response({"error": str(e)}, 400)
     if median is None:
         logger.warning(
             "No valid timeseries data provided for median calculation for filename '%s' and category '%s' and time interval '%s - %s'",
@@ -332,7 +330,7 @@ def get_median():
             start,
             end,
         )
-        return jsonify({"error": "No valid timeseries data provided"}), 400
+        return _create_response({"error": "No valid timeseries data provided"}, 400)
     logger.info(
         "Successfully calculated median for provided timeseries data for filename '%s' and category '%s' and time interval '%s - %s'",
         filename,
@@ -341,7 +339,7 @@ def get_median():
         end,
     )
 
-    return jsonify({"median": median}), 200
+    return _create_response({"median": median}, 200)
 
 
 @app.route("/api/timeseries/variance", methods=["GET"])
@@ -373,7 +371,7 @@ def get_variance():
             end,
             e,
         )
-        return jsonify({"error": str(e)}), 400
+        return _create_response({"error": str(e)}, 400)
     if variance is None:
         logger.warning(
             "No valid timeseries data provided for variance calculation for filename '%s' and category '%s' and time interval '%s - %s'",
@@ -382,7 +380,7 @@ def get_variance():
             start,
             end,
         )
-        return jsonify({"error": "No valid timeseries data provided"}), 400
+        return _create_response({"error": "No valid timeseries data provided"}, 400)
     logger.info(
         "Successfully calculated variance for provided timeseries data for filename '%s' and category '%s' and time interval '%s - %s'",
         filename,
@@ -391,7 +389,7 @@ def get_variance():
         end,
     )
 
-    return jsonify({"variance": variance}), 200
+    return _create_response({"variance": variance}, 200)
 
 
 @app.route("/api/timeseries/standard_deviation", methods=["GET"])
@@ -422,7 +420,7 @@ def get_standard_deviation():
             end,
             e,
         )
-        return jsonify({"error": str(e)}), 400
+        return _create_response({"error": str(e)}, 400)
     if std_dev is None:
         logger.warning(
             "No valid timeseries data provided for standard deviation calculation for filename '%s' and category '%s' and time interval '%s - %s'",
@@ -431,7 +429,7 @@ def get_standard_deviation():
             start,
             end,
         )
-        return jsonify({"error": "No valid timeseries data provided"}), 400
+        return _create_response({"error": "No valid timeseries data provided"}, 400)
     logger.info(
         "Successfully calculated standard deviation for provided timeseries data for filename '%s' and category '%s' and time interval '%s - %s'",
         filename,
@@ -440,7 +438,7 @@ def get_standard_deviation():
         end,
     )
 
-    return jsonify({"standard_deviation": std_dev}), 200
+    return _create_response({"standard_deviation": std_dev}, 200)
 
 
 @app.route("/api/timeseries/autocorrelation", methods=["GET"])
@@ -478,7 +476,7 @@ def get_autocorrelation():
             end,
             e,
         )
-        return jsonify({"error": str(e)}), 400
+        return _create_response({"error": str(e)}, 400)
     if acf_value is None:
         logger.warning(
             "No valid timeseries data provided for autocorrelation calculation for filename '%s' and category '%s' and time interval '%s - %s'",
@@ -487,7 +485,7 @@ def get_autocorrelation():
             start,
             end,
         )
-        return jsonify({"error": "No valid timeseries data provided"}), 400
+        return _create_response({"error": "No valid timeseries data provided"}, 400)
     logger.info(
         "Successfully calculated autocorrelation for provided timeseries data for filename '%s' and category '%s' and time interval '%s - %s'",
         filename,
@@ -496,7 +494,7 @@ def get_autocorrelation():
         end,
     )
 
-    return jsonify({"autocorrelation": acf_value}), 200
+    return _create_response({"autocorrelation": acf_value}, 200)
 
 
 @app.route("/api/timeseries/coefficient_of_variation", methods=["GET"])
@@ -527,7 +525,7 @@ def get_coefficient_of_variation():
             end,
             e,
         )
-        return jsonify({"error": str(e)}), 400
+        return _create_response({"error": str(e)}, 400)
     if cv is None:
         logger.warning(
             "No valid timeseries data provided for coefficient of variation calculation for filename '%s' and category '%s' and time interval '%s - %s'",
@@ -536,7 +534,7 @@ def get_coefficient_of_variation():
             start,
             end,
         )
-        return jsonify({"error": "No valid timeseries data provided"}), 400
+        return _create_response({"error": "No valid timeseries data provided"}, 400)
     logger.info(
         "Successfully calculated coefficient of variation for provided timeseries data for filename '%s' and category '%s' and time interval '%s - %s'",
         filename,
@@ -545,7 +543,7 @@ def get_coefficient_of_variation():
         end,
     )
 
-    return jsonify({"coefficient_of_variation": cv}), 200
+    return _create_response({"coefficient_of_variation": cv}, 200)
 
 
 @app.route("/api/timeseries/iqr", methods=["GET"])
@@ -576,7 +574,7 @@ def get_iqr():
             end,
             e,
         )
-        return jsonify({"error": str(e)}), 400
+        return _create_response({"error": str(e)}, 400)
     if iqr is None:
         logger.warning(
             "No valid timeseries data provided for IQR calculation for filename '%s' and category '%s' and time interval '%s - %s'",
@@ -585,7 +583,7 @@ def get_iqr():
             start,
             end,
         )
-        return jsonify({"error": "No valid timeseries data provided"}), 400
+        return _create_response({"error": "No valid timeseries data provided"}, 400)
     logger.info(
         "Successfully calculated IQR for provided timeseries data for filename '%s' and category '%s' and time interval '%s - %s'",
         filename,
@@ -594,7 +592,7 @@ def get_iqr():
         end,
     )
 
-    return jsonify({"iqr": iqr}), 200
+    return _create_response({"iqr": iqr}, 200)
 
 
 @app.route("/api/timeseries/pearson_correlation", methods=["GET"])
@@ -632,7 +630,7 @@ def get_pearson_correlation():
             category,
             e,
         )
-        return jsonify({"error": str(e)}), 400
+        return _create_response({"error": str(e)}, 400)
     if correlation is None:
         logger.warning(
             "No valid timeseries data provided for Pearson correlation calculation for filenames '%s' and '%s' in category '%s'",
@@ -640,14 +638,14 @@ def get_pearson_correlation():
             filename2,
             category,
         )
-        return jsonify({"error": "No valid timeseries data provided"}), 400
+        return _create_response({"error": "No valid timeseries data provided"}, 400)
     logger.info(
         "Successfully calculated Pearson correlation for provided timeseries data for filenames '%s' and '%s' in category '%s'",
         filename1,
         filename2,
         category,
     )
-    return jsonify({"pearson_correlation": correlation}), 200
+    return _create_response({"pearson_correlation": correlation}, 200)
 
 
 @app.route("/api/timeseries/cosine_similarity", methods=["GET"])
@@ -691,10 +689,10 @@ def get_cosine_similarity():
             category,
             e,
         )
-        return jsonify({"error": str(e)}), 400
+        return _create_response({"error": str(e)}, 400)
     except Exception as e:
         logger.error("Unexpected error calculating cosine similarity: %s", e)
-        return jsonify({"error": "Unexpected error occurred"}), 500
+        return _create_response({"error": "Unexpected error occurred"}, 500)
 
     if similarity is None:
         logger.warning(
@@ -703,7 +701,7 @@ def get_cosine_similarity():
             filename2,
             category,
         )
-        return jsonify({"error": "No valid timeseries data provided"}), 400
+        return _create_response({"error": "No valid timeseries data provided"}, 400)
 
     logger.info(
         "Successfully calculated cosine similarity for provided timeseries data for filenames '%s' and '%s' in category '%s'",
@@ -711,7 +709,7 @@ def get_cosine_similarity():
         filename2,
         category,
     )
-    return jsonify({"cosine_similarity": similarity}), 200
+    return _create_response({"cosine_similarity": similarity}, 200)
 
 
 @app.route("/api/timeseries/mae", methods=["GET"])
@@ -748,10 +746,10 @@ def get_mae():
             category,
             e,
         )
-        return jsonify({"error": str(e)}), 400
+        return _create_response({"error": str(e)}, 400)
 
     if mae is None:
-        return jsonify({"error": "No valid timeseries data provided"}), 400
+        return _create_response({"error": "No valid timeseries data provided"}, 400)
 
     logger.info(
         "Successfully calculated MAE for files '%s' and '%s' in category '%s'",
@@ -760,7 +758,7 @@ def get_mae():
         category,
     )
 
-    return jsonify({"mae": mae}), 200
+    return _create_response({"mae": mae}, 200)
 
 
 @app.route("/api/timeseries/rmse", methods=["GET"])
@@ -797,10 +795,10 @@ def get_rmse():
             category,
             e,
         )
-        return jsonify({"error": str(e)}), 400
+        return _create_response({"error": str(e)}, 400)
 
     if rmse is None:
-        return jsonify({"error": "No valid timeseries data provided"}), 400
+        return _create_response({"error": "No valid timeseries data provided"}, 400)
 
     logger.info(
         "Successfully calculated RMSE for files '%s' and '%s' in category '%s'",
@@ -809,7 +807,7 @@ def get_rmse():
         category,
     )
 
-    return jsonify({"rmse": rmse}), 200
+    return _create_response({"rmse": rmse}, 200)
 
 
 @app.route("/api/timeseries/difference", methods=["GET"])
@@ -836,9 +834,9 @@ def get_difference():
         )
 
     except Exception as e:
-        return jsonify({"error": str(e)}), 400
+        return _create_response({"error": str(e)}, 400)
 
-    return jsonify({"difference": difference_series}), 200
+    return _create_response({"difference": difference_series}, 200)
 
 
 @app.route("/api/timeseries/rolling_mean", methods=["GET"])
@@ -857,9 +855,9 @@ def get_rolling_mean():
         rolling_mean_series = metric_service.calculate_rolling_mean(serie, window_size)
 
     except Exception as e:
-        return jsonify({"error": str(e)}), 400
+        return _create_response({"error": str(e)}, 400)
 
-    return jsonify({"rolling_mean": rolling_mean_series}), 200
+    return _create_response({"rolling_mean": rolling_mean_series}, 200)
 
 
 @app.route("/api/timeseries/dtw", methods=["GET"])
@@ -883,9 +881,9 @@ def get_dtw():
         dtw_distance = metric_service.calculate_dtw(series1, series2)
 
     except Exception as e:
-        return jsonify({"error": str(e)}), 400
+        return _create_response({"error": str(e)}, 400)
 
-    return jsonify({"dtw_distance": dtw_distance}), 200
+    return _create_response({"dtw_distance": dtw_distance}, 200)
 
 
 @app.route("/api/timeseries/euclidean_distance", methods=["GET"])
@@ -912,9 +910,9 @@ def get_euclidean_distance():
         )
 
     except Exception as e:
-        return jsonify({"error": str(e)}), 400
+        return _create_response({"error": str(e)}, 400)
 
-    return jsonify({"euclidean_distance": euclidean_distances}), 200
+    return _create_response({"euclidean_distance": euclidean_distances}, 200)
 
 
 @app.route("/api/upload-timeseries", methods=["POST"])
@@ -932,34 +930,28 @@ def add_timeseries():
             "Invalid data format: Expected a JSON object with keys as identifiers"
         )
         return (
-            jsonify({"error": "Expected a JSON object with keys as identifiers"}),
-            400,
+            _create_response({"error": "Expected a JSON object with keys as identifiers"}, 400)
         )
-    current_timeseries = timeseries_manager.sessions[token].copy()
-    for time, values in data.items():
-        if not isinstance(values, dict):
-            logger.error(
-                "Invalid data format for time '%s': Expected a dictionary", time
-            )
-            return (
-                jsonify(
-                    {
-                        f"error": "Invalid data format for time '{time}': Expected a dictionary"
-                    }
-                ),
-                400,
-            )
-        try:
+    try:
+        current_timeseries = timeseries_manager.get_timeseries(token=token)
+        for time, values in data.items():
+            if not isinstance(values, dict):
+                logger.error(
+                    "Invalid data format for time '%s': Expected a dictionary", time
+                )
+                return (
+                    _create_response({f"error": "Invalid data format for time '{time}': Expected a dictionary"}, 400),
+                )
             timeseries_manager.add_timeseries(token, time, values)
             current_timeseries[time] = values
-        except ValueError as e:
-            logger.error("Error adding timeseries for time '%s': %s", time, e)
-            timeseries_manager.sessions[token] = (
-                current_timeseries  # Restore previous state
-            )
-            return jsonify({"error": str(e)}), 400
+    except ValueError as e:
+        logger.error("Error adding timeseries for time '%s': %s", time, e)
+        timeseries_manager.sessions[token] = (
+            current_timeseries  # Restore previous state
+        )
+        return _create_response({"error": str(e)}, 400)
     logger.info("All timeseries data uploaded successfully")
-    return jsonify({"status": "Data uploaded"}), 201
+    return _create_response({"status": "Data uploaded"}, 201)
 
 
 @app.route("/api/clear-timeseries", methods=["DELETE"])
@@ -975,8 +967,8 @@ def clear_timeseries():
         timeseries_manager.clear_timeseries(token=token)
     except Exception as e:
         logger.error("Error clearing timeseries: %s", e)
-        return jsonify({"error": str(e)}), 400
-    return jsonify({"status": "All timeseries cleared"}), 200
+        return _create_response({"error": str(e)}, 400)
+    return _create_response({"status": "All timeseries cleared"}, 200)
 
 
 if __name__ == "__main__":

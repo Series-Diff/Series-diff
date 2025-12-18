@@ -2,13 +2,30 @@ import {TimeSeriesEntry} from "./fetchTimeSeries"; // Assuming fetchTimeSeries i
 
 const API_URL = process.env.REACT_APP_API_URL || '';
 
+const getAuthHeaders = (): HeadersInit => {
+  const token = localStorage.getItem('session_token');
+  return token ? { 'X-Session-ID': token } : {};
+};
+
+const handleSessionToken = (response: Response) => {
+  const newToken = response.headers.get('X-Session-ID');
+  if (newToken) {
+    localStorage.setItem('session_token', newToken);
+  }
+};
+
 export async function fetchRollingMean(
   category: string,
   filename: string,
   window_size: string
 ): Promise<Record<string, TimeSeriesEntry[]>> {
 
-  const resp = await fetch(`${API_URL}/api/timeseries/rolling_mean?category=${category}&filename=${filename}&window_size=${window_size}`);
+  const resp = await fetch(`${API_URL}/api/timeseries/rolling_mean?category=${category}&filename=${filename}&window_size=${window_size}`, {
+    headers: {
+      ...getAuthHeaders(),
+    },
+  });
+  handleSessionToken(resp);
   if (!resp.ok) throw new Error(await resp.text());
 
   const data = await resp.json();

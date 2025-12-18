@@ -157,10 +157,10 @@ class TimeSeriesManager:
         datetime_start, datetime_end = self._parse_dates(start, end)
 
         result = self._get_session_data(token)
-        if not self.timeseries:
+        if not self.sessions[token]:
             return result
 
-        for timeseries, categories in self.timeseries.items():
+        for timeseries, categories in self.sessions[token].items():
             if not self._matches_time_filter(
                 timeseries, time, datetime_start, datetime_end
             ):
