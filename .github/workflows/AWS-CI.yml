@@ -56,4 +56,5 @@ jobs:
         working-directory: ./infra
 
       - name: Pulumi Preview
+        working-directory: ./infra
         run: poetry run pulumi preview --stack dev

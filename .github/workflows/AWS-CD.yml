@@ -57,4 +57,5 @@ jobs:
         working-directory: ./infra
 
       - name: Pulumi Up
+        working-directory: ./infra
         run: poetry run pulumi up --stack dev --yes --skip-preview
