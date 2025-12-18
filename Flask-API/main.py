@@ -22,7 +22,7 @@ logger.setLevel("DEBUG")
 limiter = Limiter(
     app=app,
     key_func=get_remote_address,
-    default_limits=["2000 per day", "100 per hour"],
+    default_limits=["800 per day", "90 per hour"],
 )
 
 
