@@ -946,13 +946,11 @@ def add_timeseries():
                 logger.error(
                     "Invalid data format for time '%s': Expected a dictionary", time
                 )
-                return (
-                    _create_response(
-                        {
-                            f"error": "Invalid data format for time '{time}': Expected a dictionary"
-                        },
-                        400,
-                    ),
+                return _create_response(
+                    {
+                        f"error": "Invalid data format for time '{time}': Expected a dictionary"
+                    },
+                    400,
                 )
             timeseries_manager.add_timeseries(token, time, values)
             current_timeseries[time] = values
