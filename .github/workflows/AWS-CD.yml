@@ -56,6 +56,10 @@ jobs:
         run: poetry run pulumi login ${{ env.PULUMI_BACKEND_URL }}
         working-directory: ./infra
 
+      - name: Set Pulumi Config
+        working-directory: ./infra
+        run: poetry run pulumi config set aws:region ${{ env.AWS_REGION }} --stack dev        
+
       - name: Pulumi Up
         working-directory: ./infra
         run: poetry run pulumi up --stack dev --yes --skip-preview
