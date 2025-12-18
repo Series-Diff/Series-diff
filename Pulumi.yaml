@@ -3,7 +3,7 @@ description: AWS Python Pulimi program for SeriesDiff project
 runtime:
   name: python
   options:
-    toolchain: pip
+    toolchain: poetry
     virtualenv: venv
 config:
   pulumi:tags:

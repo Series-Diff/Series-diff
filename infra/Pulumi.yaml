@@ -3,12 +3,11 @@ description: AWS Python Pulimi program for SeriesDiff project
 runtime:
   name: python
   options:
-    toolchain: pip
-    virtualenv: venv
+    toolchain: poetry
 config:
   pulumi:tags:
     value:
       pulumi:template: aws-python
-main: infra
+main: .
 backend:
   url: s3://pulumi-state-bucket-5ae360c
