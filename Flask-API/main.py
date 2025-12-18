@@ -20,7 +20,9 @@ logger = app.logger
 logger.setLevel("DEBUG")
 
 limiter = Limiter(
-    app=app, key_func=get_remote_address, default_limits=["200 per day", "50 per hour"]
+    app=app,
+    key_func=get_remote_address,
+    default_limits=["2000 per day", "100 per hour"],
 )
 
 
@@ -70,7 +72,9 @@ def health_check():
 
 @app.route("/", methods=["GET"])
 def index():
-    return _create_response({"status": "API is working", "service": "SeriesDiff Backend"}, 200)
+    return _create_response(
+        {"status": "API is working", "service": "SeriesDiff Backend"}, 200
+    )
 
 
 @app.route("/api/timeseries", methods=["GET"])
@@ -169,7 +173,9 @@ def transform_pivot():
     values_col = request.form.get("values_col")
 
     if not all([index_col, columns_col, values_col]):
-        return _create_response({"error": "Please select columns for Index, Category and Value."}, 400)
+        return _create_response(
+            {"error": "Please select columns for Index, Category and Value."}, 400
+        )
 
     try:
         result_data = pivot_file(file, index_col, columns_col, values_col)
@@ -234,6 +240,7 @@ def get_scatter_data():
     except Exception as e:
         logger.error(f"Error getting scatter data: {e}")
         return _create_response({"error": str(e)}, 400)
+
 
 @app.route("/api/timeseries/mean", methods=["GET"])
 def get_mean():
@@ -781,7 +788,7 @@ def get_rmse():
         serie1 = metric_service.extract_series_from_dict(data1, category, filename1)
 
         data2 = timeseries_manager.get_timeseries(
-            filename=filename2, category=category, start=start, end=end
+            token=token, filename=filename2, category=category, start=start, end=end
         )
         serie2 = metric_service.extract_series_from_dict(data2, category, filename2)
 
@@ -929,8 +936,8 @@ def add_timeseries():
         logger.error(
             "Invalid data format: Expected a JSON object with keys as identifiers"
         )
-        return (
-            _create_response({"error": "Expected a JSON object with keys as identifiers"}, 400)
+        return _create_response(
+            {"error": "Expected a JSON object with keys as identifiers"}, 400
         )
     try:
         current_timeseries = timeseries_manager.get_timeseries(token=token)
@@ -940,7 +947,12 @@ def add_timeseries():
                     "Invalid data format for time '%s': Expected a dictionary", time
                 )
                 return (
-                    _create_response({f"error": "Invalid data format for time '{time}': Expected a dictionary"}, 400),
+                    _create_response(
+                        {
+                            f"error": "Invalid data format for time '{time}': Expected a dictionary"
+                        },
+                        400,
+                    ),
                 )
             timeseries_manager.add_timeseries(token, time, values)
             current_timeseries[time] = values
@@ -968,6 +980,7 @@ def clear_timeseries():
     except Exception as e:
         logger.error("Error clearing timeseries: %s", e)
         return _create_response({"error": str(e)}, 400)
+    logger.info("All timeseries for token %s cleared successfully", token)
     return _create_response({"status": "All timeseries cleared"}, 200)
 
 
