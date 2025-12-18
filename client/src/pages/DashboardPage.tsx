@@ -6,16 +6,21 @@ import '../components/Dropdown/Dropdown.css';
 import * as components from '../components';
 import * as hooks from '../hooks';
 
+
+
 import ControlsPanel from './Dashboard/components/ControlsPanel';
 
 function DashboardPage() {
-  const { chartData, error, setError, isLoading, setIsLoading, filenamesPerCategory, handleFetchData, handleReset: baseReset } = hooks.useDataFetching();
+  const { chartData, error, setError, isLoading, setIsLoading, filenamesPerCategory, handleFetchData, handleReset: baseReset} = hooks.useDataFetching();
   const { showMovingAverage, maWindow, setMaWindow, isMaLoading, rollingMeanChartData, handleToggleMovingAverage, handleApplyMaWindow, resetMovingAverage, } = hooks.useMovingAverage(filenamesPerCategory, setError);
-  const { selectedCategory, secondaryCategory, handleRangeChange, syncColorsByFile, setSyncColorsByFile, filteredData, handleDropdownChange, handleSecondaryDropdownChange, resetChartConfig } = hooks.useChartConfiguration(filenamesPerCategory, chartData, rollingMeanChartData, showMovingAverage, maWindow);
-  const { maeValues, rmseValues, PearsonCorrelationValues, DTWValues, EuclideanValues, CosineSimilarityValues, groupedMetrics, resetMetrics } = hooks.useMetricCalculations(filenamesPerCategory, selectedCategory, secondaryCategory);
   const { scatterPoints, isScatterLoading, isScatterOpen, selectedPair, handleCloseScatter, handleCellClick } = hooks.useScatterPlot();
   const { showTitleModal, setShowTitleModal, reportTitle, setReportTitle, isExporting, handleExportClick, handleExportToPDF } = hooks.useExport(chartData);
   const { isPopupOpen, selectedFiles, handleFileUpload, handlePopupComplete, handlePopupClose, resetFileUpload } = hooks.useFileUpload(handleFetchData, setError, setIsLoading);
+  const {startDate,endDate,handleStartChange,handleEndChange,defaultMinDate,defaultMaxDate,} = hooks.useDateRange(Object.entries(chartData).map(([_, entries]) => ({ entries })));
+  const { selectedCategory, secondaryCategory, handleRangeChange, syncColorsByFile, setSyncColorsByFile, filteredData, handleDropdownChange, handleSecondaryDropdownChange, resetChartConfig,  } = hooks.useChartConfiguration(filenamesPerCategory, chartData, rollingMeanChartData, showMovingAverage, maWindow, startDate, endDate);
+  const { maeValues, rmseValues, PearsonCorrelationValues, DTWValues, EuclideanValues, CosineSimilarityValues, groupedMetrics, resetMetrics } = hooks.useMetricCalculations(filenamesPerCategory, selectedCategory, secondaryCategory,startDate,endDate)
+
+  ;
 
   const handleReset = async () => {
     await baseReset();
@@ -24,6 +29,8 @@ function DashboardPage() {
     resetMovingAverage();
     resetFileUpload();
   };
+
+
 
   return (
     <div className="d-flex" style={{ gap: "16px" }}>
@@ -46,7 +53,13 @@ function DashboardPage() {
             isLoading={isLoading}
             handleFileUpload={handleFileUpload}
             handleReset={handleReset}
-          />
+
+            defaultMinDate={defaultMinDate}
+            defaultMaxDate={defaultMaxDate} 
+            startDate={startDate} 
+            endDate={endDate} 
+            handleStartChange={handleStartChange}
+             handleEndChange={handleEndChange}          />
           {error && <p className="text-danger text-center">Error: {error}</p>}
           <div className="Chart-container section-container">
             {isLoading && Object.keys(chartData).length === 0 &&

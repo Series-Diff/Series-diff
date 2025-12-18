@@ -2,6 +2,8 @@ import React from 'react';
 import * as components from '../../../components';
 import { Button } from 'react-bootstrap';
 
+
+
 interface ControlsPanelProps {
     selectedCategory: string | null;
     secondaryCategory: string | null;
@@ -19,6 +21,12 @@ interface ControlsPanelProps {
     isLoading: boolean;
     handleFileUpload: (event: React.ChangeEvent<HTMLInputElement>) => void;
     handleReset: () => void;
+    startDate: Date | null;
+    endDate: Date | null;
+    handleStartChange: (date: Date | null) => void;
+    handleEndChange: (date: Date | null) => void;
+    defaultMinDate: Date | null;
+    defaultMaxDate: Date | null;
 }
 
 const ControlsPanel: React.FC<ControlsPanelProps> = ({
@@ -38,30 +46,62 @@ const ControlsPanel: React.FC<ControlsPanelProps> = ({
     isLoading,
     handleFileUpload,
     handleReset,
+    startDate,
+    endDate,
+    handleStartChange,
+    handleEndChange,
+    defaultMinDate,
+    defaultMaxDate
 }) => {
     return (
         <div className="d-flex justify-content-between align-items-center w-100 mb-3">
             <div className="d-flex align-items-center gap-3">
                 {Object.keys(filenamesPerCategory).length > 0 && (
                     <>
-                        <components.Select
-                            id="category-select"
-                            label="Main Y-Axis"
-                            selected={selectedCategory || Object.keys(filenamesPerCategory)[0]}
-                            categories={Object.keys(filenamesPerCategory)}
-                            onChange={handleDropdownChange}
-                            disabledCategory={secondaryCategory ?? undefined}
-                        />
-                        <components.Select
-                            id="secondary-category-select"
-                            label="Second Y-Axis"
-                            selected={secondaryCategory || ""}
-                            categories={Object.keys(filenamesPerCategory)}
-                            onChange={handleSecondaryDropdownChange}
-                            disabledCategory={selectedCategory ?? undefined}
-                            allowNoneOption
-                        />
+                        <div className="d-flex flex-column gap-2">
+                            
+                            <div className="d-flex gap-3">
+                                <components.Select
+                                    id="category-select"
+                                    label="Main Y-Axis"
+                                    selected={selectedCategory || Object.keys(filenamesPerCategory)[0]}
+                                    categories={Object.keys(filenamesPerCategory)}
+                                    onChange={handleDropdownChange}
+                                    disabledCategory={secondaryCategory ?? undefined}
+                                />
+                                <components.Select
+                                    id="secondary-category-select"
+                                    label="Second Y-Axis"
+                                    selected={secondaryCategory || ""}
+                                    categories={Object.keys(filenamesPerCategory)}
+                                    onChange={handleSecondaryDropdownChange}
+                                    disabledCategory={selectedCategory ?? undefined}
+                                    allowNoneOption
+                                />
+                            </div>
 
+
+                            <div className="d-flex gap-3">
+                                <components.DateTimePicker
+                                    label="Start time"
+                                    value={startDate}
+                                    onChange={handleStartChange}
+                                    placeholder="Start date"
+                                    minDate={defaultMinDate}
+                                    maxDate={defaultMaxDate}
+                                    openToDate={defaultMinDate}
+                                />
+                                <components.DateTimePicker
+                                    label="End time"
+                                    value={endDate}
+                                    onChange={handleEndChange}
+                                    placeholder="End date"
+                                    minDate={defaultMinDate}
+                                    maxDate={defaultMaxDate}
+                                    openToDate={defaultMaxDate}
+                                />
+                            </div>
+                        </div>
                         <div className="d-flex align-items-center gap-2" style={{ marginLeft: '16px' }}>
                             <div className="form-check form-switch">
                                 <input
@@ -77,6 +117,7 @@ const ControlsPanel: React.FC<ControlsPanelProps> = ({
                                     {isMaLoading ? "Loading MA..." : "Show Moving Avg"}
                                 </label>
                             </div>
+
 
                             <input
                                 type="text"

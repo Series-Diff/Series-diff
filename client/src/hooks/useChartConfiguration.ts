@@ -6,7 +6,9 @@ export const useChartConfiguration = (
     chartData: Record<string, services.TimeSeriesEntry[]>,
     rollingMeanChartData: Record<string, services.TimeSeriesEntry[]>,
     showMovingAverage: boolean,
-    maWindow: string
+    maWindow: string,
+    startDate?: Date | null,    
+    endDate?: Date | null 
 ) => {
     const [selectedCategory, setSelectedCategory] = useState(() => {
         const savedCategory = localStorage.getItem('selectedCategory');
@@ -70,9 +72,17 @@ export const useChartConfiguration = (
             let result: Record<string, services.TimeSeriesEntry[]> = {};
 
             for (const [key, series] of Object.entries(chartData)) {
-                if (key.startsWith(`${category}.`)) {
-                    result[key] = series;
+                for (const [key, series] of Object.entries(chartData)) {
+                    if (key.startsWith(`${category}.`)) {
+                        result[key] = series.filter(item => {
+                            const time = new Date(item.x).getTime();
+                            const afterStart = !startDate || time >= startDate.getTime();
+                            const beforeEnd = !endDate || time <= endDate.getTime();
+                            return afterStart && beforeEnd;
+                        });
+                    }
                 }
+
             }
 
             const fileIds = Array.from(new Set(Object.keys(result).map(k => k.split(".")[1])));
@@ -134,7 +144,7 @@ export const useChartConfiguration = (
             primary,
             secondary: Object.keys(secondary).length > 0 ? secondary : null
         });
-    }, [chartData, selectedCategory, secondaryCategory, rangePerCategory, showMovingAverage, rollingMeanChartData, maWindow]);
+    }, [chartData, selectedCategory, secondaryCategory, rangePerCategory, showMovingAverage, rollingMeanChartData, maWindow,startDate, endDate]);
 
     const resetChartConfig = () => {
         setSelectedCategory(null);

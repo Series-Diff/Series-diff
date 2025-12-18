@@ -1,5 +1,3 @@
-// services/fetchAllCosineSimilarities.ts
-
 const API_URL = process.env.REACT_APP_API_URL || '';
 
 const getAuthHeaders = (): HeadersInit => {
@@ -14,23 +12,26 @@ const handleSessionToken = (response: Response) => {
   }
 };
 
-// Funkcja pobiera cosine similarity między dwoma plikami
 export async function fetchCosineSimilarity(
   filename1: string,
   filename2: string,
-  category: string
+  category: string,
+  start?: string,
+  end?: string
 ): Promise<number | null> {
-  // Tworzymy adres endpointu API z parametrami
-  const url = `${API_URL}/api/timeseries/cosine_similarity?filename1=${filename1}&filename2=${filename2}&category=${category}`;
+  let url = `${API_URL}/api/timeseries/cosine_similarity?filename1=${encodeURIComponent(filename1)}&filename2=${encodeURIComponent(filename2)}&category=${encodeURIComponent(category)}`;
+  if (start) url += `&start=${encodeURIComponent(start)}`;
+  if (end) url += `&end=${encodeURIComponent(end)}`;
+
   try {
     const response = await fetch(url, {
       headers: {
         ...getAuthHeaders(),
       },
     });
+
     handleSessionToken(response);
 
-    // Jeśli zapytanie nie powiodło się — logujemy błąd i zwracamy null
     if (!response.ok) {
       console.error(
         `Failed to fetch cosine similarity for ${filename1} vs ${filename2}:`,
@@ -39,7 +40,6 @@ export async function fetchCosineSimilarity(
       return null;
     }
 
-    // Parsujemy odpowiedź JSON i zwracamy wartość cosine similarity (lub null, jeśli brak)
     const data = await response.json();
     return data.cosine_similarity ?? null;
   } catch (err) {
@@ -48,22 +48,21 @@ export async function fetchCosineSimilarity(
   }
 }
 
-// Funkcja pobiera macierz cosine similarity między wszystkimi plikami w danej kategorii
 export async function fetchAllCosineSimilarities(
   filenames: string[],
-  category: string
+  category: string,
+  start?: string,
+  end?: string
 ): Promise<Record<string, Record<string, number>>> {
   const similarities: Record<string, Record<string, number>> = {};
 
-  // Dla każdej pary plików pobieramy cosine similarity z API
   for (const file1 of filenames) {
     similarities[file1] = {};
     for (const file2 of filenames) {
-      const value = await fetchCosineSimilarity(file1, file2, category);
+      const value = await fetchCosineSimilarity(file1, file2, category, start, end);
       similarities[file1][file2] = value ?? 0;
     }
   }
 
-  // Zwracamy pełną macierz cosine similarity w formacie: file1 -> (file2 -> wartość)
   return similarities;
 }

@@ -5,3 +5,4 @@ export * from './useMovingAverage';
 export * from './useScatterPlot';
 export * from './useExport';
 export * from './useFileUpload';
+export * from './useDateRange';

@@ -1,5 +1,3 @@
-// services/fetchAllMae.ts
-
 const API_URL = process.env.REACT_APP_API_URL || '';
 
 const getAuthHeaders = (): HeadersInit => {
@@ -18,17 +16,22 @@ async function fetchMae(
   category: string,
   filename1: string,
   filename2: string,
+  start?: string,
+  end?: string,
   tolerance?: string
 ): Promise<number | null> {
-  const tolParam = tolerance ? `&tolerance=${tolerance}` : "";
+  let url = `${API_URL}/api/timeseries/mae?category=${encodeURIComponent(category)}&filename1=${encodeURIComponent(filename1)}&filename2=${encodeURIComponent(filename2)}`;
+  
+  if (start) url += `&start=${encodeURIComponent(start)}`;
+  if (end) url += `&end=${encodeURIComponent(end)}`;
+  if (tolerance) url += `&tolerance=${encodeURIComponent(tolerance)}`;
 
-  const resp = await fetch(
-    `${API_URL}/api/timeseries/mae?category=${category}&filename1=${filename1}&filename2=${filename2}${tolParam}`
-  , {
-      headers: {
-        ...getAuthHeaders(),
-      },
-    });
+  const resp = await fetch(url, {
+    headers: {
+      ...getAuthHeaders(),
+    },
+  });
+
   handleSessionToken(resp);
 
   if (!resp.ok) {
@@ -42,6 +45,8 @@ async function fetchMae(
 
 export async function fetchAllMae(
   filenamesPerCategory: Record<string, string[]>,
+  start?: string,
+  end?: string,
   tolerance?: string
 ): Promise<Record<string, Record<string, Record<string, number>>>> {
   const maeValues: Record<string, Record<string, Record<string, number>>> = {};
@@ -54,7 +59,7 @@ export async function fetchAllMae(
         if (f1 === f2) continue;
 
         try {
-          const mae = await fetchMae(category, f1, f2, tolerance);
+          const mae = await fetchMae(category, f1, f2, start, end, tolerance);
 
           if (!maeValues[category]) maeValues[category] = {};
           if (!maeValues[category][f1]) maeValues[category][f1] = {};
