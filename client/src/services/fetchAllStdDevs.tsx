@@ -12,36 +12,53 @@ const handleSessionToken = (response: Response) => {
   }
 };
 
-async function fetchStdDev(category: string, filename: string): Promise<number | null>{
-    const resp = await fetch(`${API_URL}/api/timeseries/standard_deviation?category=${category}&filename=${filename}`, {
-      headers: {
-        ...getAuthHeaders(),
-      },
-    });
-    handleSessionToken(resp);
-    if (!resp.ok) {
-        console.error("Failed to fetch standard deviation:", await resp.text());
-        return null;
-    }
-    const data = await resp.json();
-    return data.standard_deviation ?? null;
+async function fetchStdDev(
+  category: string,
+  filename: string,
+  start?: string,
+  end?: string
+): Promise<number | null> {
+  const params = new URLSearchParams({
+    category,
+    filename,
+    ...(start && { start }),
+    ...(end && { end }),
+  });
+
+  const resp = await fetch(`${API_URL}/api/timeseries/standard_deviation?${params.toString()}`, {
+    headers: {
+      ...getAuthHeaders(),
+    },
+  });
+
+  handleSessionToken(resp);
+
+  if (!resp.ok) {
+    console.error("Failed to fetch standard deviation:", await resp.text());
+    return null;
+  }
+
+  const data = await resp.json();
+  return data.standard_deviation ?? null;
 }
 
 export async function fetchAllStdDevs(
-  filenamesPerCategory: Record<string, string[]>
+  filenamesPerCategory: Record<string, string[]>,
+  start?: string,
+  end?: string
 ): Promise<Record<string, Record<string, number>>> {
   const stdDevsValues: Record<string, Record<string, number>> = {};
 
   for (const category of Object.keys(filenamesPerCategory)) {
     for (const filename of filenamesPerCategory[category]) {
       try {
-        const stdDev = await fetchStdDev(category, filename);
+        const stdDev = await fetchStdDev(category, filename, start, end);
         if (!stdDevsValues[category]) {
           stdDevsValues[category] = {};
         }
-          if (stdDev != null) {
-              stdDevsValues[category][filename] = stdDev;
-          }
+        if (stdDev != null) {
+          stdDevsValues[category][filename] = stdDev;
+        }
       } catch (err) {
         console.warn(`Error fetching standard deviation for ${category}.${filename}:`, err);
       }

@@ -7,3 +7,4 @@ export * from './useExport';
 export * from './useFileUpload';
 export * from './useDifferenceChart';
 export * from './useDynamicHeight';
+export * from './useDateRange';
