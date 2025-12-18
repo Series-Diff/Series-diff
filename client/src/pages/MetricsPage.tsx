@@ -3,6 +3,7 @@ import './MetricsPage.css';
 import { Form, Tabs, Tab, Col, Button, Modal } from "react-bootstrap";
 import { Select, MetricModal, MetricRow, Header } from '../components';
 import { Metric, METRIC_CATEGORIES, PREDEFINED_METRICS } from '../constants/metricsConfig';
+import { useLocalPlugins } from '../hooks/useLocalPlugins';
 
 function MetricsPage() {
     const [selectedCategory, setSelectedCategory] = useState<string>("All");
@@ -26,6 +27,14 @@ function MetricsPage() {
         }
         return [];
     });
+
+    const {
+        plugins,
+        createPlugin,
+        updatePlugin,
+        deletePlugin
+    } = useLocalPlugins();
+
     const [showModal, setShowModal] = useState(false);
     const [editingMetric, setEditingMetric] = useState<Metric | null>(null);
     const [metricToDelete, setMetricToDelete] = useState<Metric | null>(null);
@@ -68,27 +77,35 @@ function MetricsPage() {
         setEditingMetric(null);
     };
 
-    const handleSaveMetric = (metricData: { label: string; description: string; category: string; file?: File }) => {
-        // Duplicate check is now done in MetricModal before calling onSave
-        const newMetric: Metric = {
-            value: editingMetric ? editingMetric.value : `custom_${Date.now()}`,
-            label: metricData.label,
-            description: metricData.description,
-            category: metricData.category,
-            fileName: editingMetric ? editingMetric.fileName : (metricData.file ? metricData.file.name : undefined),
-            // TODO: Implement file upload handling here.
-            // Currently, the file is not stored or uploaded; only the file name is saved.
-            // When implementing, ensure the file is uploaded to the server or appropriate storage,
-            // and update the metric object with the file's storage location or identifier.
-        };
-
-        if (editingMetric) {
-            setUserMetrics(prev => prev.map(m => m.value === editingMetric.value ? newMetric : m));
-        } else {
-            setUserMetrics(prev => [...prev, newMetric]);
+    const handleSaveMetric = (metricData: {
+        label: string;
+        description: string;
+        category: string;
+        code?: string;
+    }) => {
+        try {
+            if (editingMetric) {
+                // Edycja istniejącej metryki
+                updatePlugin(editingMetric.value, {
+                    name: metricData.label,
+                    description: metricData.description,
+                    category: metricData.category,
+                    code: metricData.code || editingMetric.code // zachowaj stary kod jeśli nie podano nowego (choć formularz wymaga)
+                });
+            } else {
+                // Tworzenie nowej metryki
+                createPlugin(
+                    metricData.label,
+                    metricData.description,
+                    metricData.category,
+                    metricData.code || ''
+                );
+            }
+            handleCloseModal();
+        } catch (err: any) {
+            console.error(err);
+            alert(err.message || 'Failed to save metric locally');
         }
-
-        handleCloseModal();
     };
 
     const handleDeleteMetric = (metric: Metric) => {
@@ -157,6 +174,7 @@ function MetricsPage() {
                                     <MetricRow
                                         key={opt.value}
                                         checkbox={false}
+                                        onShowChange={() => {}}
                                         currentlyActiveBadge={false}
                                         className="metric-row-instance w-100"
                                         text={opt.label}
@@ -204,6 +222,7 @@ function MetricsPage() {
                                     <MetricRow
                                         key={opt.value}
                                         checkbox={false}
+                                        onShowChange={() => {}}
                                         currentlyActiveBadge={false}
                                         className="metric-row-instance w-100"
                                         text={opt.label}

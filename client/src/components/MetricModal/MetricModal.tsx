@@ -124,32 +124,6 @@ const MetricModal: React.FC<MetricModalProps> = ({
             </Modal.Header>
             <Modal.Body>
                 <Form onSubmit={handleSubmit} noValidate>
-                    {!isEditing && (
-                        <Form.Group className="mb-3">
-                            <Form.Label>
-                                File <span className="text-danger">*</span>
-                            </Form.Label>
-                            <OverlayTrigger placement="right" overlay={fileUploadTooltip}>
-                                <Form.Control
-                                    type="file"
-                                    onChange={handleFileChange}
-                                    isInvalid={!!fileError}
-                                />
-                            </OverlayTrigger>
-                            {fileError && (
-                                <Form.Text className="text-danger">
-                                    {fileError}
-                                </Form.Text>
-                            )}
-                        </Form.Group>
-                    )}
-                    {isEditing && editingMetric?.fileName && (
-                        <p className="text-muted">
-                            <strong>Current file:</strong> {editingMetric.fileName}
-                            <br />
-                            <small className="text-secondary">Note: The file cannot be changed after creation.</small>
-                        </p>
-                    )}
                     <Form.Group className="mb-3">
                         <Form.Label>
                             Title <span className="text-danger">*</span>

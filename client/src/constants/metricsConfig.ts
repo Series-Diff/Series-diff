@@ -10,7 +10,7 @@ export interface Metric {
     label: string;
     description: string;
     category: string;
-    fileName?: string;
+    code?: string;
 }
 
 /**
