@@ -2,6 +2,19 @@ import React, {useState, useEffect} from 'react';
 import {Modal, Form, Button} from 'react-bootstrap';
 import Select from '../Select/Select';
 
+const PLUGIN_TEMPLATE = `import pandas as pd
+import numpy as np
+
+def calculate(series1: pd.Series, series2: pd.Series) -> float:
+        aligned = pd.merge(
+            series1.reset_index(), 
+            series2.reset_index(), 
+            on='index', 
+            how='inner'
+        )
+        return (aligned['y_x'] - aligned['y_y']).abs().mean()
+`;
+
 interface MetricData {
     label: string;
     description: string;
@@ -45,9 +58,9 @@ const MetricModal: React.FC<MetricModalProps> = ({
                 setCode(editingMetric.code || '');
             } else {
                 setLabel('');
-                setCode('');
                 setDescription('');
                 setCategory(categories.length > 0 ? categories[0] : '');
+                setCode(PLUGIN_TEMPLATE);
             }
             setTitleError(null);
             setCodeError(null);
@@ -155,8 +168,11 @@ const MetricModal: React.FC<MetricModalProps> = ({
                                 if (e.target.value.trim()) setCodeError(null);
                             }}
                             isInvalid={!!codeError}
-                            style={{fontFamily: 'monospace', fontSize: '0.85em'}}
-                        />
+                            style={{
+                                fontFamily: 'monospace',
+                                fontSize: '0.85em',
+                                color: code === PLUGIN_TEMPLATE ? '#6c757d' : 'inherit'
+                            }}                        />
                         {codeError && (
                              <Form.Text className="text-danger d-block">
                                 {codeError}
