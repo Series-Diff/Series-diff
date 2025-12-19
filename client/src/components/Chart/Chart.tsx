@@ -9,33 +9,40 @@ import { TimeSeriesEntry } from "@/services/fetchTimeSeries";
 interface MyChartProps {
     primaryData: Record<string, TimeSeriesEntry[]>;
     secondaryData?: Record<string, TimeSeriesEntry[]>;
+    // PRZYWRACAMY manualData
+    manualData?: Record<string, TimeSeriesEntry[]>; 
     title?: string;
     syncColorsByFile?: boolean;
 }
 
-const MyChart: React.FC<MyChartProps> = ({ primaryData, secondaryData, title, syncColorsByFile =true}) => {
-    // Extract state and setters from hook
+const MyChart: React.FC<MyChartProps> = ({ 
+    primaryData, 
+    secondaryData, 
+    manualData = {}, 
+    title, 
+    syncColorsByFile = true
+}) => {
+    
+    // Do hooka stanu przekazujemy też manualData, żeby zoom działał poprawnie na kropkach
     const {
-        xaxisRange,
-        tickFormat,
-        showMarkers,
-        customRange, setCustomRange,
-        customYMin, setCustomYMin,
-        customYMax, setCustomYMax,
-        customRange2, setCustomRange2,
-        customY2Min, setCustomY2Min,
-        customY2Max, setCustomY2Max,
-        visibleMap, setVisibleMap,
-        handleRelayout,
+        xaxisRange, tickFormat, showMarkers,
+        customRange, setCustomRange, customYMin, setCustomYMin, customYMax, setCustomYMax,
+        customRange2, setCustomRange2, customY2Min, setCustomY2Min, customY2Max, setCustomY2Max,
+        visibleMap, setVisibleMap, handleRelayout,
         primaryDataBounds,
         secondaryDataBounds,
-    } = useChartState(primaryData, secondaryData);
+    } = useChartState({ ...primaryData, ...manualData }, secondaryData);
 
-    // Extract interaction handlers from hook
     const { handleLegendClick, containerRef } = useChartInteractions(setVisibleMap);
 
-    // Build traces using utility function
-    const traces = buildTraces(primaryData, secondaryData, visibleMap, showMarkers, syncColorsByFile);
+    const traces = buildTraces(
+        primaryData, 
+        secondaryData, 
+        manualData, 
+        visibleMap, 
+        showMarkers, 
+        syncColorsByFile
+    );
 
     return (
         <div className="d-flex flex-column h-100 gap-2">
@@ -47,29 +54,13 @@ const MyChart: React.FC<MyChartProps> = ({ primaryData, secondaryData, title, sy
                         xaxis: {
                             title: { text: 'Time' },
                             type: 'date',
-                            tickformat: tickFormat, // Displaying date and time
+                            tickformat: tickFormat,
                             fixedrange: false,
                             showspikes: true,
                             spikemode: 'across',
-                            spikesnap: "cursor",
-                            spikedash: "solid",
-                            spikethickness: 1,
-                            rangeselector: {
-                                buttons: [
-                                    { count: 1, label: "1d", step: "day", stepmode: "backward" },
-                                    { count: 7, label: "1w", step: "day", stepmode: "backward" },
-                                    { count: 1, label: "1m", step: "month", stepmode: "backward" },
-                                    { step: "all" }
-                                ]
-                            },
+                            rangeselector: { buttons: [{ count: 1, label: "1d", step: "day", stepmode: "backward" }, { step: "all" }] },
                             range: xaxisRange[0] && xaxisRange[1] ? xaxisRange : undefined,
-                            rangeslider: {
-                                visible: true,
-                                thickness: 0.05,
-                                bgcolor: '#f8f9fa',
-                                bordercolor: '#ced4da',
-                                borderwidth: 1
-                            },
+                            rangeslider: { visible: true, thickness: 0.05 },
                         },
                         yaxis: {
                             title: { text: Object.keys(primaryData)[0]?.split('.')[0] || 'Y-Axis' },
@@ -85,7 +76,6 @@ const MyChart: React.FC<MyChartProps> = ({ primaryData, secondaryData, title, sy
                             spikethickness: 1
                         },
                         yaxis2: {
-                            title: { text: secondaryData ? Object.keys(secondaryData)[0]?.split('.')[0] || 'Second Y-Axis' : '' },
                             overlaying: 'y',
                             // Only disable autorange when BOTH min and max are provided
                             autorange: !(customRange2 && customY2Min !== '' && customY2Max !== ''),
@@ -101,8 +91,6 @@ const MyChart: React.FC<MyChartProps> = ({ primaryData, secondaryData, title, sy
                         height: undefined,
                         autosize: true,
                         legend: { orientation: "h" },
-                        plot_bgcolor: 'white',
-                        dragmode: 'pan',
                     }}
                     style={{ width: '100%', height: '100%' }}
                     config={{

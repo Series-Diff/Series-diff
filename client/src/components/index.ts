@@ -13,3 +13,4 @@ export type { ScatterPoint } from './ScatterPlotModal/ScatterPlotModal';
 export { default as MetricModal } from './MetricModal/MetricModal';
 export { MetricRow } from './MetricRow/MetricRow';
 export { Header } from './Header';
+export { default as ManualDataImport } from './ManualDataImport/ManualDataImport';
