@@ -6,7 +6,7 @@ import '../components/Metric/Metrics.css';
 import '../components/Dropdown/Dropdown.css';
 import * as components from '../components';
 import * as hooks from '../hooks';
-import { useManualData } from '../hooks/useManualData';
+import { useManualData } from '../hooks/useManualData'; // Twoje: Import manual data
 
 import ControlsPanel from './Dashboard/components/ControlsPanel';
 import DifferenceSelectionPanel from './Dashboard/components/DifferenceSelectionPanel';
@@ -15,18 +15,19 @@ function DashboardPage() {
   const [chartMode, setChartMode] = useState<'standard' | 'difference'>('standard');
   const chartContainerRef = useRef<HTMLDivElement>(null);
 
-  const { chartData, filenamesPerCategory, error, setError, isLoading, setIsLoading, handleFetchData, handleReset: baseReset  } = hooks.useDataFetching();
+
+  const { chartData, error, setError, isLoading, setIsLoading, filenamesPerCategory, handleFetchData, handleReset: baseReset  } = hooks.useDataFetching();
  
   const { manualData, addManualData, clearManualData } = useManualData();
   const [showManualModal, setShowManualModal] = useState(false);
   const { showMovingAverage, maWindow, setMaWindow, isMaLoading, rollingMeanChartData, handleToggleMovingAverage, handleApplyMaWindow, resetMovingAverage, } = hooks.useMovingAverage(filenamesPerCategory, setError);
+  const { isPopupOpen, selectedFiles, handleFileUpload, handlePopupComplete, handlePopupClose, resetFileUpload } = hooks.useFileUpload(handleFetchData, setError, setIsLoading);
+  const { startDate, endDate, handleStartChange, handleEndChange, defaultMinDate, defaultMaxDate } = hooks.useDateRange(Object.entries(chartData).map(([_, entries]) => ({ entries })));
+  const { selectedCategory, secondaryCategory, handleRangeChange, syncColorsByFile, setSyncColorsByFile, filteredData, handleDropdownChange, handleSecondaryDropdownChange, resetChartConfig } = hooks.useChartConfiguration(filenamesPerCategory, chartData, rollingMeanChartData, showMovingAverage, maWindow, startDate, endDate);
+  const { maeValues, rmseValues, PearsonCorrelationValues, DTWValues, EuclideanValues, CosineSimilarityValues, groupedMetrics, resetMetrics } = hooks.useMetricCalculations(filenamesPerCategory, selectedCategory, secondaryCategory, startDate, endDate);
   const { scatterPoints, isScatterLoading, isScatterOpen, selectedPair, handleCloseScatter, handleCellClick } = hooks.useScatterPlot();
   const { showTitleModal, setShowTitleModal, reportTitle, setReportTitle, isExporting, handleExportClick, handleExportToPDF } = hooks.useExport(chartData);
-  const { isPopupOpen, selectedFiles, handleFileUpload, handlePopupComplete, handlePopupClose, resetFileUpload } = hooks.useFileUpload(handleFetchData, setError, setIsLoading);
   const { dataImportPopupRef, resetAllData } = hooks.useDataImportPopup();
-  const {startDate,endDate,handleStartChange,handleEndChange,defaultMinDate,defaultMaxDate,} = hooks.useDateRange(Object.entries(chartData).map(([_, entries]) => ({ entries })));
-  const { selectedCategory, secondaryCategory, handleRangeChange, syncColorsByFile, setSyncColorsByFile, filteredData, handleDropdownChange, handleSecondaryDropdownChange, resetChartConfig,  } = hooks.useChartConfiguration(filenamesPerCategory, chartData, rollingMeanChartData, showMovingAverage, maWindow, startDate, endDate);
-  const { maeValues, rmseValues, PearsonCorrelationValues, DTWValues, EuclideanValues, CosineSimilarityValues, groupedMetrics, resetMetrics } = hooks.useMetricCalculations(filenamesPerCategory, selectedCategory, secondaryCategory,startDate,endDate);
   const { userMetrics, selectedMetricsForDisplay, setSelectedMetricsForDisplay, showMetricsModal, setShowMetricsModal, filteredGroupedMetrics, shouldShowMetric } = hooks.useMetricsSelection(groupedMetrics);
 
   const { plugins } = hooks.useLocalPlugins();
@@ -271,9 +272,6 @@ function DashboardPage() {
                 {isInDifferenceMode ? 'Switch to Standard Chart' : 'Switch to Difference Chart'}
               </Button>
             )}
-            {!isLoading && Object.keys(chartData).length === 0 && Object.keys(manualData).length === 0 && !error &&
-               <p className="text-center p-4">Load data to visualize</p>
-            }
           </div>
 
           {/* Standard mode specific sections */}
@@ -544,6 +542,7 @@ function DashboardPage() {
             existingData={chartData}
             onAddData={addManualData} 
           />
+
         </div>
       </div>
 
@@ -608,4 +607,5 @@ function DashboardPage() {
     </div>
   );
 }
+
 export default DashboardPage;
