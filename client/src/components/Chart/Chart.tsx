@@ -22,14 +22,12 @@ const MyChart: React.FC<MyChartProps> = ({
     syncColorsByFile = true
 }) => {
     
-    // --- NAPRAWA: Przekazujemy manualData jako 3. argument, bez łączenia obiektów ---
-    const {
+   const {
         xaxisRange, tickFormat, showMarkers,
         customRange, setCustomRange, customYMin, setCustomYMin, customYMax, setCustomYMax,
         customRange2, setCustomRange2, customY2Min, setCustomY2Min, customY2Max, setCustomY2Max,
         visibleMap, setVisibleMap, handleRelayout,
     } = useChartState(primaryData, secondaryData, manualData); // <--- ZMIANA TUTAJ
-    // -------------------------------------------------------------------------------
 
     const { handleLegendClick, containerRef } = useChartInteractions(setVisibleMap);
 

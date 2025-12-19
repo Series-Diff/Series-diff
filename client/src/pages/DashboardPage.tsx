@@ -12,12 +12,8 @@ import ControlsPanel from './Dashboard/components/ControlsPanel';
 
 function DashboardPage() {
   const { chartData, filenamesPerCategory, error, setError, isLoading, setIsLoading, handleFetchData, handleReset: baseReset } = hooks.useDataFetching();
-  
-  // Niezależny hook do danych manualnych
   const { manualData, addManualData, clearManualData } = useManualData();
   const [showManualModal, setShowManualModal] = useState(false);
-
-  // Reszta hooków bez zmian
   const { showMovingAverage, maWindow, setMaWindow, isMaLoading, rollingMeanChartData, handleToggleMovingAverage, handleApplyMaWindow, resetMovingAverage, } = hooks.useMovingAverage(filenamesPerCategory, setError);
   const { scatterPoints, isScatterLoading, isScatterOpen, selectedPair, handleCloseScatter, handleCellClick } = hooks.useScatterPlot();
   const { showTitleModal, setShowTitleModal, reportTitle, setReportTitle, isExporting, handleExportClick, handleExportToPDF } = hooks.useExport(chartData);
@@ -32,7 +28,7 @@ function DashboardPage() {
     resetChartConfig();
     resetMovingAverage();
     resetFileUpload();
-    clearManualData(); // Czyścimy lokalne dane manualne
+    clearManualData(); 
   };
 
   return (
@@ -58,7 +54,7 @@ function DashboardPage() {
                  </Button>
             </div>
 
-            {/* Wyświetl wykres, jeśli są dane główne LUB manualne */}
+            
             {!isLoading && (Object.keys(chartData).length > 0 || Object.keys(manualData).length > 0) && (
               <div className="chart-wrapper">
                 <components.MyChart 
@@ -74,7 +70,7 @@ function DashboardPage() {
             }
           </div>
           
-          {/* Metryki i Tabele - Wyświetlaj tylko gdy są główne dane (bo metryki nie obsługują manualnych w tym trybie) */}
+
           {Object.keys(groupedMetrics).length > 0 && (
              <div className="section-container" style={{ padding: "16px" }}>
                 <components.Metrics groupedMetrics={groupedMetrics} />
@@ -82,12 +78,11 @@ function DashboardPage() {
              </div>
           )}
           
-          {/* ... (Tu reszta tabel korelacji itd. - bez zmian) ... */}
+
 
           <components.ScatterPlotModal show={isScatterOpen} onHide={handleCloseScatter} file1={selectedPair.file1} file2={selectedPair.file2} points={scatterPoints} isLoading={isScatterLoading} />
           <components.DataImportPopup show={isPopupOpen} onHide={handlePopupClose} files={selectedFiles} onComplete={handlePopupComplete} />
           
-          {/* Modal Manualny - klasyczny callback */}
           <components.ManualDataImport 
             show={showManualModal}
             onHide={() => setShowManualModal(false)}
@@ -96,13 +91,12 @@ function DashboardPage() {
           />
         </div>
       </div>
-      {/* ... Sidebar i Modal Tytułu bez zmian ... */}
+
       <div className="section-container group-menu d-flex flex-column align-items-center p-3 rounded">
          <h4>Groups</h4>
          {Object.entries(filenamesPerCategory).map(([c, f]) => <components.Dropdown key={c} category={c} files={f} onRangeChange={handleRangeChange} />)}
       </div>
       <Modal show={showTitleModal} onHide={() => setShowTitleModal(false)} centered>
-         {/* ... modal content ... */}
           <Modal.Header closeButton><Modal.Title>Report</Modal.Title></Modal.Header>
           <Modal.Body><Form.Control value={reportTitle} onChange={e=>setReportTitle(e.target.value)} /></Modal.Body>
           <Modal.Footer><Button onClick={handleExportToPDF}>Export</Button></Modal.Footer>
