@@ -41,8 +41,8 @@ export const ManualDataImport: React.FC<Props> = ({ show, onHide, existingData, 
     setValues(prev => ({ ...prev, [group]: val }));
   };
 
-  const handleSubmit = () => {
-    if (!date || !seriesName) return;
+  const trySubmitData = (): boolean => {
+    if (!date || !seriesName) return false;
     
     const newEntries: Record<string, SimplePoint[]> = {};
     let hasData = false;
@@ -61,19 +61,35 @@ export const ManualDataImport: React.FC<Props> = ({ show, onHide, existingData, 
 
     if (hasData) {
       onAddData(newEntries);
+      return true;
+    }
+    return false;
+  };
+
+  const handleAddAndNext = () => {
+    if (trySubmitData()) {
+      setValues({});
+
+    }
+  };
+
+  const handleAddAndClose = () => {
+    if (trySubmitData()) {
       onHide();
     }
   };
 
+  const isFormValid = date && seriesName.trim();
+
   return (
     <Modal show={show} onHide={onHide} centered>
       <Modal.Header closeButton>
-        <Modal.Title>Dodaj punkt ręczny</Modal.Title>
+        <Modal.Title>Add Manual Point</Modal.Title>
       </Modal.Header>
       <Modal.Body>
         <Form>
           <Form.Group className="mb-3">
-            <Form.Label>Data i czas</Form.Label>
+            <Form.Label>Date</Form.Label>
             <Form.Control 
               type="datetime-local" 
               value={date} 
@@ -81,7 +97,7 @@ export const ManualDataImport: React.FC<Props> = ({ show, onHide, existingData, 
             />
           </Form.Group>
           <Form.Group className="mb-3">
-            <Form.Label>Nazwa serii (np. Rzeczywiste)</Form.Label>
+            <Form.Label>Series Name</Form.Label>
             <Form.Control 
               type="text" 
               value={seriesName} 
@@ -89,17 +105,23 @@ export const ManualDataImport: React.FC<Props> = ({ show, onHide, existingData, 
             />
           </Form.Group>
           <hr />
-          <h6>Wartości dla grup:</h6>
-          {availableGroups.length === 0 && <p className="text-muted">Brak załadowanych grup.</p>}
+          <h6>Values for groups:</h6>
+          {availableGroups.length === 0 && <p className="text-muted">No loaded groups.</p>}
           {availableGroups.map(group => (
             <Form.Group as={Row} key={group} className="mb-2 align-items-center">
               <Form.Label column sm="4">{group}</Form.Label>
               <Col sm="8">
                 <Form.Control 
                   type="number" 
-                  placeholder="Wartość"
+                  placeholder="Value"
                   value={values[group] || ''}
                   onChange={e => handleValueChange(group, e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') {
+                        e.preventDefault();
+                        handleAddAndNext();
+                    }
+                  }}
                 />
               </Col>
             </Form.Group>
@@ -107,9 +129,22 @@ export const ManualDataImport: React.FC<Props> = ({ show, onHide, existingData, 
         </Form>
       </Modal.Body>
       <Modal.Footer>
-        <Button variant="secondary" onClick={onHide}>Anuluj</Button>
-        <Button variant="success" onClick={handleSubmit} disabled={!date || !seriesName.trim()}>
-          Dodaj
+        <Button variant="secondary" onClick={onHide}>Cancel</Button>
+        
+        <Button 
+          variant="primary" 
+          onClick={handleAddAndNext} 
+          disabled={!isFormValid}
+        >
+          Next
+        </Button>
+
+        <Button 
+          variant="success" 
+          onClick={handleAddAndClose} 
+          disabled={!isFormValid}
+        >
+          Close
         </Button>
       </Modal.Footer>
     </Modal>
