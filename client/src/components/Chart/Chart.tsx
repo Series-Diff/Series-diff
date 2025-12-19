@@ -9,7 +9,6 @@ import { TimeSeriesEntry } from "@/services/fetchTimeSeries";
 interface MyChartProps {
     primaryData: Record<string, TimeSeriesEntry[]>;
     secondaryData?: Record<string, TimeSeriesEntry[]>;
-    // PRZYWRACAMY manualData
     manualData?: Record<string, TimeSeriesEntry[]>; 
     title?: string;
     syncColorsByFile?: boolean;
@@ -23,20 +22,21 @@ const MyChart: React.FC<MyChartProps> = ({
     syncColorsByFile = true
 }) => {
     
-    // Do hooka stanu przekazujemy też manualData, żeby zoom działał poprawnie na kropkach
+    // --- NAPRAWA: Przekazujemy manualData jako 3. argument, bez łączenia obiektów ---
     const {
         xaxisRange, tickFormat, showMarkers,
         customRange, setCustomRange, customYMin, setCustomYMin, customYMax, setCustomYMax,
         customRange2, setCustomRange2, customY2Min, setCustomY2Min, customY2Max, setCustomY2Max,
         visibleMap, setVisibleMap, handleRelayout,
-    } = useChartState({ ...primaryData, ...manualData }, secondaryData);
+    } = useChartState(primaryData, secondaryData, manualData); // <--- ZMIANA TUTAJ
+    // -------------------------------------------------------------------------------
 
     const { handleLegendClick, containerRef } = useChartInteractions(setVisibleMap);
 
     const traces = buildTraces(
         primaryData, 
         secondaryData, 
-        manualData, // <--- Przekazujemy obiekt danych
+        manualData, 
         visibleMap, 
         showMarkers, 
         syncColorsByFile
