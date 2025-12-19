@@ -16,3 +16,4 @@ export { MetricRow } from './MetricRow/MetricRow';
 export { Header } from './Header';
 export { default as MetricsSelectionModal } from './MetricsSelectionModal/MetricsSelectionModal';
 export { MetricsListPanel } from './MetricsListPanel/MetricsListPanel';
+export { default as ManualDataImport } from './ManualDataImport/ManualDataImport';

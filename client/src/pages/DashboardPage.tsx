@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { Button, Modal, Form, Spinner, Alert } from 'react-bootstrap';
 import './DashboardPage.css';
 import '../components/Chart/Chart.css';
@@ -6,8 +6,7 @@ import '../components/Metric/Metrics.css';
 import '../components/Dropdown/Dropdown.css';
 import * as components from '../components';
 import * as hooks from '../hooks';
-
-
+import { useManualData } from '../hooks/useManualData';
 
 import ControlsPanel from './Dashboard/components/ControlsPanel';
 import DifferenceSelectionPanel from './Dashboard/components/DifferenceSelectionPanel';
@@ -16,18 +15,21 @@ function DashboardPage() {
   const [chartMode, setChartMode] = useState<'standard' | 'difference'>('standard');
   const chartContainerRef = useRef<HTMLDivElement>(null);
 
-  const { chartData, error, setError, isLoading, setIsLoading, filenamesPerCategory, handleFetchData, handleReset: baseReset } = hooks.useDataFetching();
+  const { chartData, filenamesPerCategory, error, setError, isLoading, setIsLoading, handleFetchData, handleReset: baseReset  } = hooks.useDataFetching();
+ 
+  const { manualData, addManualData, clearManualData } = useManualData();
+  const [showManualModal, setShowManualModal] = useState(false);
+
+
   const { showMovingAverage, maWindow, setMaWindow, isMaLoading, rollingMeanChartData, handleToggleMovingAverage, handleApplyMaWindow, resetMovingAverage, } = hooks.useMovingAverage(filenamesPerCategory, setError);
   const { scatterPoints, isScatterLoading, isScatterOpen, selectedPair, handleCloseScatter, handleCellClick } = hooks.useScatterPlot();
   const { showTitleModal, setShowTitleModal, reportTitle, setReportTitle, isExporting, handleExportClick, handleExportToPDF } = hooks.useExport(chartData);
   const { isPopupOpen, selectedFiles, handleFileUpload, handlePopupComplete, handlePopupClose, resetFileUpload } = hooks.useFileUpload(handleFetchData, setError, setIsLoading);
   const { dataImportPopupRef, resetAllData } = hooks.useDataImportPopup();
-  const { userMetrics, selectedMetricsForDisplay, setSelectedMetricsForDisplay, showMetricsModal, setShowMetricsModal, filteredGroupedMetrics, shouldShowMetric } = hooks.useMetricsSelection(groupedMetrics);
   const {startDate,endDate,handleStartChange,handleEndChange,defaultMinDate,defaultMaxDate,} = hooks.useDateRange(Object.entries(chartData).map(([_, entries]) => ({ entries })));
   const { selectedCategory, secondaryCategory, handleRangeChange, syncColorsByFile, setSyncColorsByFile, filteredData, handleDropdownChange, handleSecondaryDropdownChange, resetChartConfig,  } = hooks.useChartConfiguration(filenamesPerCategory, chartData, rollingMeanChartData, showMovingAverage, maWindow, startDate, endDate);
-  const { maeValues, rmseValues, PearsonCorrelationValues, DTWValues, EuclideanValues, CosineSimilarityValues, groupedMetrics, resetMetrics } = hooks.useMetricCalculations(filenamesPerCategory, selectedCategory, secondaryCategory,startDate,endDate)
-
-  ;
+  const { maeValues, rmseValues, PearsonCorrelationValues, DTWValues, EuclideanValues, CosineSimilarityValues, groupedMetrics, resetMetrics } = hooks.useMetricCalculations(filenamesPerCategory, selectedCategory, secondaryCategory,startDate,endDate);
+  const { userMetrics, selectedMetricsForDisplay, setSelectedMetricsForDisplay, showMetricsModal, setShowMetricsModal, filteredGroupedMetrics, shouldShowMetric } = hooks.useMetricsSelection(groupedMetrics);
 
   const { plugins } = hooks.useLocalPlugins();
 
@@ -76,6 +78,7 @@ function DashboardPage() {
     resetMovingAverage();
     resetFileUpload();
     resetPluginResults();
+    clearManualData(); 
     resetDifferenceChart();
     resetAllData();
   };
@@ -194,10 +197,16 @@ function DashboardPage() {
                   </div>}
                 {!isLoading && hasData && (
                   <div className="chart-wrapper" style={{ height: chartDynamicHeight }}>
-                    <components.MyChart
+                                <div className="position-absolute top-0 end-0 mt-2 me-3" style={{ zIndex: 10 }}>
+                                <Button variant="outline-success" size="sm" onClick={() => setShowManualModal(true)} disabled={Object.keys(chartData).length === 0}>
+                                    + Add Manual Point
+                                </Button>
+                            </div>
+                    <components.MyChart 
                       primaryData={filteredData.primary}
                       secondaryData={filteredData.secondary || undefined}
                       syncColorsByFile={syncColorsByFile}
+                      manualData={manualData}
                     />
                   </div>
                 )}
@@ -264,6 +273,9 @@ function DashboardPage() {
                 {isInDifferenceMode ? 'Switch to Standard Chart' : 'Switch to Difference Chart'}
               </Button>
             )}
+            {!isLoading && Object.keys(chartData).length === 0 && Object.keys(manualData).length === 0 && !error &&
+               <p className="text-center p-4">Load data to visualize</p>
+            }
           </div>
 
           {/* Standard mode specific sections */}
@@ -524,16 +536,16 @@ function DashboardPage() {
             </>
           )}
 
-          <components.ScatterPlotModal
-            show={isScatterOpen}
-            onHide={handleCloseScatter}
-            file1={selectedPair.file1}
-            file2={selectedPair.file2}
-            points={scatterPoints}
-            isLoading={isScatterLoading}
-          />
-
+          <components.ScatterPlotModal show={isScatterOpen} onHide={handleCloseScatter} file1={selectedPair.file1} file2={selectedPair.file2} points={scatterPoints} isLoading={isScatterLoading} />
           <components.DataImportPopup ref={dataImportPopupRef} show={isPopupOpen} onHide={handlePopupClose} files={selectedFiles} onComplete={handlePopupComplete} />
+          
+      
+          <components.ManualDataImport 
+            show={showManualModal}
+            onHide={() => setShowManualModal(false)}
+            existingData={chartData}
+            onAddData={addManualData} 
+          />
         </div>
       </div>
 
@@ -563,7 +575,7 @@ function DashboardPage() {
         </div>
       )}
 
-      <Modal show={showTitleModal} onHide={() => setShowTitleModal(false)} centered>
+     <Modal show={showTitleModal} onHide={() => setShowTitleModal(false)} centered>
         <Modal.Header closeButton>
           <Modal.Title>Enter report title</Modal.Title>
         </Modal.Header>
@@ -598,5 +610,4 @@ function DashboardPage() {
     </div>
   );
 }
-
 export default DashboardPage;
