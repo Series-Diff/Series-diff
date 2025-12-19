@@ -20,7 +20,6 @@ const isMA = (name: string): boolean => {
   return MA_Suffix.test(name);
 };
 
-// Funkcja pomocnicza do wyciągania nazwy grupy (np. "Cena" z "Cena.Plik1")
 const getGroupName = (key: string) => key.split('.')[0];
 
 export const buildTraces = (
@@ -39,7 +38,6 @@ export const buildTraces = (
   const activePrimaryGroups = new Set(Object.keys(primaryData).map(getGroupName));
   const activeSecondaryGroups = new Set(Object.keys(secondaryData || {}).map(getGroupName));
 
-  // 2. Filtrujemy klucze manualne - bierzemy tylko te, które pasują do aktywnych grup
   const validManualKeys = Object.keys(manualData).filter(key => {
     const group = getGroupName(key);
     return activePrimaryGroups.has(group) || activeSecondaryGroups.has(group);
@@ -47,7 +45,7 @@ export const buildTraces = (
 
   const allKeys = [
     ...Object.keys(primaryData),
-    ...validManualKeys, // Dodajemy tylko pasujące klucze ręczne
+    ...validManualKeys, 
     ...(secondaryData ? Object.keys(secondaryData) : [])
   ];
 
@@ -91,35 +89,30 @@ export const buildTraces = (
     };
   };
 
-  // --- GENEROWANIE ŚLADÓW ---
 
-  // 1. Primary Data (Pliki) -> Y1
   const primaryTraces: Data[] = Object.entries(primaryData).map(([name, series]) =>
     createTrace(name, series, 'y1', false)
   );
 
-  // 2. Secondary Data (Pliki) -> Y2
   const secondaryTraces: Data[] = secondaryData
     ? Object.entries(secondaryData).map(([name, series]) =>
         createTrace(name, series, 'y2', false)
       )
     : [];
 
-  // 3. Manual Data (Ręczne) -> Rozdzielamy na Y1 i Y2 zależnie od grupy
   const manualTraces: Data[] = [];
 
   Object.entries(manualData).forEach(([name, series]) => {
     const group = getGroupName(name);
 
-    // Sprawdzamy czy grupa pasuje do Primary
     if (activePrimaryGroups.has(group)) {
       manualTraces.push(createTrace(name, series, 'y1', true));
     } 
-    // Sprawdzamy czy grupa pasuje do Secondary
+
     else if (activeSecondaryGroups.has(group)) {
       manualTraces.push(createTrace(name, series, 'y2', true));
     }
-    // Jeśli nie pasuje nigdzie -> nie dodajemy do wykresu (jest ukryta)
+
   });
 
   return [...primaryTraces, ...manualTraces, ...secondaryTraces];
