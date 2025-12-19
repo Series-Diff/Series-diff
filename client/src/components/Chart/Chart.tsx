@@ -9,31 +9,38 @@ import { TimeSeriesEntry } from "@/services/fetchTimeSeries";
 interface MyChartProps {
     primaryData: Record<string, TimeSeriesEntry[]>;
     secondaryData?: Record<string, TimeSeriesEntry[]>;
+    // PRZYWRACAMY manualData
+    manualData?: Record<string, TimeSeriesEntry[]>; 
     title?: string;
     syncColorsByFile?: boolean;
 }
 
-const MyChart: React.FC<MyChartProps> = ({ primaryData, secondaryData, title, syncColorsByFile =true}) => {
-    // Extract state and setters from hook
+const MyChart: React.FC<MyChartProps> = ({ 
+    primaryData, 
+    secondaryData, 
+    manualData = {}, 
+    title, 
+    syncColorsByFile = true
+}) => {
+    
+    // Do hooka stanu przekazujemy też manualData, żeby zoom działał poprawnie na kropkach
     const {
-        xaxisRange,
-        tickFormat,
-        showMarkers,
-        customRange, setCustomRange,
-        customYMin, setCustomYMin,
-        customYMax, setCustomYMax,
-        customRange2, setCustomRange2,
-        customY2Min, setCustomY2Min,
-        customY2Max, setCustomY2Max,
-        visibleMap, setVisibleMap,
-        handleRelayout,
-    } = useChartState(primaryData, secondaryData);
+        xaxisRange, tickFormat, showMarkers,
+        customRange, setCustomRange, customYMin, setCustomYMin, customYMax, setCustomYMax,
+        customRange2, setCustomRange2, customY2Min, setCustomY2Min, customY2Max, setCustomY2Max,
+        visibleMap, setVisibleMap, handleRelayout,
+    } = useChartState({ ...primaryData, ...manualData }, secondaryData);
 
-    // Extract interaction handlers from hook
     const { handleLegendClick, containerRef } = useChartInteractions(setVisibleMap);
 
-    // Build traces using utility function
-    const traces = buildTraces(primaryData, secondaryData, visibleMap, showMarkers, syncColorsByFile);
+    const traces = buildTraces(
+        primaryData, 
+        secondaryData, 
+        manualData, // <--- Przekazujemy obiekt danych
+        visibleMap, 
+        showMarkers, 
+        syncColorsByFile
+    );
 
     return (
         <div>
@@ -45,63 +52,30 @@ const MyChart: React.FC<MyChartProps> = ({ primaryData, secondaryData, title, sy
                         xaxis: {
                             title: { text: 'Time' },
                             type: 'date',
-                            tickformat: tickFormat, // Displaying date and time
+                            tickformat: tickFormat,
                             fixedrange: false,
                             showspikes: true,
                             spikemode: 'across',
-                            spikesnap: "cursor",
-                            spikedash: "solid",
-                            spikethickness: 1,
-                            rangeselector: {
-                                buttons: [
-                                    { count: 1, label: "1d", step: "day", stepmode: "backward" },
-                                    { count: 7, label: "1w", step: "day", stepmode: "backward" },
-                                    { count: 1, label: "1m", step: "month", stepmode: "backward" },
-                                    { step: "all" }
-                                ]
-                            },
+                            rangeselector: { buttons: [{ count: 1, label: "1d", step: "day", stepmode: "backward" }, { step: "all" }] },
                             range: xaxisRange[0] && xaxisRange[1] ? xaxisRange : undefined,
-                            rangeslider: {
-                                visible: true,
-                                thickness: 0.05,
-                                bgcolor: '#f8f9fa',
-                                bordercolor: '#ced4da',
-                                borderwidth: 1
-                            },
+                            rangeslider: { visible: true, thickness: 0.05 },
                         },
                         yaxis: {
-                            title: { text: Object.keys(primaryData)[0]?.split('.')[0] || 'Y-Axis' },
-                            side: 'left',
-                            autorange: customRange ? false : true,
+                            title: { text: Object.keys(primaryData)[0]?.split('.')[0] || 'Value' },
+                            autorange: !customRange,
                             range: customRange ? [parseFloat(customYMin), parseFloat(customYMax)] : undefined,
-                            showspikes: true,
-                            spikemode: 'across',
-                            spikedash: "solid",
-                            spikethickness: 1
                         },
                         yaxis2: {
-                            title: { text: secondaryData ? Object.keys(secondaryData)[0]?.split('.')[0] || 'Second Y-Axis' : '' },
                             overlaying: 'y',
-                            autorange: customRange2 ? false : true,
-                            range: customRange2 ? [parseFloat(customY2Min), parseFloat(customY2Max)] : undefined,
-                            showspikes: true,
-                            spikemode: 'across',
-                            spikedash: "solid",
                             side: 'right',
-                            spikethickness: 1
+                            autorange: !customRange2,
+                            range: customRange2 ? [parseFloat(customY2Min), parseFloat(customY2Max)] : undefined,
                         },
                         height: 600,
                         legend: { orientation: "h" },
-                        plot_bgcolor: 'white',
-                        dragmode: 'pan',
                     }}
                     style={{ width: '100%' }}
-                    config={{
-                        responsive: true,
-                        scrollZoom: true,
-                        displaylogo: false,
-                        modeBarButtonsToRemove: ['select2d', 'lasso2d']
-                    }}
+                    config={{ responsive: true, scrollZoom: true, displaylogo: false }}
                     onRelayout={handleRelayout}
                     onLegendClick={handleLegendClick}
                 />

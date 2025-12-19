@@ -13,7 +13,8 @@ import { TimeSeriesEntry } from "@/services/fetchTimeSeries";
 
 export const useChartState = (
     primaryData: Record<string, TimeSeriesEntry[]>,
-    secondaryData?: Record<string, TimeSeriesEntry[]>
+    secondaryData?: Record<string, TimeSeriesEntry[]>,
+    manualData: Record<string, TimeSeriesEntry[]> = {}
 ) => {
     const [xaxisRange, setXaxisRange] = useState<[string | null, string | null]>([null, null]);
     const [tickFormat, setTickFormat] = useState('%d.%m.%Y'); // Only day before zoom
@@ -27,7 +28,7 @@ export const useChartState = (
     const [visibleMap, setVisibleMap] = useState<Record<string, boolean>>({});
 
     // Memoized allData to stabilize dependencies
-    const allData = useMemo(() => ({ ...primaryData, ...(secondaryData || {}) }), [primaryData, secondaryData]);
+    const allData = useMemo(() => ({ ...primaryData, ...(secondaryData || {}), ...manualData }), [primaryData, secondaryData, manualData]);
 
     // Set initial X-range based on data
     // This hook allows for dynamic X-axis range right after loading data, without it you need to refresh the page first

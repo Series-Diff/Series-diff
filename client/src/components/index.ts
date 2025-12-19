@@ -9,3 +9,4 @@ export { default as CorrelationTable } from './CorrelationTable/CorrelationTable
 export { default as StandardTable } from './StandardTable/StandardTable';
 export { default as ScatterPlotModal } from './ScatterPlotModal/ScatterPlotModal';
 export type { ScatterPoint } from './ScatterPlotModal/ScatterPlotModal';
+export { default as ManualDataImport } from './ManualDataImport/ManualDataImport';
