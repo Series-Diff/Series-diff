@@ -1,6 +1,6 @@
 // services/fetchAllMae.ts
 
-const API_URL = process.env.REACT_APP_API_URL || '';
+const API_URL = (process.env.REACT_APP_API_URL || '').replace(/\/$/, '');
 
 const getAuthHeaders = (): HeadersInit => {
   const token = localStorage.getItem('session_token');
@@ -20,10 +20,10 @@ async function fetchMae(
   filename2: string,
   tolerance?: string
 ): Promise<number | null> {
-  const tolParam = tolerance ? `&tolerance=${tolerance}` : "";
+  const tolParam = tolerance ? `&tolerance=${encodeURIComponent(tolerance)}` : "";
 
   const resp = await fetch(
-    `${API_URL}/api/timeseries/mae?category=${category}&filename1=${filename1}&filename2=${filename2}${tolParam}`
+    `${API_URL}/api/timeseries/mae?category=${encodeURIComponent(category.trim())}&filename1=${encodeURIComponent(filename1.trim())}&filename2=${encodeURIComponent(filename2.trim())}${tolParam}`
   , {
       headers: {
         ...getAuthHeaders(),

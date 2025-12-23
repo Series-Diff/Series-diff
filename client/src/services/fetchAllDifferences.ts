@@ -2,7 +2,7 @@
 
 import {TimeSeriesEntry} from "../services/fetchTimeSeries";
 
-const API_URL = process.env.REACT_APP_API_URL || '';
+const API_URL = (process.env.REACT_APP_API_URL || '').replace(/\/$/, '');
 const getAuthHeaders = (): HeadersInit => {
   const token = localStorage.getItem('session_token');
   return token ? { 'X-Session-ID': token } : {};
@@ -16,8 +16,8 @@ const handleSessionToken = (response: Response) => {
 };
 
 async function fetchDifference(category: string, filename1: string, filename2: string, tolerance?: string): Promise<TimeSeriesEntry[] | null> {
-  const toleranceParam = tolerance !== undefined ? String(tolerance) : undefined;
-  const resp = await fetch(`${API_URL}/api/timeseries/difference?category=${category}&filename1=${filename1}&filename2=${filename2}` + (toleranceParam ? `&tolerance=${toleranceParam}` : ""), {
+  const toleranceParam = tolerance !== undefined ? `&tolerance=${encodeURIComponent(String(tolerance))}` : "";
+  const resp = await fetch(`${API_URL}/api/timeseries/difference?category=${encodeURIComponent(category.trim())}&filename1=${encodeURIComponent(filename1.trim())}&filename2=${encodeURIComponent(filename2.trim())}${toleranceParam}`, {
     headers: {
       ...getAuthHeaders(),
     },

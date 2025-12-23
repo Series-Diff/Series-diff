@@ -1,6 +1,6 @@
 // services/fetchAllEuclidean.tsx
 
-const API_URL = process.env.REACT_APP_API_URL || '';
+const API_URL = (process.env.REACT_APP_API_URL || '').replace(/\/$/, '');
 const getAuthHeaders = (): HeadersInit => {
   const token = localStorage.getItem('session_token');
   return token ? { 'X-Session-ID': token } : {};
@@ -21,9 +21,9 @@ export async function fetchEuclidean(
     ): Promise<number | null> {
     const toleranceParam = tolerance !== undefined ? String(tolerance) : undefined;
     const params = new URLSearchParams({
-        category,
-        filename1,
-        filename2,
+        category: category.trim(),
+        filename1: filename1.trim(),
+        filename2: filename2.trim(),
         ...(toleranceParam && { tolerance: toleranceParam })
     });
     const resp = await fetch(`${API_URL}/api/timeseries/euclidean_distance?${params}`, {

@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import * as services from '../services';
 
-const API_URL = process.env.REACT_APP_API_URL || '';
+const API_URL = (process.env.REACT_APP_API_URL || '').replace(/\/$/, '');
 
 export const useDataFetching = () => {
     const [chartData, setChartData] = useState<Record<string, services.TimeSeriesEntry[]>>({});

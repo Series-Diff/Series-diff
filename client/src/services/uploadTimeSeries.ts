@@ -1,6 +1,6 @@
 // src/services/uploadTimeSeries.ts
 
-const API_URL = process.env.REACT_APP_API_URL || '';
+const API_URL = (process.env.REACT_APP_API_URL || '').replace(/\/$/, '');
 
 const getAuthHeaders = (): Record<string, string> => {
   const token = localStorage.getItem('session_token');
