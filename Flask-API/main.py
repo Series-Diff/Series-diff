@@ -75,6 +75,8 @@ def health_check():
     try:
         if _all_required_services_are_running():
             return "OK", 200
+        else:
+            return "Service Unavailable, 500"
     except Exception as e:
         logger.error(f"Redis health check failed: {e}")
         return "Service Unavailable", 500
@@ -890,13 +892,13 @@ def get_dtw():
         data1 = timeseries_manager.get_timeseries(
             token=token, filename=filename1, category=category, start=start, end=end
         )
-        serie1 = metric_service.extract_series_from_dict(data1, category, filename1)
+        series1 = metric_service.extract_series_from_dict(data1, category, filename1)
         data2 = timeseries_manager.get_timeseries(
             token=token, filename=filename2, category=category, start=start, end=end
         )
-        serie2 = metric_service.extract_series_from_dict(data2, category, filename2)
+        series2 = metric_service.extract_series_from_dict(data2, category, filename2)
 
-        dtw_distance = metric_service.calculate_dtw(serie1, serie2)
+        dtw_distance = metric_service.calculate_dtw(series1, series2)
 
     except Exception as e:
         return _create_response({"error": str(e)}, 400)

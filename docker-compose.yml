@@ -5,6 +5,8 @@ services:
       - "6379:6379"
     networks:
       - comparison-tool-network
+    volumes:
+      - redis-data:/data
   backend:
     build: ./Flask-API
     ports:

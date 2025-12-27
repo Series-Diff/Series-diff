@@ -258,20 +258,22 @@ class TimeSeriesManager:
             bool: True if added successfully, False otherwise
         """
         self._validate_parameters(time=time)
+
+        if not isinstance(data, dict):
+            raise ValueError(f"Invalid data format: {data}. Expected a dictionary.")
+
+        if not data:
+            raise ValueError("Data cannot be empty.")
+
         key = self._get_key(token)
 
         try:
-            if isinstance(data, dict):
-                pipeline = self.redis.pipeline()
-
-                json_value = json.dumps(data)
-
-                pipeline.hset(key, time, json_value)
-
-                pipeline.expire(key, self._ttl_seconds)
-
-                pipeline.execute()
-                return True
+            pipeline = self.redis.pipeline()
+            json_value = json.dumps(data)
+            pipeline.hset(key, time, json_value)
+            pipeline.expire(key, self._ttl_seconds)
+            pipeline.execute()
+            return True
         except Exception as e:
             self.logger.error(f"Error adding timeseries for token {token}: {e}")
             return False

@@ -3,7 +3,6 @@ import logging
 import redis
 from flask_limiter import Limiter
 from flask_limiter.util import get_remote_address
-from flask import Flask
 from services.time_series_manager import TimeSeriesManager
 
 
@@ -14,6 +13,14 @@ class Container:
         self._time_series_manager = None
         self._limiter = None
         self._redis_host = os.environ.get("REDIS_HOST", "redis")
+        self._redis_pool = redis.ConnectionPool(
+            host=self._redis_host,
+            port=6379,
+            decode_responses=True,
+            db=0,
+            max_connections=80,
+            socket_connect_timeout=2,
+        )
 
     @property
     def redis_url(self):
@@ -30,16 +37,24 @@ class Container:
         return self._logger
 
     @property
+    def limiter(self):
+        if not self._limiter:
+            # ZMIANA: Nie przekazujemy 'app' tutaj!
+            # Przekazujemy tylko konfigurację (storage_uri).
+            self._limiter = Limiter(
+                key_func=get_remote_address,
+                storage_uri=self.redis_url,  # Pobiera adres z kontenera (DRY)
+                default_limits=["5000 per day", "500 per hour"],
+                strategy="fixed-window",
+            )
+        return self._limiter
+
+    @property
     def redis_client(self):
         if not self._redis_client:
             redis_host = os.environ.get("REDIS_HOST", "redis")
             try:
-                self._redis_client = redis.Redis(
-                    host=redis_host,
-                    port=6379,
-                    decode_responses=True,
-                    socket_connect_timeout=2,
-                )
+                self._redis_client = redis.Redis(connection_pool=self._redis_pool)
                 self._redis_client.ping()
                 self.logger.info(f"Connected to Redis at {redis_host}")
             except Exception as e:
@@ -54,18 +69,6 @@ class Container:
                 redis_client=self.redis_client, logger=self.logger
             )
         return self._time_series_manager
-
-    @property
-    def limiter(self):
-        if not self._limiter:
-            app = Flask(__name__)
-            self._limiter = Limiter(
-                app=app,
-                key_func=get_remote_address,
-                default_limits=["5000 per day", "200 per hour"],
-                storage_uri=self.redis_url,
-            )
-        return self._limiter
 
 
 container = Container()
