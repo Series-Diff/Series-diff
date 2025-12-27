@@ -52,11 +52,10 @@ class Container:
     @property
     def redis_client(self):
         if not self._redis_client:
-            redis_host = os.environ.get("REDIS_HOST", "redis")
             try:
                 self._redis_client = redis.Redis(connection_pool=self._redis_pool)
                 self._redis_client.ping()
-                self.logger.info(f"Connected to Redis at {redis_host}")
+                self.logger.info(f"Connected to Redis at {self._redis_host}")
             except Exception as e:
                 self.logger.error(f"Failed to connect to Redis: {e}")
                 raise e

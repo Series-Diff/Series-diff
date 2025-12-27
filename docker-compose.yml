@@ -15,6 +15,8 @@ services:
       - FLASK_APP=main.py
       - FLASK_ENV=development
       - REDIS_HOST=redis
+    depends_on:
+      - redis
     networks:
       - comparison-tool-network
     volumes:

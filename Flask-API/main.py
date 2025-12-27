@@ -78,7 +78,7 @@ def health_check():
         else:
             return "Service Unavailable, 500"
     except Exception as e:
-        logger.error(f"Redis health check failed: {e}")
+        logger.error(f"Health check failed: {e}")
         return "Service Unavailable", 500
 
 
