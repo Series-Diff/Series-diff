@@ -1,15 +1,10 @@
-import os
 import sys
 import uuid
-from services.time_series_manager import TimeSeriesManager
 from container import container
 import services.metric_service as metric_service
-from redis import Redis
 from utils.data_utils import pivot_file
 from flask_cors import CORS
 from flask import Flask, jsonify, request
-from flask_limiter import Limiter
-from flask_limiter.util import get_remote_address
 from utils.time_utils import convert_timeseries_keys_timezone
 
 sys.stdout.reconfigure(line_buffering=True)
@@ -32,6 +27,7 @@ timeseries_manager = container.time_series_manager
 limiter = container.limiter
 limiter.init_app(app)
 
+
 def _all_required_services_are_running():
     """
     Check if all required services are running.
@@ -40,7 +36,7 @@ def _all_required_services_are_running():
         redis_client.ping()
     except Exception:
         logger.error("Redis service is not running.")
-        return False            
+        return False
     return True
 
 
@@ -108,7 +104,7 @@ def get_timeseries():
     try:
         data = timeseries_manager.get_timeseries(
             token=token,
-            time=time,
+            timestamp=time,
             filename=filename,
             category=category,
             start=start,
@@ -891,7 +887,7 @@ def get_dtw():
 
     try:
         data1 = timeseries_manager.get_timeseries(
-            token=token,filename=filename1, category=category, start=start, end=end
+            token=token, filename=filename1, category=category, start=start, end=end
         )
         serie1 = metric_service.extract_series_from_dict(data1, category, filename1)
         data2 = timeseries_manager.get_timeseries(

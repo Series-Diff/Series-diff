@@ -85,7 +85,7 @@ class TestTimeSeriesManagerGetMethod(unittest.TestCase):
 
     def test_get_timeseries_with_time(self):
         # Act
-        result = self.manager.get_timeseries(self.token, time="2023-01-01")
+        result = self.manager.get_timeseries(self.token, timestamp="2023-01-01")
 
         # Assert
         expected = {
@@ -133,7 +133,7 @@ class TestTimeSeriesManagerGetMethod(unittest.TestCase):
     def test_get_timeseries_with_time_and_category(self):
         # Act
         result = self.manager.get_timeseries(
-            self.token, time="2023-01-01", category="category1"
+            self.token, timestamp="2023-01-01", category="category1"
         )
 
         # Assert
@@ -149,7 +149,7 @@ class TestTimeSeriesManagerGetMethod(unittest.TestCase):
     def test_get_timeseries_with_time_and_filename(self):
         # Act
         result = self.manager.get_timeseries(
-            self.token, time="2023-01-01", filename="file1"
+            self.token, timestamp="2023-01-01", filename="file1"
         )
 
         # Assert
@@ -181,7 +181,7 @@ class TestTimeSeriesManagerGetMethod(unittest.TestCase):
     def test_get_timeseries_with_time_category_and_filename(self):
         # Act
         result = self.manager.get_timeseries(
-            self.token, time="2023-01-01", category="category1", filename="file1"
+            self.token, timestamp="2023-01-01", category="category1", filename="file1"
         )
 
         # Assert
@@ -203,7 +203,7 @@ class TestTimeSeriesManagerGetMethod(unittest.TestCase):
     def test_get_timeseries_invalid_time(self):
 
         # Act
-        result = self.manager.get_timeseries(self.token, time="invalid_time")
+        result = self.manager.get_timeseries(self.token, timestamp="invalid_time")
 
         # Assert
         # Invalid filter should not break data; backend returns full dataset
@@ -212,7 +212,7 @@ class TestTimeSeriesManagerGetMethod(unittest.TestCase):
     def test_get_timeseries_invalid_data_type(self):
         # Act & Assert
         with self.assertRaises(ValueError):
-            self.manager.get_timeseries(self.token, time=2023 - 1 - 1)
+            self.manager.get_timeseries(self.token, timestamp=2023 - 1 - 1)
 
     def test_get_timeseries_invalid_category(self):
         # Act & Assert
