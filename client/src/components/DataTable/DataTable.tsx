@@ -24,10 +24,10 @@ export const DataTable: React.FC<DataTableProps> = ({ data, title, rowsOptions =
   
   const columns = React.useMemo(() => (rows.length > 0 ? Object.keys(rows[0]) : []), [rows]);
 
-  // Reset to page 1 when rows per page changes
+  // Reset to page 1 when rows per page or data changes
   React.useEffect(() => {
     setCurrentPage(1);
-  }, [rowsNumber]);
+  }, [rowsNumber, data.length]);
 
   const columnHeaderNames: Record<string, string> = {
     x: 'Date',
