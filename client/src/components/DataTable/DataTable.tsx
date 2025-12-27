@@ -27,7 +27,7 @@ export const DataTable: React.FC<DataTableProps> = ({ data, title, rowsOptions =
   // Reset to page 1 when rows per page or data changes
   React.useEffect(() => {
     setCurrentPage(1);
-  }, [rowsNumber, data.length]);
+  }, [rowsNumber, data]);
 
   const columnHeaderNames: Record<string, string> = {
     x: 'Date',
