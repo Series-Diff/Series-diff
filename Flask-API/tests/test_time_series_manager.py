@@ -44,11 +44,11 @@ class TestTimeSeriesManagerAddMethod(unittest.TestCase):
         time = "2023-01-01T00:00:00"
         data = "invalid_data"
 
-        # Act
-        result = self.manager.add_timeseries(self.token, time, data)
+        # Act & Assert
+        with self.assertRaises(ValueError) as context:
+            self.manager.add_timeseries(self.token, time, data)
 
-        # Assert
-        self.assertFalse(result)
+        self.assertIn("Expected a dictionary", str(context.exception))
 
     def test_add_timeseries_invalid_category(self):
         # Arrange
