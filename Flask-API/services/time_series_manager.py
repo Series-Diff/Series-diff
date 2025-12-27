@@ -1,5 +1,7 @@
 from datetime import datetime
 from typing import Any, Dict, Optional
+from logging import Logger
+from redis import Redis
 
 
 class TimeSeriesManager:
@@ -15,8 +17,15 @@ class TimeSeriesManager:
         bool: True if added successfully, False otherwise
     """
 
-    def __init__(self):
+    def __init__(self, redis_client: Redis, logger: Logger):
+        self.redis = redis_client
+        self.logger = logger
+        self._ttl_seconds = 3600 * 24  # 24 hours
         self.sessions: Dict[str, Dict[str, Any]] = {}
+
+    def _get_key(self, token: str) -> str:
+        """Generate Redis key for a given token."""
+        return f"timeseries:{token}"
 
     def _validate_parameters(
         self,
