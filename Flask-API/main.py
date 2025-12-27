@@ -11,14 +11,15 @@ sys.stdout.reconfigure(line_buffering=True)
 
 app = Flask(__name__)
 app.config["MAX_CONTENT_LENGTH"] = 16 * 1024 * 1024  # 16MB max
-CORS(app, 
-     expose_headers=["X-Session-ID"],
-     resources={
+CORS(
+    app,
+    expose_headers=["X-Session-ID"],
+    resources={
         r"/api/*": {
             "origins": "*",
             "methods": ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
         }
-    }
+    },
 )
 
 logger = container.logger
