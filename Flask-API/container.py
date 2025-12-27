@@ -18,7 +18,7 @@ class Container:
             port=6379,
             decode_responses=True,
             db=0,
-            max_connections=80,
+            max_connections=20,
             socket_connect_timeout=2,
         )
 

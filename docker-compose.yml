@@ -39,3 +39,6 @@ services:
 networks:
   comparison-tool-network:
    driver: bridge
+   
+volumes:
+  redis-data:
