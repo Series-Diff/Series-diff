@@ -68,15 +68,15 @@ class TimeSeriesManager:
             raise e
 
     def _get_redis_subset(
-            self,
-            token: str,
-            timestamp: Optional[str] = None,
-            start: Optional[str] = None,
-            end: Optional[str] = None
+        self,
+        token: str,
+        timestamp: Optional[str] = None,
+        start: Optional[str] = None,
+        end: Optional[str] = None,
     ) -> Dict[str, Any]:
         """
         Retrieve a subset of Redis data based on time filters.
-        
+
         Args:
             token (str): The token identifying the session
             timestamp (str, optional): Specific timestamp to filter by
@@ -98,28 +98,26 @@ class TimeSeriesManager:
                 self.logger.info(f"No data found for token {token} with given filters.")
             values = self.redis.hmget(key, filtered_data)
             filtered_data = {
-                ts: val
-                for ts, val in zip(filtered_data, values)
-                if val is not None
+                ts: val for ts, val in zip(filtered_data, values) if val is not None
             }
 
             return filtered_data
         except Exception as e:
             self.logger.error(f"Error retrieving Redis subset for token {token}: {e}")
             raise e
-        
+
     def _process_data(
-            self,
-            data: Dict[str, Any],
-            timestamp: Optional[str] = None,
-            start: Optional[str] = None,
-            end: Optional[str] = None,
-            categories: Optional[List[str]] = None,
-            filenames: Optional[List[str]] = None,
+        self,
+        data: Dict[str, Any],
+        timestamp: Optional[str] = None,
+        start: Optional[str] = None,
+        end: Optional[str] = None,
+        categories: Optional[List[str]] = None,
+        filenames: Optional[List[str]] = None,
     ) -> Dict[str, Any]:
         """
         Process raw Redis data into structured format based on time filters.
-        
+
         Args:
             data (Dict[str, Any]): Raw data from Redis
             timestamp (str, optional): Specific timestamp to filter by
@@ -127,7 +125,7 @@ class TimeSeriesManager:
             end (str, optional): End of the time interval
             categories (List[str], optional): List of categories to filter by
             filenames (List[str], optional): List of filenames to filter by
-        
+
         Returns:
             Dict[str, Any]: Processed and filtered data
         """
@@ -261,17 +259,17 @@ class TimeSeriesManager:
         """
         self._validate_parameters(time=time)
         key = self._get_key(token)
-        
+
         try:
             if isinstance(data, dict):
                 pipeline = self.redis.pipeline()
-                
+
                 json_value = json.dumps(data)
-                
+
                 pipeline.hset(key, time, json_value)
-                
+
                 pipeline.expire(key, self._ttl_seconds)
-                
+
                 pipeline.execute()
                 return True
         except Exception as e:
@@ -301,8 +299,10 @@ class TimeSeriesManager:
         Returns:
             dict: Timeseries data for the specified time or all timeseries if no key is provided
         """
-        self._validate_parameters(timestamp, filename, category, start, end, filenames, categories)
-        
+        self._validate_parameters(
+            timestamp, filename, category, start, end, filenames, categories
+        )
+
         if timestamp or start or end:
             raw_data = self._get_redis_subset(token, timestamp, start, end)
         else:
@@ -310,14 +310,20 @@ class TimeSeriesManager:
 
         if not raw_data:
             return {}
-        
+
+        # Convert single values to lists for unified processing
+        category_filter = (
+            categories if categories else ([category] if category else None)
+        )
+        filename_filter = filenames if filenames else ([filename] if filename else None)
+
         return self._process_data(
-            raw_data, 
+            raw_data,
             timestamp=timestamp,
-            start=start, 
+            start=start,
             end=end,
-            categories=categories, 
-            filenames=filenames
+            categories=category_filter,
+            filenames=filename_filter,
         )
 
     def clear_timeseries(self, token: str) -> dict:
