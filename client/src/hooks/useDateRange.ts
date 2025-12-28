@@ -1,4 +1,4 @@
-import { useEffect, useState, useMemo } from "react";
+import { useEffect, useState, useMemo, useRef } from "react";
 
 export function useDateRange(loadedData: any[] = []) {
   const [startDate, setStartDate] = useState<Date | null>(null);
@@ -19,11 +19,40 @@ export function useDateRange(loadedData: any[] = []) {
     };
   }, [loadedData]);
 
-  useEffect(() => {
-    if (!dataBounds.min || !dataBounds.max) return;
+  const prevBoundsRef = useRef<{ min: Date | null; max: Date | null }>({ min: null, max: null });
 
-    setStartDate(prev => prev ?? dataBounds.min);
-    setEndDate(prev => prev ?? dataBounds.max);
+  useEffect(() => {
+    if (!dataBounds.min || !dataBounds.max) {
+      prevBoundsRef.current = { min: null, max: null };
+      return;
+    }
+
+    const prevMin = prevBoundsRef.current.min;
+    const prevMax = prevBoundsRef.current.max;
+    if (prevMin === null && prevMax === null) {
+      setStartDate(prev => prev ?? dataBounds.min);
+      setEndDate(prev => prev ?? dataBounds.max);
+      prevBoundsRef.current = { min: dataBounds.min, max: dataBounds.max };
+      return;
+    }
+
+    const boundsChanged =
+      (prevMin && dataBounds.min && prevMin.getTime() !== dataBounds.min.getTime()) ||
+      (prevMax && dataBounds.max && prevMax.getTime() !== dataBounds.max.getTime());
+
+    if (boundsChanged) {
+      setStartDate(prev =>
+        prev === null || (prevMin && prev?.getTime() === prevMin.getTime())
+          ? dataBounds.min
+          : prev
+      );
+      setEndDate(prev =>
+        prev === null || (prevMax && prev?.getTime() === prevMax.getTime())
+          ? dataBounds.max
+          : prev
+      );
+      prevBoundsRef.current = { min: dataBounds.min, max: dataBounds.max };
+    }
   }, [dataBounds.min?.getTime(), dataBounds.max?.getTime()]);
 
   return {
