@@ -6,9 +6,6 @@ NOTE: Plugins are stored on the frontend (localStorage) for privacy.
 This service only handles validation and sandboxed execution.
 """
 
-from typing import Any
-from dataclasses import dataclass
-
 # Template for creating new plugins
 PLUGIN_TEMPLATE = '''
 # Plugin: {name}
@@ -32,9 +29,9 @@ def calculate(series1: pd.Series, series2: pd.Series) -> float:
     Example:
         # Simple difference-based metric
         aligned = pd.merge(
-            series1.reset_index(), 
-            series2.reset_index(), 
-            on='index', 
+            series1.reset_index(),
+            series2.reset_index(),
+            on='index',
             how='inner'
         )
         return (aligned['y_x'] - aligned['y_y']).abs().mean()
@@ -57,23 +54,45 @@ def validate_plugin_code(code: str) -> dict:
     # Enhanced dangerous pattern check
     dangerous_patterns = [
         # File operations
-        "open(", "open (", "file(", "with open",
+        "open(",
+        "open (",
+        "file(",
+        "with open",
         # System access
-        "import os", "from os", "import sys", "from sys",
-        "import subprocess", "from subprocess",
-        "import shutil", "from shutil",
-        "import socket", "from socket",
-        "import requests", "from requests",
-        "import urllib", "from urllib",
+        "import os",
+        "from os",
+        "import sys",
+        "from sys",
+        "import subprocess",
+        "from subprocess",
+        "import shutil",
+        "from shutil",
+        "import socket",
+        "from socket",
+        "import requests",
+        "from requests",
+        "import urllib",
+        "from urllib",
         # Code execution
-        "exec(", "exec (", "eval(", "eval (",
-        "__import__", "importlib",
+        "exec(",
+        "exec (",
+        "eval(",
+        "eval (",
+        "__import__",
+        "importlib",
         # Introspection attacks
-        "__class__", "__bases__", "__subclasses__",
-        "__globals__", "__code__", "__builtins__",
+        "__class__",
+        "__bases__",
+        "__subclasses__",
+        "__globals__",
+        "__code__",
+        "__builtins__",
         # Shell access
-        "os.system", "os.popen", "subprocess.",
-        "commands.", "popen",
+        "os.system",
+        "os.popen",
+        "subprocess.",
+        "commands.",
+        "popen",
     ]
 
     code_lower = code.lower()
@@ -82,24 +101,21 @@ def validate_plugin_code(code: str) -> dict:
             return {
                 "valid": False,
                 "error": f"Forbidden pattern detected: '{pattern}'. "
-                         f"Plugins cannot access system resources."
+                f"Plugins cannot access system resources.",
             }
 
     # Check that 'def calculate' exists
     if "def calculate(" not in code:
         return {
             "valid": False,
-            "error": "Plugin must define a 'calculate(series1, series2)' function"
+            "error": "Plugin must define a 'calculate(series1, series2)' function",
         }
 
     # Try to compile the code
     try:
         compile(code, "<plugin>", "exec")
     except SyntaxError as e:
-        return {
-            "valid": False,
-            "error": f"Syntax error in plugin code: {e}"
-        }
+        return {"valid": False, "error": f"Syntax error in plugin code: {e}"}
 
     return {"valid": True}
 
@@ -122,18 +138,19 @@ def execute_plugin_code(code: str, series1, series2) -> dict:
         return {"error": validation_result["error"]}
 
     # Convert to dict if needed (for sandboxed execution)
-    if hasattr(series1, 'to_dict'):
+    if hasattr(series1, "to_dict"):
         series1_dict = series1.to_dict()
     else:
         series1_dict = dict(series1) if not isinstance(series1, dict) else series1
 
-    if hasattr(series2, 'to_dict'):
+    if hasattr(series2, "to_dict"):
         series2_dict = series2.to_dict()
     else:
         series2_dict = dict(series2) if not isinstance(series2, dict) else series2
 
     # Use sandboxed executor
     from services.sandboxed_executor import get_executor
+
     executor = get_executor()
 
     return executor.execute(code, series1_dict, series2_dict)
@@ -144,5 +161,5 @@ def get_template(name: str = "Custom Metric", description: str = "") -> str:
     return PLUGIN_TEMPLATE.format(
         name=name,
         description=description or "A custom metric plugin",
-        author="Your Name"
+        author="Your Name",
     )

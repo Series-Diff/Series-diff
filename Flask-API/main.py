@@ -8,7 +8,10 @@ from flask import Flask, jsonify, request
 from flask_limiter import Limiter
 from flask_limiter.util import get_remote_address
 from utils.time_utils import convert_timeseries_keys_timezone
-# from services.plugin_service import get_plugin_manager
+from services.plugin_service import (
+    validate_plugin_code,
+    execute_plugin_code,
+)
 
 sys.stdout.reconfigure(line_buffering=True)
 
@@ -271,7 +274,8 @@ def get_mean():
         return jsonify({"error": str(e)}), 400
     if mean is None:
         logger.warning(
-            "No valid timeseries data provided for mean calculation for filename '%s' and category '%s' and time interval '%s - %s'",
+            "No valid timeseries data provided for mean "
+            "calculation for filename '%s' and category '%s' and time interval '%s - %s'",
             filename,
             category,
             start,
@@ -328,7 +332,8 @@ def get_median():
         return jsonify({"error": str(e)}), 400
     if median is None:
         logger.warning(
-            "No valid timeseries data provided for median calculation for filename '%s' and category '%s' and time interval '%s - %s'",
+            "No valid timeseries data provided for median calculation "
+            "for filename '%s' and category '%s' and time interval '%s - %s'",
             filename,
             category,
             start,
@@ -336,7 +341,8 @@ def get_median():
         )
         return jsonify({"error": "No valid timeseries data provided"}), 400
     logger.info(
-        "Successfully calculated median for provided timeseries data for filename '%s' and category '%s' and time interval '%s - %s'",
+        "Successfully calculated median for provided timeseries data "
+        "for filename '%s' and category '%s' and time interval '%s - %s'",
         filename,
         category,
         start,
@@ -377,7 +383,8 @@ def get_variance():
         return jsonify({"error": str(e)}), 400
     if variance is None:
         logger.warning(
-            "No valid timeseries data provided for variance calculation for filename '%s' and category '%s' and time interval '%s - %s'",
+            "No valid timeseries data provided for variance calculation "
+            "for filename '%s' and category '%s' and time interval '%s - %s'",
             filename,
             category,
             start,
@@ -385,7 +392,8 @@ def get_variance():
         )
         return jsonify({"error": "No valid timeseries data provided"}), 400
     logger.info(
-        "Successfully calculated variance for provided timeseries data for filename '%s' and category '%s' and time interval '%s - %s'",
+        "Successfully calculated variance for provided timeseries data "
+        "for filename '%s' and category '%s' and time interval '%s - %s'",
         filename,
         category,
         start,
@@ -425,7 +433,8 @@ def get_standard_deviation():
         return jsonify({"error": str(e)}), 400
     if std_dev is None:
         logger.warning(
-            "No valid timeseries data provided for standard deviation calculation for filename '%s' and category '%s' and time interval '%s - %s'",
+            "No valid timeseries data provided for standard deviation "
+            "calculation for filename '%s' and category '%s' and time interval '%s - %s'",
             filename,
             category,
             start,
@@ -433,7 +442,8 @@ def get_standard_deviation():
         )
         return jsonify({"error": "No valid timeseries data provided"}), 400
     logger.info(
-        "Successfully calculated standard deviation for provided timeseries data for filename '%s' and category '%s' and time interval '%s - %s'",
+        "Successfully calculated standard deviation for provided timeseries "
+        "data for filename '%s' and category '%s' and time interval '%s - %s'",
         filename,
         category,
         start,
@@ -480,7 +490,8 @@ def get_autocorrelation():
         return jsonify({"error": str(e)}), 400
     if acf_value is None:
         logger.warning(
-            "No valid timeseries data provided for autocorrelation calculation for filename '%s' and category '%s' and time interval '%s - %s'",
+            "No valid timeseries data provided for autocorrelation calculation "
+            "for filename '%s' and category '%s' and time interval '%s - %s'",
             filename,
             category,
             start,
@@ -488,7 +499,8 @@ def get_autocorrelation():
         )
         return jsonify({"error": "No valid timeseries data provided"}), 400
     logger.info(
-        "Successfully calculated autocorrelation for provided timeseries data for filename '%s' and category '%s' and time interval '%s - %s'",
+        "Successfully calculated autocorrelation for provided timeseries data "
+        "for filename '%s' and category '%s' and time interval '%s - %s'",
         filename,
         category,
         start,
@@ -518,7 +530,8 @@ def get_coefficient_of_variation():
         cv = metric_service.calculate_coefficient_of_variation(serie)
     except (KeyError, ValueError) as e:
         logger.error(
-            "Error calculating coefficient of variation for filename '%s' and category '%s' and time interval '%s - %s': %s",
+            "Error calculating coefficient of variation for "
+            "filename '%s' and category '%s' and time interval '%s - %s': %s",
             filename,
             category,
             start,
@@ -528,7 +541,8 @@ def get_coefficient_of_variation():
         return jsonify({"error": str(e)}), 400
     if cv is None:
         logger.warning(
-            "No valid timeseries data provided for coefficient of variation calculation for filename '%s' and category '%s' and time interval '%s - %s'",
+            "No valid timeseries data provided for coefficient of variation "
+            "calculation for filename '%s' and category '%s' and time interval '%s - %s'",
             filename,
             category,
             start,
@@ -536,7 +550,8 @@ def get_coefficient_of_variation():
         )
         return jsonify({"error": "No valid timeseries data provided"}), 400
     logger.info(
-        "Successfully calculated coefficient of variation for provided timeseries data for filename '%s' and category '%s' and time interval '%s - %s'",
+        "Successfully calculated coefficient of variation for "
+        "provided timeseries data for filename '%s' and category '%s' and time interval '%s - %s'",
         filename,
         category,
         start,
@@ -577,7 +592,8 @@ def get_iqr():
         return jsonify({"error": str(e)}), 400
     if iqr is None:
         logger.warning(
-            "No valid timeseries data provided for IQR calculation for filename '%s' and category '%s' and time interval '%s - %s'",
+            "No valid timeseries data provided for IQR calculation "
+            "for filename '%s' and category '%s' and time interval '%s - %s'",
             filename,
             category,
             start,
@@ -585,7 +601,8 @@ def get_iqr():
         )
         return jsonify({"error": "No valid timeseries data provided"}), 400
     logger.info(
-        "Successfully calculated IQR for provided timeseries data for filename '%s' and category '%s' and time interval '%s - %s'",
+        "Successfully calculated IQR for provided timeseries "
+        "data for filename '%s' and category '%s' and time interval '%s - %s'",
         filename,
         category,
         start,
@@ -632,14 +649,16 @@ def get_pearson_correlation():
         return jsonify({"error": str(e)}), 400
     if correlation is None:
         logger.warning(
-            "No valid timeseries data provided for Pearson correlation calculation for filenames '%s' and '%s' in category '%s'",
+            "No valid timeseries data provided for Pearson "
+            "correlation calculation for filenames '%s' and '%s' in category '%s'",
             filename1,
             filename2,
             category,
         )
         return jsonify({"error": "No valid timeseries data provided"}), 400
     logger.info(
-        "Successfully calculated Pearson correlation for provided timeseries data for filenames '%s' and '%s' in category '%s'",
+        "Successfully calculated Pearson correlation for "
+        "provided timeseries data for filenames '%s' and '%s' in category '%s'",
         filename1,
         filename2,
         category,
@@ -924,7 +943,7 @@ def add_timeseries():
             return (
                 jsonify(
                     {
-                        f"error": "Invalid data format for time '{time}': Expected a dictionary"
+                        "error": "Invalid data format for time '{time}': Expected a dictionary"
                     }
                 ),
                 400,
@@ -957,8 +976,6 @@ def clear_timeseries():
     logger.info("All timeseries for token %s cleared successfully", token)
     return _create_response({"status": "All timeseries cleared"}, 200)
 
-from services.plugin_service import validate_plugin_code, execute_plugin_code, get_template
-
 
 @app.route("/api/plugins/validate", methods=["POST"])
 def api_validate_plugin_code():
@@ -1016,7 +1033,7 @@ def api_execute_plugin():
             filename=data["filename1"],
             category=data["category"],
             start=data.get("start"),
-            end=data.get("end")
+            end=data.get("end"),
         )
         series1 = metric_service.extract_series_from_dict(
             data1, data["category"], data["filename1"]
@@ -1026,7 +1043,7 @@ def api_execute_plugin():
             filename=data["filename2"],
             category=data["category"],
             start=data.get("start"),
-            end=data.get("end")
+            end=data.get("end"),
         )
         series2 = metric_service.extract_series_from_dict(
             data2, data["category"], data["filename2"]
@@ -1041,100 +1058,8 @@ def api_execute_plugin():
 
         logger.info(
             "Plugin executed successfully on %s and %s",
-            data["filename1"], data["filename2"]
-        )
-        return jsonify(result), 200
-
-    except Exception as e:
-        logger.error("Error executing plugin: %s", e)
-        return jsonify({"error": str(e)}), 400
-
-
-from services.plugin_service import validate_plugin_code, execute_plugin_code, get_template
-
-
-@app.route("/api/plugins/validate", methods=["POST"])
-def api_validate_plugin_code():
-    """
-    Validate plugin code for security and correctness.
-
-    Request body:
-        code: Python code to validate
-
-    Returns:
-        Validation result with valid (bool) and optionally error (str).
-    """
-    data = request.get_json()
-
-    if not data or "code" not in data:
-        return jsonify({"error": "No code provided"}), 400
-
-    result = validate_plugin_code(data["code"])
-
-    return jsonify(result), 200
-
-
-@app.route("/api/plugins/execute", methods=["POST"])
-def api_execute_plugin():
-    """
-    Execute plugin code on two time series.
-
-    NOTE: Plugin code is sent directly from the client (stored in localStorage).
-    This keeps plugins private to each user.
-
-    Request body:
-        code: Python code implementing calculate(series1, series2) function
-        filename1: First file name
-        filename2: Second file name
-        category: Category name
-        start: Optional start time
-        end: Optional end time
-
-    Returns:
-        Result value or error.
-    """
-    data = request.get_json()
-
-    if not data:
-        return jsonify({"error": "No data provided"}), 400
-
-    required_fields = ["code", "filename1", "filename2", "category"]
-    for field in required_fields:
-        if field not in data:
-            return jsonify({"error": f"Missing required field: {field}"}), 400
-
-    try:
-        # Fetch time series data
-        data1 = timeseries_manager.get_timeseries(
-            filename=data["filename1"],
-            category=data["category"],
-            start=data.get("start"),
-            end=data.get("end")
-        )
-        series1 = metric_service.extract_series_from_dict(
-            data1, data["category"], data["filename1"]
-        )
-
-        data2 = timeseries_manager.get_timeseries(
-            filename=data["filename2"],
-            category=data["category"],
-            start=data.get("start"),
-            end=data.get("end")
-        )
-        series2 = metric_service.extract_series_from_dict(
-            data2, data["category"], data["filename2"]
-        )
-
-        # Execute the plugin code (sandboxed)
-        result = execute_plugin_code(data["code"], series1, series2)
-
-        if "error" in result:
-            logger.error("Plugin execution error: %s", result["error"])
-            return jsonify(result), 400
-
-        logger.info(
-            "Plugin executed successfully on %s and %s",
-            data["filename1"], data["filename2"]
+            data["filename1"],
+            data["filename2"],
         )
         return jsonify(result), 200
 
