@@ -70,7 +70,7 @@ function DashboardPage() {
 
             {!isLoading && Object.keys(chartData).length > 0 && (
               <div className="d-flex justify-content-end px-3 pt-2">
-                 <Button variant="outline-success" size="sm" onClick={() => setShowManualModal(true)} disabled={Object.keys(chartData).length === 0}>
+                 <Button variant="outline-primary" size="sm" onClick={() => setShowManualModal(true)} disabled={Object.keys(chartData).length === 0}>
                     + Add Manual Point
                  </Button>
               </div>
