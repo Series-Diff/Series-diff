@@ -183,6 +183,7 @@ class TimeSeriesManager:
     def clear_timeseries(self, token: str) -> dict:
         """
         Clear all timeseries data.
+
         Returns:
             dict: Message indicating the result of the operation
         """
