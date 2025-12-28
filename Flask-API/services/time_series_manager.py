@@ -174,6 +174,10 @@ class TimeSeriesManager:
                 continue
             self._add_matching_data(result, timeseries, categories, category, filename)
 
+        # If result is empty but filters were provided, return the entire session
+        if not result and (time or category or filename or start or end):
+            return source_data
+
         return result
 
     def clear_timeseries(self, token: str) -> dict:
