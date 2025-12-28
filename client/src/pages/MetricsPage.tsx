@@ -125,8 +125,17 @@ function MetricsPage() {
             .filter(metric => metric.label.toLowerCase().includes(searchQuery.toLowerCase()));
     };
 
-    const getUserMetricsFiltered = (): Metric[] => {
-        return userMetrics
+
+        const getUserMetricsFiltered = (): Metric[] => {
+        const metricsFromPlugins: Metric[] = plugins.map(p => ({
+            value: p.id,
+            label: p.name,
+            description: p.description,
+            category: p.category,
+            code: p.code // Przekazujemy kod, aby można go było edytować
+        }));
+
+        return metricsFromPlugins
             .filter(metric => (userSelectedCategory === 'All' || metric.category === userSelectedCategory))
             .filter(metric => metric.label.toLowerCase().includes(userSearchQuery.toLowerCase()));
     };

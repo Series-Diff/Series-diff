@@ -161,20 +161,20 @@ function DashboardPage() {
                                 metric="Pearson Correlation"
                             />
 
-                            {secondaryCategory && PearsonCorrelationValues[secondaryCategory] && (
-                                <div style={{marginTop: "32px"}}>
-                                    <components.CorrelationTable
-                                        data={PearsonCorrelationValues[secondaryCategory]}
-                                        category={secondaryCategory}
-                                        onCellClick={(file1, file2) =>
-                                            handleCellClick(file1, file2, secondaryCategory)
-                                        }
-                                        metric="Pearson Correlation"
-                                    />
-                                </div>
-                            )}
-                        </div>
-                    )}
+              {secondaryCategory && PearsonCorrelationValues[secondaryCategory] && (
+                <div style={{ marginTop: "32px" }}>
+                  <components.CorrelationTable
+                    data={PearsonCorrelationValues[secondaryCategory]}
+                    category={secondaryCategory}
+                    onCellClick={(file1, file2) =>
+                      handleCellClick(file1, file2, secondaryCategory)
+                    }
+                    metric="Pearson Correlation"
+                  />
+                </div>
+              )}
+            </div>
+          )}
 
                     {selectedCategory && CosineSimilarityValues[selectedCategory] && (
                         <div className="section-container p-3">
@@ -185,18 +185,18 @@ function DashboardPage() {
                                 metric="Cosine Similarity"
                             />
 
-                            {secondaryCategory && CosineSimilarityValues[secondaryCategory] && (
-                                <div style={{marginTop: "24px"}}>
-                                    <components.CorrelationTable
-                                        data={CosineSimilarityValues[secondaryCategory]}
-                                        category={secondaryCategory}
-                                        clickable={false}
-                                        metric="Cosine Similarity"
-                                    />
-                                </div>
-                            )}
-                        </div>
-                    )}
+              {secondaryCategory && CosineSimilarityValues[secondaryCategory] && (
+                <div style={{ marginTop: "24px" }}>
+                  <components.CorrelationTable
+                    data={CosineSimilarityValues[secondaryCategory]}
+                    category={secondaryCategory}
+                    clickable={false}
+                    metric="Cosine Similarity"
+                  />
+                </div>
+              )}
+            </div>
+          )}
 
                     {selectedCategory && maeValues[selectedCategory] && (
                         <div className="section-container p-3">
@@ -206,17 +206,17 @@ function DashboardPage() {
                                 metric="MAE"
                             />
 
-                            {secondaryCategory && maeValues[secondaryCategory] && (
-                                <div style={{marginTop: "24px"}}>
-                                    <components.StandardTable
-                                        data={maeValues[secondaryCategory]}
-                                        category={secondaryCategory}
-                                        metric="MAE"
-                                    />
-                                </div>
-                            )}
-                        </div>
-                    )}
+              {secondaryCategory && maeValues[secondaryCategory] && (
+                <div style={{ marginTop: "24px" }}>
+                  <components.StandardTable
+                    data={maeValues[secondaryCategory]}
+                    category={secondaryCategory}
+                    metric="MAE"
+                  />
+                </div>
+              )}
+            </div>
+          )}
 
                     {selectedCategory && rmseValues[selectedCategory] && (
                         <div className="section-container p-3">
@@ -226,17 +226,17 @@ function DashboardPage() {
                                 metric="RMSE"
                             />
 
-                            {secondaryCategory && rmseValues[secondaryCategory] && (
-                                <div style={{marginTop: "24px"}}>
-                                    <components.StandardTable
-                                        data={rmseValues[secondaryCategory]}
-                                        category={secondaryCategory}
-                                        metric="RMSE"
-                                    />
-                                </div>
-                            )}
-                        </div>
-                    )}
+              {secondaryCategory && rmseValues[secondaryCategory] && (
+                <div style={{ marginTop: "24px" }}>
+                  <components.StandardTable
+                    data={rmseValues[secondaryCategory]}
+                    category={secondaryCategory}
+                    metric="RMSE"
+                  />
+                </div>
+              )}
+            </div>
+          )}
 
                     {selectedCategory && DTWValues[selectedCategory] && (
                         <div className="section-container p-3">
@@ -246,17 +246,17 @@ function DashboardPage() {
                                 metric="DTW"
                             />
 
-                            {secondaryCategory && DTWValues[secondaryCategory] && (
-                                <div style={{marginTop: "32px"}}>
-                                    <components.StandardTable
-                                        data={DTWValues[secondaryCategory]}
-                                        category={secondaryCategory}
-                                        metric="DTW"
-                                    />
-                                </div>
-                            )}
-                        </div>
-                    )}
+              {secondaryCategory && DTWValues[secondaryCategory] && (
+                <div style={{ marginTop: "32px" }}>
+                  <components.StandardTable
+                    data={DTWValues[secondaryCategory]}
+                    category={secondaryCategory}
+                    metric="DTW"
+                  />
+                </div>
+              )}
+            </div>
+          )}
 
                     {selectedCategory && EuclideanValues[selectedCategory] && (
                         <div className="section-container p-3">
@@ -266,69 +266,17 @@ function DashboardPage() {
                                 metric="Euclidean"
                             />
 
-                            {secondaryCategory && EuclideanValues[secondaryCategory] && (
-                                <div className="mt-4">
-                                    <components.StandardTable
-                                        data={EuclideanValues[secondaryCategory]}
-                                        category={secondaryCategory}
-                                        metric="Euclidean"
-                                    />
-                                </div>
-                            )}
-                        </div>
-                    )}
-
-                    {/* --- CUSTOM PLUGINS SECTION --- */}
-                    {enabledPlugins.length > 0 && selectedCategory && (
-                        <div className="section-container" style={{padding: "16px"}}>
-                            <div className="d-flex justify-content-between align-items-center mb-3">
-                                <h3 style={{margin: 0}}>Plugins</h3>
-                                <div className="d-flex align-items-center gap-2">
-                                    {isLoadingPlugins && <Spinner animation="border" size="sm"/>}
-                                    <Button
-                                        variant="outline-secondary"
-                                        size="sm"
-                                        onClick={refreshPluginResults}
-                                        disabled={isLoadingPlugins}
-                                    >
-                                        Refresh
-                                    </Button>
-                                </div>
-                            </div>
-
-                            {enabledPlugins.map((plugin) => {
-                                const categoryData = pluginResults[plugin.id]?.[selectedCategory];
-                                // Renderuj tylko jeśli są dane dla tej kategorii
-                                if (!categoryData || Object.keys(categoryData).length === 0) {
-                                    return null;
-                                }
-
-                                return (
-                                    <components.StandardTable
-                                        data={categoryData}
-                                        category={selectedCategory}
-                                        metric={plugin.name}
-                                    />
-                                );
-                            })}
-
-                            {secondaryCategory && enabledPlugins.map((plugin) => {
-                                const categoryData = pluginResults[plugin.id]?.[secondaryCategory];
-                                if (!categoryData || Object.keys(categoryData).length === 0) {
-                                    return null;
-                                }
-                                return (
-                                    <div key={`${plugin.id}-${secondaryCategory}`} style={{marginTop: "32px"}}>
-                                        <components.StandardTable
-                                            data={categoryData}
-                                            category={secondaryCategory}
-                                            metric={plugin.name}
-                                        />
-                                    </div>
-                                );
-                            })}
-                        </div>
-                    )}
+              {secondaryCategory && EuclideanValues[secondaryCategory] && (
+                <div style={{ marginTop: "32px" }}>
+                  <components.StandardTable
+                    data={EuclideanValues[secondaryCategory]}
+                    category={secondaryCategory}
+                    metric="Euclidean"
+                  />
+                </div>
+              )}
+            </div>
+          )}
 
                     <components.ScatterPlotModal
                         show={isScatterOpen}

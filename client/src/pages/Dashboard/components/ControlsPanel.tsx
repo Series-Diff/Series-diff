@@ -116,8 +116,8 @@ const ControlsPanel: React.FC<ControlsPanelProps> = (props) => {
                         />
 
                         <div className="d-flex align-items-center gap-2 ms-3">
-                            <Form.Label 
-                                className="mb-0 text-nowrap" 
+                            <Form.Label
+                                className="mb-0 text-nowrap"
                                 title="Time tolerance for matching data points (in minutes). E.g., 5 = 5 minutes tolerance. Leave empty for auto."
                             >
                                 Tolerance
@@ -153,7 +153,7 @@ const ControlsPanel: React.FC<ControlsPanelProps> = (props) => {
                     </>
                 )}
             </div>
-            <div className="d-flex align-items-end gap-3">
+            <div className="d-flex align-items-center gap-3">
                 <label htmlFor="file-upload"
                     className={`custom-file-upload btn btn-primary rounded p-2 px-3 text-center ${isLoading ? "disabled" : ""}`}>
                     {isLoading ? "Loading..." : "Upload files"}
