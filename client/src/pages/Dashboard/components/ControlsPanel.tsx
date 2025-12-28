@@ -88,17 +88,17 @@ const ControlsPanel: React.FC<ControlsPanelProps> = ({
                                     onChange={handleStartChange}
                                     placeholder="Start date"
                                     minDate={defaultMinDate}
-                                    maxDate={defaultMaxDate}
-                                    openToDate={defaultMinDate}
+                                    maxDate={endDate ?? defaultMaxDate}
+                                    openToDate={startDate ?? defaultMinDate}
                                 />
                                 <components.DateTimePicker
                                     label="End time"
                                     value={endDate}
                                     onChange={handleEndChange}
                                     placeholder="End date"
-                                    minDate={defaultMinDate}
+                                    minDate={startDate ?? defaultMinDate}
                                     maxDate={defaultMaxDate}
-                                    openToDate={defaultMaxDate}
+                                    openToDate={endDate ?? defaultMaxDate}
                                 />
                             </div>
                         </div>
