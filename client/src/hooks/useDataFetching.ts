@@ -9,11 +9,11 @@ export const useDataFetching = () => {
     const [isLoading, setIsLoading] = useState(false);
     const [filenamesPerCategory, setFilenamesPerCategory] = useState<Record<string, string[]>>({});
 
-    const handleFetchData = useCallback(async (showLoadingIndicator = true) => {
+    const handleFetchData = useCallback(async (showLoadingIndicator = true, start?: string, end?: string) => {
         if (showLoadingIndicator) setIsLoading(true);
         setError(null);
         try {
-            const allSeries = await services.fetchTimeSeriesData();
+            const allSeries = await services.fetchTimeSeriesData(start, end);
             setChartData(allSeries);
 
             const names = services.extractFilenamesPerCategory(allSeries);
