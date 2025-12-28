@@ -15,7 +15,15 @@ sys.stdout.reconfigure(line_buffering=True)
 timeseries_manager = TimeSeriesManager()
 app = Flask(__name__)
 app.config["MAX_CONTENT_LENGTH"] = 16 * 1024 * 1024  # 16MB max
-CORS(app)
+CORS(
+    app,
+    resources={
+        r"/api/*": {
+            "origins": "*",
+            "methods": ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+        }
+    },
+)
 logger = app.logger
 logger.setLevel("DEBUG")
 
@@ -948,7 +956,7 @@ def add_timeseries():
                 )
                 return _create_response(
                     {
-                        f"error": "Invalid data format for time '{time}': Expected a dictionary"
+                        "error": f"Invalid data format for time '{time}': Expected a dictionary"
                     },
                     400,
                 )

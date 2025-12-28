@@ -81,7 +81,7 @@ const DataPage: React.FC = () => {
         }}>
         {/* Lewa część - lista plików */}
         <div className="col-3 px-2">
-          <div className="section-container d-flex flex-column p-3 h-100">
+          <div className="section-container d-flex flex-column h-100">
             <h3 className="mb-3">Available Files</h3>
             {uniqueFiles.length === 0 && !error ? (
               <div className="d-flex align-items-center justify-content-center flex-grow-1">
@@ -101,7 +101,7 @@ const DataPage: React.FC = () => {
 
         {/* Prawa część - DataTable */}
         <div className="col-9 px-2">
-          <div className="section-container d-flex flex-column p-3 h-100">
+          <div className="section-container d-flex flex-column h-100">
             {selectedTable ? (
               <DataTable data={selectedData} title={selectedTable} />
             ) : (

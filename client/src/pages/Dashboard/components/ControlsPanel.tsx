@@ -1,8 +1,9 @@
 import React from 'react';
 import * as components from '../../../components';
-import { Button } from 'react-bootstrap';
+import { Button, Form } from 'react-bootstrap';
 
-interface ControlsPanelProps {
+interface StandardControlsProps {
+    mode: 'standard';
     selectedCategory: string | null;
     secondaryCategory: string | null;
     filenamesPerCategory: Record<string, string[]>;
@@ -16,102 +17,143 @@ interface ControlsPanelProps {
     handleApplyMaWindow: () => void;
     syncColorsByFile: boolean;
     setSyncColorsByFile: React.Dispatch<React.SetStateAction<boolean>>;
+}
+
+interface DifferenceControlsProps {
+    mode: 'difference';
+    filenamesPerCategory: Record<string, string[]>;
+    selectedDiffCategory: string | null;
+    handleDiffCategoryChange: (event: React.ChangeEvent<HTMLSelectElement>) => void;
+    customToleranceValue: string;
+    setCustomToleranceValue: (value: string) => void;
+    handleApplyTolerance: () => void;
+    handleResetTolerance: () => void;
+    isDiffLoading: boolean;
+}
+
+interface CommonProps {
     isLoading: boolean;
     handleFileUpload: (event: React.ChangeEvent<HTMLInputElement>) => void;
     handleReset: () => void;
 }
 
-const ControlsPanel: React.FC<ControlsPanelProps> = ({
-    selectedCategory,
-    secondaryCategory,
-    filenamesPerCategory,
-    handleDropdownChange,
-    handleSecondaryDropdownChange,
-    showMovingAverage,
-    handleToggleMovingAverage,
-    isMaLoading,
-    maWindow,
-    setMaWindow,
-    handleApplyMaWindow,
-    syncColorsByFile,
-    setSyncColorsByFile,
-    isLoading,
-    handleFileUpload,
-    handleReset,
-}) => {
+type ControlsPanelProps = CommonProps & (StandardControlsProps | DifferenceControlsProps);
+
+const ControlsPanel: React.FC<ControlsPanelProps> = (props) => {
+    const { isLoading, handleFileUpload, handleReset, mode, filenamesPerCategory } = props;
+    const hasCategories = Object.keys(filenamesPerCategory).length > 0;
+
     return (
-        <div className="d-flex justify-content-between align-items-center w-100 mb-3">
-            <div className="d-flex align-items-center gap-3">
-                {Object.keys(filenamesPerCategory).length > 0 && (
+        <div className="d-flex justify-content-between align-items-end w-100 ps-1">
+            <div className="d-flex align-items-end gap-3">
+                {hasCategories && mode === 'standard' && (
                     <>
                         <components.Select
                             id="category-select"
                             label="Main Y-Axis"
-                            selected={selectedCategory || Object.keys(filenamesPerCategory)[0]}
+                            selected={(props as StandardControlsProps).selectedCategory || Object.keys(filenamesPerCategory)[0]}
                             categories={Object.keys(filenamesPerCategory)}
-                            onChange={handleDropdownChange}
-                            disabledCategory={secondaryCategory ?? undefined}
+                            onChange={(props as StandardControlsProps).handleDropdownChange}
+                            disabledCategory={(props as StandardControlsProps).secondaryCategory ?? undefined}
                         />
                         <components.Select
                             id="secondary-category-select"
                             label="Second Y-Axis"
-                            selected={secondaryCategory || ""}
+                            selected={(props as StandardControlsProps).secondaryCategory || ""}
                             categories={Object.keys(filenamesPerCategory)}
-                            onChange={handleSecondaryDropdownChange}
-                            disabledCategory={selectedCategory ?? undefined}
+                            onChange={(props as StandardControlsProps).handleSecondaryDropdownChange}
+                            disabledCategory={(props as StandardControlsProps).selectedCategory ?? undefined}
                             allowNoneOption
                         />
 
-                        <div className="d-flex align-items-center gap-2" style={{ marginLeft: '16px' }}>
-                            <div className="form-check form-switch">
-                                <input
-                                    className="form-check-input"
-                                    type="checkbox"
-                                    role="switch"
-                                    id="ma-toggle"
-                                    checked={showMovingAverage}
-                                    onChange={handleToggleMovingAverage}
-                                    disabled={isMaLoading}
-                                />
-                                <label className="form-check-label" htmlFor="ma-toggle">
-                                    {isMaLoading ? "Loading MA..." : "Show Moving Avg"}
-                                </label>
-                            </div>
-
-                            <input
-                                type="text"
-                                className="form-control"
-                                style={{ width: '80px' }}
-                                value={maWindow}
-                                onChange={(e) => setMaWindow(e.target.value)}
-                                placeholder="e.g. 1d"
-                                disabled={isMaLoading}
+                        <div className="d-flex align-items-center gap-2 ms-3">
+                            <Form.Check
+                                type="switch"
+                                id="ma-toggle"
+                                label={(props as StandardControlsProps).isMaLoading ? "Loading MA..." : "Show Moving Avg"}
+                                checked={(props as StandardControlsProps).showMovingAverage}
+                                onChange={(props as StandardControlsProps).handleToggleMovingAverage}
+                                disabled={(props as StandardControlsProps).isMaLoading}
                             />
-                            <button
-                                onClick={handleApplyMaWindow}
-                                className="btn btn-secondary btn-sm"
-                                disabled={isMaLoading || !showMovingAverage}
+                            <Form.Control
+                                type="text"
+                                style={{ width: '80px' }}
+                                size="sm"
+                                value={(props as StandardControlsProps).maWindow}
+                                onChange={(e) => (props as StandardControlsProps).setMaWindow(e.target.value)}
+                                placeholder="e.g. 1d"
+                                disabled={(props as StandardControlsProps).isMaLoading}
+                            />
+                            <Button
+                                variant="secondary"
+                                size="sm"
+                                onClick={(props as StandardControlsProps).handleApplyMaWindow}
+                                disabled={(props as StandardControlsProps).isMaLoading || !(props as StandardControlsProps).showMovingAverage}
                             >
                                 Apply
-                            </button>
+                            </Button>
                         </div>
-                        <div className="form-check form-switch" style={{ marginLeft: '16px' }}>
-                            <input
-                                className="form-check-input"
-                                type="checkbox"
-                                role="switch"
+                        <div className="d-flex align-items-center ms-3">
+                            <Form.Check
+                                type="switch"
                                 id="color-sync-toggle"
-                                checked={syncColorsByFile}
-                                onChange={() => setSyncColorsByFile(prev => !prev)}
+                                label="Sync Colors"
+                                checked={(props as StandardControlsProps).syncColorsByFile}
+                                onChange={() => (props as StandardControlsProps).setSyncColorsByFile(prev => !prev)}
                             />
-                            <label className="form-check-label" htmlFor="color-sync-toggle">
-                                Sync Colors
-                            </label>
+                        </div>
+                    </>
+                )}
+
+                {hasCategories && mode === 'difference' && (
+                    <>
+                        <components.Select
+                            id="diff-category-select-controls"
+                            label="Select Category"
+                            selected={(props as DifferenceControlsProps).selectedDiffCategory || Object.keys(filenamesPerCategory)[0]}
+                            categories={Object.keys(filenamesPerCategory)}
+                            onChange={(props as DifferenceControlsProps).handleDiffCategoryChange}
+                        />
+
+                        <div className="d-flex align-items-center gap-2 ms-3">
+                            <Form.Label 
+                                className="mb-0 text-nowrap" 
+                                title="Time tolerance for matching data points (in minutes). E.g., 5 = 5 minutes tolerance. Leave empty for auto."
+                            >
+                                Tolerance
+                            </Form.Label>
+                            <Form.Control
+                                type="number"
+                                value={(props as DifferenceControlsProps).customToleranceValue}
+                                onChange={(e) => (props as DifferenceControlsProps).setCustomToleranceValue(e.target.value)}
+                                className="w-auto"
+                                style={{ maxWidth: '80px' }}
+                                size="sm"
+                                placeholder="auto"
+                                disabled={(props as DifferenceControlsProps).isDiffLoading}
+                                title="Enter tolerance in minutes (e.g., 5 for 5 minutes)"
+                            />
+                            <Button
+                                variant="secondary"
+                                size="sm"
+                                onClick={(props as DifferenceControlsProps).handleApplyTolerance}
+                                disabled={(props as DifferenceControlsProps).isDiffLoading}
+                            >
+                                Apply
+                            </Button>
+                            <Button
+                                variant="outline-secondary"
+                                size="sm"
+                                onClick={(props as DifferenceControlsProps).handleResetTolerance}
+                                disabled={(props as DifferenceControlsProps).isDiffLoading}
+                            >
+                                Reset
+                            </Button>
                         </div>
                     </>
                 )}
             </div>
-            <div className="d-flex align-items-center gap-3">
+            <div className="d-flex align-items-end gap-3">
                 <label htmlFor="file-upload"
                     className={`custom-file-upload btn btn-primary rounded p-2 px-3 text-center ${isLoading ? "disabled" : ""}`}>
                     {isLoading ? "Loading..." : "Upload files"}

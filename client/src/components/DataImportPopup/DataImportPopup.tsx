@@ -3,7 +3,7 @@ import { Modal, Button, Form, Spinner, Alert } from 'react-bootstrap';
 import { DataTable } from '../DataTable/DataTable';
 import Papa from 'papaparse';
 
-const API_URL = process.env.REACT_APP_API_URL || '';
+const API_URL = (process.env.REACT_APP_API_URL || '').replace(/\/$/, '');
 
 interface FileConfig {
   logDateColumn: string;

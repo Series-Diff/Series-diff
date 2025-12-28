@@ -1,6 +1,6 @@
 // services/fetchAllCosineSimilarities.ts
 
-const API_URL = process.env.REACT_APP_API_URL || '';
+const API_URL = (process.env.REACT_APP_API_URL || '').replace(/\/$/, '');
 
 const getAuthHeaders = (): HeadersInit => {
   const token = localStorage.getItem('session_token');
@@ -21,7 +21,7 @@ export async function fetchCosineSimilarity(
   category: string
 ): Promise<number | null> {
   // Tworzymy adres endpointu API z parametrami
-  const url = `${API_URL}/api/timeseries/cosine_similarity?filename1=${filename1}&filename2=${filename2}&category=${category}`;
+  const url = `${API_URL}/api/timeseries/cosine_similarity?filename1=${encodeURIComponent(filename1.trim())}&filename2=${encodeURIComponent(filename2.trim())}&category=${encodeURIComponent(category.trim())}`;
   try {
     const response = await fetch(url, {
       headers: {
