@@ -8,78 +8,23 @@ import * as hooks from '../hooks';
 
 import ControlsPanel from './Dashboard/components/ControlsPanel';
 import DifferenceSelectionPanel from './Dashboard/components/DifferenceSelectionPanel';
-import {useState} from "react";
+import {useState, useRef} from "react";
 
 function DashboardPage() {
-    const {
-        chartData,
-        error,
-        setError,
-        isLoading,
-        setIsLoading,
-        filenamesPerCategory,
-        handleFetchData,
-        handleReset: baseReset
-    } = hooks.useDataFetching();
-    const {
-        showMovingAverage,
-        maWindow,
-        setMaWindow,
-        isMaLoading,
-        rollingMeanChartData,
-        handleToggleMovingAverage,
-        handleApplyMaWindow,
-        resetMovingAverage,
-    } = hooks.useMovingAverage(filenamesPerCategory, setError);
-    const {
-        selectedCategory,
-        secondaryCategory,
-        handleRangeChange,
-        syncColorsByFile,
-        setSyncColorsByFile,
-        filteredData,
-        handleDropdownChange,
-        handleSecondaryDropdownChange,
-        resetChartConfig
-    } = hooks.useChartConfiguration(filenamesPerCategory, chartData, rollingMeanChartData, showMovingAverage, maWindow);
-    const {
-        maeValues,
-        rmseValues,
-        PearsonCorrelationValues,
-        DTWValues,
-        EuclideanValues,
-        CosineSimilarityValues,
-        groupedMetrics,
-        resetMetrics
-    } = hooks.useMetricCalculations(filenamesPerCategory, selectedCategory, secondaryCategory);
-    const {
-        scatterPoints,
-        isScatterLoading,
-        isScatterOpen,
-        selectedPair,
-        handleCloseScatter,
-        handleCellClick
-    } = hooks.useScatterPlot();
-    const {
-        showTitleModal,
-        setShowTitleModal,
-        reportTitle,
-        setReportTitle,
-        isExporting,
-        handleExportClick,
-        handleExportToPDF
-    } = hooks.useExport(chartData);
-    const {
-        isPopupOpen,
-        selectedFiles,
-        handleFileUpload,
-        handlePopupComplete,
-        handlePopupClose,
-        resetFileUpload
-    } = hooks.useFileUpload(handleFetchData, setError, setIsLoading);
+    const [chartMode, setChartMode] = useState<'standard' | 'difference'>('standard');
+    const chartContainerRef = useRef<HTMLDivElement>(null);
+
+  const { chartData, error, setError, isLoading, setIsLoading, filenamesPerCategory, handleFetchData, handleReset: baseReset } = hooks.useDataFetching();
+  const { showMovingAverage, maWindow, setMaWindow, isMaLoading, rollingMeanChartData, handleToggleMovingAverage, handleApplyMaWindow, resetMovingAverage, } = hooks.useMovingAverage(filenamesPerCategory, setError);
+  const { selectedCategory, secondaryCategory, handleRangeChange, syncColorsByFile, setSyncColorsByFile, filteredData, handleDropdownChange, handleSecondaryDropdownChange, resetChartConfig } = hooks.useChartConfiguration(filenamesPerCategory, chartData, rollingMeanChartData, showMovingAverage, maWindow);
+  const { maeValues, rmseValues, PearsonCorrelationValues, DTWValues, EuclideanValues, CosineSimilarityValues, groupedMetrics, resetMetrics } = hooks.useMetricCalculations(filenamesPerCategory, selectedCategory, secondaryCategory);
+  const { scatterPoints, isScatterLoading, isScatterOpen, selectedPair, handleCloseScatter, handleCellClick } = hooks.useScatterPlot();
+  const { showTitleModal, setShowTitleModal, reportTitle, setReportTitle, isExporting, handleExportClick, handleExportToPDF } = hooks.useExport(chartData);
+  const { isPopupOpen, selectedFiles, handleFileUpload, handlePopupComplete, handlePopupClose, resetFileUpload } = hooks.useFileUpload(handleFetchData, setError, setIsLoading);
+
+  const {plugins} = hooks.useLocalPlugins();
 
 
-    const {plugins} = hooks.useLocalPlugins();
     const {
         pluginResults,
         isLoadingPlugins,
@@ -91,7 +36,7 @@ function DashboardPage() {
 
     // Dynamic height calculation for chart container
     // Recalculates when hasData or isLoading changes (to handle layout changes after data loads)
-    const chartDynamicHeight = hooks.useDynamicHeight(chartContainerRef, [hasData, isLoading]);
+  const chartDynamicHeight = hooks.useDynamicHeight(chartContainerRef, [hasData, isLoading]);
 
     // Difference chart hook
     const {
@@ -123,8 +68,8 @@ function DashboardPage() {
         resetDifferenceChart();
     };
 
-    const hasData = Object.keys(chartData).length > 0;
     const enabledPlugins = plugins.filter(p => p.enabled);
+
     const hasDifferenceData = Object.keys(differenceChartData).length > 0;
     const isInDifferenceMode = chartMode === 'difference';
 
@@ -132,37 +77,50 @@ function DashboardPage() {
     const hasEnoughFilesForDifference = Object.values(filenamesPerCategory).some(files => files.length >= 2);
     const totalFilesLoaded = Object.values(filenamesPerCategory).reduce((sum, files) => sum + files.length, 0);
 
-    const mainStyle = {
-        gap: "16px",
-        height: !hasData ? `calc(100vh - var(--nav-height) - 2 * var(--section-margin))` : undefined
-    };
+      // Determine if we need full height:
+  // - Standard mode without data: full height
+  // - Difference mode: always full height (no statistics below)
+  const needsFullHeight = isInDifferenceMode || !hasData;
 
-    const chartLayoutClass = `d-flex flex-column gap-3 w-100 ${!hasData ? 'h-100' : ''}`;
+  // Use height (not minHeight) for diff mode to prevent scroll
+  // overflow: hidden prevents scrollbar from appearing
+  const mainStyle = needsFullHeight ? {
+    gap: "16px",
+    height: `calc(100vh - var(--nav-height) - 2 * var(--section-margin))`,
+    overflow: "hidden" as const
+  } : {
+    gap: "16px",
+    minHeight: `calc(100vh - var(--nav-height) - 2 * var(--section-margin))`
+  };
 
-    const chartContainerClass = `Chart-container section-container ${!hasData ? 'h-100' : ''}`;
+  // Chart layout container: h-100 when we need full height
+  const chartLayoutClass = `d-flex flex-column gap-3 w-100 flex-grow-1${needsFullHeight ? ' h-100' : ''}`;
+
+  // Chart container: flex-grow-1 to fill available space
+  const chartContainerClass = `Chart-container section-container position-relative flex-grow-1`;
+
+  const toggleChartMode = () => {
+    setChartMode(prev => prev === 'standard' ? 'difference' : 'standard');
+  };
 
     return (
         <div className="d-flex" style={mainStyle}>
             <div className="App-main-content flex-grow-1 d-flex align-items-start w-100 rounded">
                 <div className={chartLayoutClass}>
-                    <ControlsPanel
-                        selectedCategory={selectedCategory}
-                        secondaryCategory={secondaryCategory}
-                        filenamesPerCategory={filenamesPerCategory}
-                        handleDropdownChange={handleDropdownChange}
-                        handleSecondaryDropdownChange={handleSecondaryDropdownChange}
-                        showMovingAverage={showMovingAverage}
-                        handleToggleMovingAverage={handleToggleMovingAverage}
-                        isMaLoading={isMaLoading}
-                        maWindow={maWindow}
-                        setMaWindow={setMaWindow}
-                        handleApplyMaWindow={handleApplyMaWindow}
-                        syncColorsByFile={syncColorsByFile}
-                        setSyncColorsByFile={setSyncColorsByFile}
-                        isLoading={isLoading}
-                        handleFileUpload={handleFileUpload}
-                        handleReset={handleReset}
-                    />
+                                <ControlsPanel
+              mode="difference"
+              filenamesPerCategory={filenamesPerCategory}
+              selectedDiffCategory={selectedDiffCategory}
+              handleDiffCategoryChange={handleDiffCategoryChange}
+              customToleranceValue={customToleranceValue}
+              setCustomToleranceValue={setCustomToleranceValue}
+              handleApplyTolerance={handleApplyTolerance}
+              handleResetTolerance={handleResetTolerance}
+              isDiffLoading={isDiffLoading}
+              isLoading={isLoading}
+              handleFileUpload={handleFileUpload}
+              handleReset={handleReset}
+            />
                     {error && <p className="text-danger text-center">Error: {error}</p>}
                     <div className={chartContainerClass}>
                         {isLoading && !hasData &&
