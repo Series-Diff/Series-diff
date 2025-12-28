@@ -121,6 +121,7 @@ class TimeSeriesManager:
         if isinstance(data, dict):
             session_data = self._get_session_data(token)
             session_data[time] = data
+
             for timeserie, categories in data.items():
                 if not isinstance(categories, dict):
                     raise ValueError(f"Invalid category '{timeserie}': {categories}")
@@ -129,49 +130,51 @@ class TimeSeriesManager:
                         raise ValueError(
                             f"Invalid file data for category '{category}': {files}"
                         )
+
             return True
+
         return False
 
     def get_timeseries(
-            self,
-            token: str,
-            time: str = None,
-            filename: str = None,
-            category: str = None,
-            start: str = None,
-            end: str = None,
-        ) -> dict:
-            """
-            Retrieve timeseries data.
+        self,
+        token: str,
+        time: str = None,
+        filename: str = None,
+        category: str = None,
+        start: str = None,
+        end: str = None,
+    ) -> dict:
+        """
+        Retrieve timeseries data.
 
-            Args:
-                time (str, optional): The time to filter timeseries by
-                filename (str, optional): The filename to filter timeseries by
-                category (str, optional): The category to filter timeseries by
-                start (str, optional): The start of the time interval
-                end (str, optional): The end of the time interval
-            Returns:
-                dict: Timeseries data for the specified time or all timeseries if no key is provided
-            """
-            self._validate_parameters(time, filename, category, start, end)
-            datetime_start, datetime_end = self._parse_dates(start, end)
+        Args:
+            token (str): Session identifier
+            time (str, optional): Time key to filter by
+            filename (str, optional): Filename to filter by
+            category (str, optional): Category to filter by
+            start (str, optional): Start of time interval
+            end (str, optional): End of time interval
 
-            source_data = self._get_session_data(token)
+        Returns:
+            dict: Filtered timeseries data
+        """
+        self._validate_parameters(time, filename, category, start, end)
+        datetime_start, datetime_end = self._parse_dates(start, end)
 
-            result = {}
+        source_data = self._get_session_data(token)
+        result = {}
 
-            if not source_data:
-                return result
-
-            for timeseries, categories in source_data.items():
-                if not self._matches_time_filter(
-                    timeseries, time, datetime_start, datetime_end
-                ):
-                    continue
-
-                self._add_matching_data(result, timeseries, categories, category, filename)
-
+        if not source_data:
             return result
+
+        for timeseries, categories in source_data.items():
+            if not self._matches_time_filter(
+                timeseries, time, datetime_start, datetime_end
+            ):
+                continue
+            self._add_matching_data(result, timeseries, categories, category, filename)
+
+        return result
 
     def clear_timeseries(self, token: str) -> dict:
         """
