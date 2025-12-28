@@ -133,49 +133,53 @@ class TimeSeriesManager:
         return False
 
     def get_timeseries(
-            self,
-            token: str,
-            time: str = None,
-            filename: str = None,
-            category: str = None,
-            start: str = None,
-            end: str = None,
-        ) -> dict:
-            """
-            Retrieve timeseries data.
+        self,
+        token: str,
+        time: Optional[str] = None,
+        filename: Optional[str] = None,
+        category: Optional[str] = None,
+        start: Optional[str] = None,
+        end: Optional[str] = None,
+    ) -> Dict[str, Any]:
+        """
+        Retrieve timeseries data.
 
-            Args:
-                time (str, optional): The time to filter timeseries by
-                filename (str, optional): The filename to filter timeseries by
-                category (str, optional): The category to filter timeseries by
-                start (str, optional): The start of the time interval
-                end (str, optional): The end of the time interval
-            Returns:
-                dict: Timeseries data for the specified time or all timeseries if no key is provided
-            """
-            self._validate_parameters(time, filename, category, start, end)
-            datetime_start, datetime_end = self._parse_dates(start, end)
+        Args:
+            time (str, optional): The time to filter timeseries by
+            filename (str, optional): The filename to filter timeseries by
+            category (str, optional): The category to filter timeseries by
+            start (str, optional): The start of the time interval
+            end (str, optional): The end of the time interval
 
-            source_data = self._get_session_data(token)
+        Returns:
+            dict: Timeseries data for the specified time or all timeseries if no key is provided
+        """
+        self._validate_parameters(time, filename, category, start, end)
+        datetime_start, datetime_end = self._parse_dates(start, end)
 
-            result = {}
+        source_data = self._get_session_data(token)
+        result = {}
 
-            if not source_data:
-                return result
-
-            for timeseries, categories in source_data.items():
-                if not self._matches_time_filter(
-                    timeseries, time, datetime_start, datetime_end
-                ):
-                    continue
-
-                self._add_matching_data(result, timeseries, categories, category, filename)
-
+        if not source_data:
             return result
+
+        for timeseries, categories in source_data.items():
+            if not self._matches_time_filter(
+                timeseries, time, datetime_start, datetime_end
+            ):
+                continue
+
+        if category is None and filename is None:
+            result[timeseries] = categories
+        else:
+            self._add_matching_data(result, timeseries, categories, category, filename)
+
+        return result
 
     def clear_timeseries(self, token: str) -> dict:
         """
         Clear all timeseries data.
+
         Returns:
             dict: Message indicating the result of the operation
         """
