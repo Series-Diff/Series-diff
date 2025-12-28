@@ -172,7 +172,7 @@ function DashboardPage() {
                 {!isLoading && hasData && (
                   <div className="chart-wrapper" style={{ height: chartDynamicHeight }}>
                                 <div className="position-absolute top-0 end-0 mt-2 me-3" style={{ zIndex: 10 }}>
-                                <Button variant="outline-success" size="sm" onClick={() => setShowManualModal(true)} disabled={Object.keys(chartData).length === 0}>
+                                <Button variant="outline-primary" size="sm" onClick={() => setShowManualModal(true)} disabled={Object.keys(chartData).length === 0}>
                                     + Add Manual Point
                                 </Button>
                             </div>
