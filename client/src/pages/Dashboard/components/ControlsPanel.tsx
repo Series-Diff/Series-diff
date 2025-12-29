@@ -23,6 +23,9 @@ interface StandardControlsProps {
     handleEndChange: (date: Date | null) => void;
     defaultMinDate: Date | null;
     defaultMaxDate: Date | null;
+    ignoreTimeRange: boolean;
+    setIgnoreTimeRange: (value: boolean) => void;
+
 }
 
 interface DifferenceControlsProps {
@@ -103,6 +106,8 @@ const ControlsPanel: React.FC<ControlsPanelProps> = (props) => {
                                             type="switch"
                                             id="date-filter-toggle"
                                             label={<span style={{ whiteSpace: 'nowrap' }}>Ignore time range</span>}
+                                            checked={(props as StandardControlsProps).ignoreTimeRange}
+                                            onChange={(e) => (props as StandardControlsProps).setIgnoreTimeRange(e.target.checked)}
                                         />
                                     </Form>
                                 </div>
