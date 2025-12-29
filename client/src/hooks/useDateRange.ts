@@ -3,6 +3,8 @@ import { useEffect, useState, useMemo, useRef } from "react";
 export function useDateRange(loadedData: any[] = []) {
   const [startDate, setStartDate] = useState<Date | null>(null);
   const [endDate, setEndDate] = useState<Date | null>(null);
+  const [ignoreTimeRange, setIgnoreTimeRange] = useState(false);
+
   const dataBounds = useMemo(() => {
     if (!loadedData?.length) return { min: null, max: null };
     const allDates = loadedData.flatMap(file =>
@@ -58,11 +60,14 @@ export function useDateRange(loadedData: any[] = []) {
   return {
     startDate,
     endDate,
+    ignoreTimeRange,
+    setIgnoreTimeRange,
     handleStartChange: setStartDate,
     handleEndChange: setEndDate,
     resetDates: () => {
       setStartDate(null);
       setEndDate(null);
+      setIgnoreTimeRange(false);
     },
     defaultMinDate: dataBounds.min,
     defaultMaxDate: dataBounds.max,
