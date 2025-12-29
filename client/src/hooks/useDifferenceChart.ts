@@ -80,6 +80,14 @@ export function useDifferenceChart(
             }
 
             if (filesForCategory.length < 2) {
+                const existingSelection = selectionsByCategory[category] || [];
+                const existingReversed = reversedByCategory[category] || {};
+
+                // Avoid endless updates when there is nothing to select for this category
+                if (existingSelection.length === 0 && Object.keys(existingReversed).length === 0) {
+                    return;
+                }
+
                 setSelectionsForCategory(category, []);
                 setReversedForCategory(category, {});
                 return;
