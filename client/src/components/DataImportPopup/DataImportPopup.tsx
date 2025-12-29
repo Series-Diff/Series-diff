@@ -34,7 +34,6 @@ export const DataImportPopup: React.FC<Props> = ({ show, files, onHide, onComple
   // --- STATE: Loading & Errors ---
   const [isLoadingFile, setIsLoadingFile] = useState(false);
   const [errorParsingFile, setErrorParsingFile] = useState<string | null>(null);
-  const [validationError, setValidationError] = useState<string | null>(null);
 
   // --- STATE: Grouping & Renaming ---
   const [groups, setGroups] = useState<Group[]>([]);
@@ -44,15 +43,18 @@ export const DataImportPopup: React.FC<Props> = ({ show, files, onHide, onComple
   const [renameError, setRenameError] = useState<string | null>(null);
   const [editingGroupName, setEditingGroupName] = useState<string | null>(null);
   const [tempGroupName, setTempGroupName] = useState<string>('');
-  const [groupCounter, setGroupCounter] = useState(1);
+  const [groupCounter, setGroupCounter] = useState(2);
   const [groupNameError, setGroupNameError] = useState<string | null>(null);
-
+  const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
   // --- STATE: Pivot ---
-  const [isPivotMode, setIsPivotMode] = useState(false);
+  const [isPivotMode, setIsPivotMode] = useState<Record<string, boolean>>({});
   const [pivotIndex, setPivotIndex] = useState('');   // np. log_date
   const [pivotColumn, setPivotColumn] = useState(''); // np. data_type
   const [pivotValue, setPivotValue] = useState('');   // np. value
   const [pivotError, setPivotError] = useState<string | null>(null);
+  const [originalData, setOriginalData] = useState<Record<string, any[]>>({});
+  const [pivotWarnings, setPivotWarnings] = useState<Record<string, string>>({});
+  const [pivotApplied, setPivotApplied] = useState<Record<string, boolean>>({});
 
   // --- HELPER: Flatten Object ---
   const flattenObject = (obj: any, prefix = ''): Record<string, any> => {
@@ -71,7 +73,13 @@ export const DataImportPopup: React.FC<Props> = ({ show, files, onHide, onComple
     return result;
   };
 
-  // --- HELPER: Get File Key ---
+  // --- HELPER: Get File ID (stable file identifier) ---
+  const getFileId = (file?: File) => {
+    if (!file) return '';
+    return file.name.replace(/\.(json|csv)$/i, '');
+  };
+
+  // --- HELPER: Get File Key (display name) ---
   const getFileKey = (file?: File) => {
     if (!file) return '';
     const originalKey = file.name.replace(/\.(json|csv)$/i, '');
@@ -101,30 +109,32 @@ export const DataImportPopup: React.FC<Props> = ({ show, files, onHide, onComple
     setRenamedFiles({});
     setEditingGroupName(null);
     setTempGroupName('');
-    setGroupCounter(1);
+    setGroupCounter(2);
     setGroupNameError(null);
-    setValidationError(null);
 
     // Reset pivot state
-    setIsPivotMode(false);
+    setIsPivotMode({});
     setPivotIndex('');
     setPivotColumn('');
     setPivotValue('');
     setPivotError(null);
+    setOriginalData({});
+    setPivotWarnings({});
+    setPivotApplied({});
   };
 
   // --- EFFECT: Auto-detect Pivot Columns ---
-  // Gdy załadują się kolumny (columnOptions), próbujemy zgadnąć domyślne ustawienia dla pivota
+  // When columns are loaded (columnOptions), we try to guess default pivot settings
   useEffect(() => {
     if (columnOptions.length > 0) {
-        const probableDate = columnOptions.find(c => c.toLowerCase().includes('date') || c.toLowerCase().includes('time')) || columnOptions[0];
-        const probableValue = columnOptions.find(c => c.toLowerCase().includes('value')) || columnOptions[columnOptions.length - 1];
-        const probableCategory = columnOptions.find(c => c !== probableDate && c !== probableValue) || columnOptions[1] || columnOptions[0];
+      const probableDate = columnOptions.find(c => c.toLowerCase().includes('date') || c.toLowerCase().includes('time')) || columnOptions[0];
+      const probableValue = columnOptions.find(c => c.toLowerCase().includes('value')) || columnOptions[columnOptions.length - 1];
+      const probableCategory = columnOptions.find(c => c !== probableDate && c !== probableValue) || columnOptions[1] || columnOptions[0];
 
-        // Ustawiamy tylko jeśli wartości są puste (żeby nie nadpisywać wyboru użytkownika)
-        setPivotIndex(prev => prev || probableDate || '');
-        setPivotValue(prev => prev || probableValue || '');
-        setPivotColumn(prev => prev || probableCategory || '');
+      // Set only if values are empty (to not override user selection)
+      setPivotIndex(prev => prev || probableDate || '');
+      setPivotValue(prev => prev || probableValue || '');
+      setPivotColumn(prev => prev || probableCategory || '');
     }
   }, [columnOptions]);
 
@@ -177,6 +187,54 @@ export const DataImportPopup: React.FC<Props> = ({ show, files, onHide, onComple
         const columns = Object.keys(firstEntry);
         setColumnOptions(columns);
 
+        // Store original data before any pivot (using stable file ID)
+        const fileId = getFileId(file);
+        setOriginalData(prev => ({ ...prev, [fileId]: flattenedDataArray }));
+
+        // Advanced detection if file might need pivoting (long format detection)
+        const hasDateCol = columns.some(c => c.toLowerCase().includes('date') || c.toLowerCase().includes('time'));
+        const hasNameCol = columns.some(c => c.toLowerCase().includes('name') || c.toLowerCase().includes('type') || c.toLowerCase().includes('metric') || c.toLowerCase().includes('category') || c.toLowerCase().includes('sensor'));
+        const hasValueCol = columns.some(c => c.toLowerCase().includes('value') || c.toLowerCase().includes('reading') || c.toLowerCase().includes('measure') || c.toLowerCase().includes('data') || c.toLowerCase() === 'y');
+
+        // Check if multiple rows have the same date but different metric values (strong indicator of long format)
+        let isProbablyLongFormat = false;
+        if (hasDateCol && hasNameCol && hasValueCol && flattenedDataArray.length > 2) {
+          const dateColName = columns.find(c => c.toLowerCase().includes('date') || c.toLowerCase().includes('time'));
+          const nameColName = columns.find(c => c.toLowerCase().includes('name') || c.toLowerCase().includes('type') || c.toLowerCase().includes('metric') || c.toLowerCase().includes('category') || c.toLowerCase().includes('sensor'));
+
+          if (dateColName && nameColName) {
+            // Sample a subset of rows to see if any date has multiple different metrics
+            const maxSampleSize = 100;
+            const sampleSize = Math.min(flattenedDataArray.length, maxSampleSize);
+            const dateStats: Record<string, { count: number; metrics: Set<string> }> = {};
+
+            for (let i = 0; i < sampleSize; i++) {
+              const row = flattenedDataArray[i];
+              const dateValue = String(row[dateColName]);
+              if (!dateStats[dateValue]) {
+                dateStats[dateValue] = { count: 0, metrics: new Set() };
+              }
+              dateStats[dateValue].count++;
+              dateStats[dateValue].metrics.add(String(row[nameColName]));
+            }
+
+            // If any date has multiple different metrics, it's likely long format
+            isProbablyLongFormat = Object.values(dateStats).some(
+              stat => stat.count > 1 && stat.metrics.size > 1
+            );
+          }
+        }
+
+        if (isProbablyLongFormat) {
+          setPivotWarnings(prev => ({ ...prev, [fileId]: 'This file appears to be in "long format" (multiple data types per timestamp). You may want to enable "Pivot Data" to transform it.' }));
+        } else {
+          setPivotWarnings(prev => {
+            const newWarnings = { ...prev };
+            delete newWarnings[fileId];
+            return newWarnings;
+          });
+        }
+
         const newConfig: FileConfig = {
           logDateColumn: columns.find(c => c.toLowerCase().includes('date') || c.toLowerCase().includes('time')) || columns[0] || '',
           valueColumn: columns.find(c => c.toLowerCase().includes('value') || c.toLowerCase().includes('metric')) || (columns.length > 1 ? columns[1] : columns[0]) || '',
@@ -206,64 +264,86 @@ export const DataImportPopup: React.FC<Props> = ({ show, files, onHide, onComple
     setPivotError(null);
 
     try {
-        const formData = new FormData();
-        formData.append('file', currentFile);
-        formData.append('index_col', pivotIndex);
-        formData.append('columns_col', pivotColumn);
-        formData.append('values_col', pivotValue);
+      const formData = new FormData();
+      formData.append('file', currentFile);
+      formData.append('index_col', pivotIndex);
+      formData.append('columns_col', pivotColumn);
+      formData.append('values_col', pivotValue);
 
-        const response = await fetch(`${API_URL}/api/transform/pivot`, {
-            method: 'POST',
-            body: formData
-        });
+      const response = await fetch(`${API_URL}/api/transform/pivot`, {
+        method: 'POST',
+        body: formData
+      });
 
-        if (!response.ok) {
-            const err = await response.json();
-            throw new Error(err.error || 'Pivot failed');
+      if (!response.ok) {
+        let errorMessage = `Server error: ${response.status} ${response.statusText}`;
+        try {
+          const err = await response.json();
+          errorMessage = err.error || errorMessage;
+        } catch {
+          // If JSON parsing fails, try getting text
+          const errText = await response.text();
+          if (errText) errorMessage = errText;
         }
+        throw new Error(errorMessage);
+      }
 
-        const responseText = await response.text();
-        const sanitizedText = responseText.replace(/:\s*NaN\b/g, ':null');
-        const transformedData = JSON.parse(sanitizedText);
+      const responseText = await response.text();
+
+      if (!responseText || responseText.trim() === '') {
+        throw new Error('Backend returned empty response. Check if server is running and columns are correct.');
+      }
+
+      const sanitizedText = responseText.replace(/:\s*NaN\b/g, ':null');
+      const transformedData = JSON.parse(sanitizedText);
 
 
-        // Aktualizujemy konfigurację pliku nowymi danymi
-        const fileKey = getFileKey(currentFile);
+      // Update file configuration with new data
+      const fileKey = getFileKey(currentFile);
+      const fileId = getFileId(currentFile);
 
-        // Spłaszczamy otrzymany JSON (na wszelki wypadek)
-        const flattenedData = transformedData.map((entry: any) => flattenObject(entry));
+      // Flatten the received JSON (just in case)
+      const flattenedData = transformedData.map((entry: any) => flattenObject(entry));
 
-        if (flattenedData.length > 0) {
-            const newColumns = Object.keys(flattenedData[0]);
+      if (flattenedData.length > 0) {
+        const newColumns = Object.keys(flattenedData[0]);
 
-            setFileConfigs(prev => ({
-                ...prev,
-                [fileKey]: {
-                    ...prev[fileKey],
-                    rawData: flattenedData,
-                    // Aktualizujemy domyślne kolumny, bo stare mogły zniknąć
-                    logDateColumn: pivotIndex,
-                    valueColumn: newColumns.find(c => c !== pivotIndex) || ''
-                }
-            }));
+        setFileConfigs(prev => ({
+          ...prev,
+          [fileKey]: {
+            ...prev[fileKey],
+            rawData: flattenedData,
+            // Update default columns as old ones may have been removed
+            logDateColumn: pivotIndex,
+            valueColumn: newColumns.find(c => c !== pivotIndex) || ''
+          }
+        }));
 
-            // Ważne: zaktualizuj opcje kolumn, by odzwierciedlały nowy stan (np. data_type_30, data_type_31)
-            setColumnOptions(newColumns);
-        } else {
-             throw new Error("Pivot resulted in empty data.");
-        }
+        // Important: update column options to reflect the new state (e.g., data_type_30, data_type_31)
+        setColumnOptions(newColumns);
+
+        // Reset pivot dropdown selections since old columns no longer exist
+        setPivotIndex('');
+        setPivotColumn('');
+        setPivotValue('');
+
+        // Mark pivot as applied for this file (using stable file ID)
+        setPivotApplied(prev => ({ ...prev, [fileId]: true }));
+      } else {
+        throw new Error("Pivot resulted in empty data.");
+      }
 
     } catch (e: any) {
-        setPivotError(e.message);
+      const errorMsg = e instanceof Error ? e.message : String(e);
+      setPivotError(errorMsg);
     } finally {
-        setIsLoadingFile(false);
+      setIsLoadingFile(false);
     }
   };
 
   // --- NAVIGATION: Next / Back ---
   const handleNextFilePreview = () => {
-    // Reset pivot state for next file
-    setIsPivotMode(false);
+    // Reset pivot error but keep warning per file, and keep pivot mode and applied state per file
     setPivotError(null);
     setPivotIndex('');
     setPivotColumn('');
@@ -298,7 +378,7 @@ export const DataImportPopup: React.FC<Props> = ({ show, files, onHide, onComple
         },
         {
           id: 'value',
-          name: 'Value',
+          name: 'Value Group 1',
           fileMappings: Object.fromEntries(fileKeys.map(key => [key, fileConfigs[key].valueColumn]))
         }
       ]);
@@ -307,7 +387,7 @@ export const DataImportPopup: React.FC<Props> = ({ show, files, onHide, onComple
 
   // --- LOGIC: Group Management ---
   const addNewGroup = () => {
-    const newGroupName = `Group${groupCounter}`;
+    const newGroupName = `Value Group ${groupCounter}`;
     setGroupCounter(prev => prev + 1);
     setGroups(prev => [
       ...prev,
@@ -324,7 +404,13 @@ export const DataImportPopup: React.FC<Props> = ({ show, files, onHide, onComple
   };
 
   const updateGroupMapping = (groupId: string, fileKey: string, column: string) => {
-    setValidationError(null);
+    // Clear error for this specific field
+    const errorKey = `${groupId}-${fileKey}`;
+    setFieldErrors(prev => {
+      const newErrors = { ...prev };
+      delete newErrors[errorKey];
+      return newErrors;
+    });
     setGroups(groups.map(group =>
       group.id === groupId
         ? { ...group, fileMappings: { ...group.fileMappings, [fileKey]: column } }
@@ -354,11 +440,17 @@ export const DataImportPopup: React.FC<Props> = ({ show, files, onHide, onComple
     });
 
     setRenamedFiles(prev => ({
-        ...prev,
-        [originalKey]: newKey
+      ...prev,
+      [originalKey]: newKey
     }));
 
     setEditingFileName(false);
+  };
+
+  const startEditingFileName = (currentName: string) => {
+    setTempFileName(currentName);
+    setEditingFileName(true);
+    setRenameError(null);
   };
 
   const cancelEditingFileName = () => {
@@ -390,7 +482,9 @@ export const DataImportPopup: React.FC<Props> = ({ show, files, onHide, onComple
   };
 
   // --- LOGIC: Validation & Finish ---
-  const validateDataMappings = (): string | null => {
+  const validateDataMappings = (): boolean => {
+    const errors: Record<string, string> = {};
+
     for (const group of groups) {
       for (const fileKey in group.fileMappings) {
         const columnName = group.fileMappings[fileKey];
@@ -403,19 +497,23 @@ export const DataImportPopup: React.FC<Props> = ({ show, files, onHide, onComple
         if (!sampleRow) continue;
         const value = sampleRow[columnName];
 
+        const errorKey = `${group.id}-${fileKey}`;
         if (group.id === 'date') {
-            const dateObj = new Date(value);
-            if (isNaN(dateObj.getTime())) {
-                return `Column '${columnName}' in file '${fileKey}' appears to contain an invalid date format.`;
-            }
+          const dateObj = new Date(value);
+          if (isNaN(dateObj.getTime())) {
+            errors[errorKey] = `Column '${columnName}' appears to contain an invalid date format.`;
+          }
         } else {
-            if (isNaN(parseFloat(value as any)) || !isFinite(value as any)) {
-                return `Column '${columnName}' in file '${fileKey}' for group '${group.name}' appears to contain a non-numeric value.`;
-            }
+          const numValue = parseFloat(value as any);
+          if (isNaN(numValue)) {
+            errors[errorKey] = `Column '${columnName}' appears to contain a non-numeric value.`;
+          }
         }
       }
     }
-    return null;
+
+    setFieldErrors(errors);
+    return Object.keys(errors).length === 0;
   };
 
   const groupAndTransformData = () => {
@@ -448,7 +546,7 @@ export const DataImportPopup: React.FC<Props> = ({ show, files, onHide, onComple
             result[isoDateString][group.name] = {};
           }
           const value = row[column];
-          if(!isNaN(parseFloat(value))){
+          if (!isNaN(parseFloat(value))) {
             result[isoDateString][group.name][fileKey] = parseFloat(row[column]);
           }
         });
@@ -458,21 +556,18 @@ export const DataImportPopup: React.FC<Props> = ({ show, files, onHide, onComple
   };
 
   const handleFinish = () => {
-    setValidationError(null);
+    setFieldErrors({});
     const unnamedGroups = groups.filter(group => !group.name.trim());
     if (unnamedGroups.length > 0) {
-      alert('Please provide names for all groups.');
       return;
     }
     const groupNames = groups.map(group => group.name.toLowerCase());
     if (groupNames.length !== new Set(groupNames).size) {
-      alert('Group names must be unique.');
       return;
     }
 
-    const mappingError = validateDataMappings();
-    if (mappingError) {
-      setValidationError(mappingError);
+    const isValid = validateDataMappings();
+    if (!isValid) {
       return;
     }
     const groupedData = groupAndTransformData();
@@ -480,9 +575,8 @@ export const DataImportPopup: React.FC<Props> = ({ show, files, onHide, onComple
     onHide();
   };
 
-    useEffect(() => {
+  useEffect(() => {
     if (show && files.length > 0 && currentStep === 'file-preview') {
-      setValidationError(null);
       setRenameError(null);
       setEditingFileName(false);
       loadFileForConfiguration(currentFileIndex);
@@ -506,7 +600,7 @@ export const DataImportPopup: React.FC<Props> = ({ show, files, onHide, onComple
         <Modal.Title className="ms-2 d-flex align-items-center">
           {currentStep === 'file-preview'
             ? `File Preview (${currentFileIndex + 1}/${files.length})`
-            : 'Configure Columns'}
+            : 'Map Files to Data Groups'}
         </Modal.Title>
       </Modal.Header>
 
@@ -533,11 +627,7 @@ export const DataImportPopup: React.FC<Props> = ({ show, files, onHide, onComple
                   ) : (
                     <>
                       <span className="fw-normal">{getFileKey(currentFile)}</span>
-                      <Button size="sm" variant="outline-primary" onClick={() => {
-                        setTempFileName(getFileKey(currentFile));
-                        setEditingFileName(true);
-                        setRenameError(null);
-                      }}>
+                      <Button size="sm" variant="outline-primary" onClick={() => startEditingFileName(getFileKey(currentFile))}>
                         Rename
                       </Button>
                     </>
@@ -549,161 +639,208 @@ export const DataImportPopup: React.FC<Props> = ({ show, files, onHide, onComple
             </Form.Group>
 
             {/* --- SEKCJA PIVOT START --- */}
+            {currentFile && pivotWarnings[getFileId(currentFile)] && !isPivotMode[getFileId(currentFile)] && (
+              <Alert variant="info" className="mb-3 py-2">
+                <small>{pivotWarnings[getFileId(currentFile)]}</small>
+              </Alert>
+            )}
+            {isPivotMode[getFileId(currentFile)] && pivotApplied[getFileId(currentFile)] && (
+              <Alert variant="success" className="mb-3 py-2">
+                <small>Pivot applied. To revert to original data, toggle off "Pivot Data" switch below.</small>
+              </Alert>
+            )}
             <div className="p-3 mb-3 border rounded bg-light">
-                <Form.Check
-                    type="switch"
-                    id="pivot-switch"
-                    label="Pivot Data"
-                    checked={isPivotMode}
-                    onChange={(e) => {
-                        setIsPivotMode(e.target.checked);
-                        // Jeśli odznaczamy, resetujemy do oryginalnego pliku
-                        if (!e.target.checked) {
-                             loadFileForConfiguration(currentFileIndex);
-                             setPivotError(null);
+              <Form.Check
+                type="switch"
+                id="pivot-switch"
+                label="Pivot Data"
+                checked={isPivotMode[getFileId(currentFile)] || false}
+                onChange={(e) => {
+                  const fileKey = getFileKey(currentFile);
+                  const fileId = getFileId(currentFile);
+                  setIsPivotMode(prev => ({ ...prev, [fileId]: e.target.checked }));
+                  // If we uncheck, restore the original data
+                  if (!e.target.checked) {
+                    if (originalData[fileId] && originalData[fileId].length > 0) {
+                      const originalColumns = Object.keys(originalData[fileId][0]);
+                      setColumnOptions(originalColumns);
+                      setFileConfigs(prev => ({
+                        ...prev,
+                        [fileKey]: {
+                          ...prev[fileKey],
+                          rawData: originalData[fileId],
+                          logDateColumn: originalColumns.find(c => c.toLowerCase().includes('date') || c.toLowerCase().includes('time')) || originalColumns[0] || '',
+                          valueColumn: originalColumns.find(c => c.toLowerCase().includes('value') || c.toLowerCase().includes('metric')) || (originalColumns.length > 1 ? originalColumns[1] : originalColumns[0]) || '',
                         }
-                    }}
-                    className="mb-2 fw-bold"
-                />
+                      }));
+                      setPivotApplied(prev => ({ ...prev, [fileId]: false }));
+                    }
+                    setPivotError(null);
+                  }
+                }}
+                className="mb-0 fw-bold"
+              />
 
-                {isPivotMode && (
-                    <div className="d-flex gap-3 align-items-end flex-wrap">
-                        <Form.Group style={{minWidth: '150px'}}>
-                            <Form.Label className="small text-muted mb-1">Index (Date/Time)</Form.Label>
-                            <Form.Select
-                                size="sm"
-                                value={pivotIndex}
-                                onChange={(e) => setPivotIndex(e.target.value)}
-                            >
-                                {columnOptions.map(col => <option key={col} value={col}>{col}</option>)}
-                            </Form.Select>
-                        </Form.Group>
+              {isPivotMode[getFileId(currentFile)] && !pivotApplied[getFileId(currentFile)] && (
+                <div className="d-flex gap-3 align-items-end flex-wrap">
+                  <Form.Group style={{ minWidth: '150px' }}>
+                    <Form.Label className="small text-muted mb-1">Index (Date/Time)</Form.Label>
+                    <Form.Select
+                      size="sm"
+                      value={pivotIndex}
+                      onChange={(e) => setPivotIndex(e.target.value)}
+                    >
+                      {columnOptions.map(col => <option key={col} value={col}>{col}</option>)}
+                    </Form.Select>
+                  </Form.Group>
 
-                        <Form.Group style={{minWidth: '150px'}}>
-                            <Form.Label className="small text-muted mb-1">Pivot Column (Category)</Form.Label>
-                            <Form.Select
-                                size="sm"
-                                value={pivotColumn}
-                                onChange={(e) => setPivotColumn(e.target.value)}
-                            >
-                                {columnOptions.map(col => <option key={col} value={col}>{col}</option>)}
-                            </Form.Select>
-                        </Form.Group>
+                  <Form.Group style={{ minWidth: '150px' }}>
+                    <Form.Label className="small text-muted mb-1">Pivot Column (Category)</Form.Label>
+                    <Form.Select
+                      size="sm"
+                      value={pivotColumn}
+                      onChange={(e) => setPivotColumn(e.target.value)}
+                    >
+                      {columnOptions.map(col => <option key={col} value={col}>{col}</option>)}
+                    </Form.Select>
+                  </Form.Group>
 
-                        <Form.Group style={{minWidth: '150px'}}>
-                            <Form.Label className="small text-muted mb-1">Value to Aggregate</Form.Label>
-                            <Form.Select
-                                size="sm"
-                                value={pivotValue}
-                                onChange={(e) => setPivotValue(e.target.value)}
-                            >
-                                {columnOptions.map(col => <option key={col} value={col}>{col}</option>)}
-                            </Form.Select>
-                        </Form.Group>
+                  <Form.Group style={{ minWidth: '150px' }}>
+                    <Form.Label className="small text-muted mb-1">Value to Aggregate</Form.Label>
+                    <Form.Select
+                      size="sm"
+                      value={pivotValue}
+                      onChange={(e) => setPivotValue(e.target.value)}
+                    >
+                      {columnOptions.map(col => <option key={col} value={col}>{col}</option>)}
+                    </Form.Select>
+                  </Form.Group>
 
-                        <Button
-                            variant="primary"
-                            size="sm"
-                            onClick={handleApplyPivot}
-                            disabled={isLoadingFile || !pivotIndex || !pivotColumn || !pivotValue}
-                        >
-                            {isLoadingFile ? <Spinner size="sm" animation="border"/> : 'Apply Pivot'}
-                        </Button>
-                    </div>
-                )}
-                {pivotError && <Alert variant="danger" className="mt-2 py-1 small">{pivotError}</Alert>}
+                  <Button
+                    variant="primary"
+                    size="sm"
+                    onClick={handleApplyPivot}
+                    disabled={isLoadingFile || !pivotIndex || !pivotColumn || !pivotValue}
+                  >
+                    {isLoadingFile ? <Spinner size="sm" animation="border" /> : 'Apply Pivot'}
+                  </Button>
+                </div>
+              )}
+              {pivotError && <Alert variant="danger" className="mt-2 py-1 small">{pivotError}</Alert>}
             </div>
             {/* --- SEKCJA PIVOT END --- */}
 
             {isLoadingFile && <p>Loading data...</p>}
-            {errorParsingFile && !isPivotMode && <p style={{ color: 'red' }}>Error: {errorParsingFile}</p>}
+            {errorParsingFile && !isPivotMode[getFileId(currentFile)] && <p style={{ color: 'red' }}>Error: {errorParsingFile}</p>}
 
             {!isLoadingFile && currentConfig?.rawData && (
               <div className="mt-4">
                 <DataTable
-                    data={currentConfig.rawData.slice(0, 5)}
-                    title={isPivotMode ? "Preview (Transformed)" : "File Preview (Raw)"}
+                  data={currentConfig.rawData}
+                  title={pivotApplied[getFileId(currentFile)] ? "Preview (Transformed)" : "File Preview (Raw)"}
+                  showPagination={false}
                 />
-                 {isPivotMode && currentConfig.rawData.length > 0 && (
-                    <p className="text-muted small mt-1">
-                        * New columns generated from <strong>{pivotColumn}</strong>.
-                    </p>
+                {isPivotMode[getFileId(currentFile)] && currentConfig.rawData.length > 0 && (
+                  <p className="text-muted small mt-1">
+                    {pivotColumn
+                      ? <>* New columns generated from <strong>{pivotColumn}</strong>.</>
+                      : <>* New columns were generated by the pivot operation.</>
+                    }
+                  </p>
                 )}
               </div>
             )}
           </>
         ) : (
           <>
-            <h5>Data Groups</h5>
-            {groups.map((group) => (
-              <div key={group.id} className="mb-4 p-3 border rounded">
-                <Form.Group className="mb-3">
-                  <Form.Label>Group Name</Form.Label>
-                  <div className="d-flex align-items-center gap-2">
-                    {editingGroupName === group.id ? (
-                      <>
+            {groups.map((group) => {
+              const isEditing = editingGroupName === group.id;
+              return (
+                <div
+                  key={group.id}
+                  className={`mb-4 p-3 border rounded ${group.id === 'date' ? 'bg-info bg-opacity-10 border-info border-opacity-50' : ''}`}
+                >
+                  <div className="mb-3 d-flex align-items-center justify-content-start gap-3 flex-wrap">
+                    {isEditing && group.id !== 'date' ? (
+                      <div className="d-flex align-items-center gap-2">
                         <Form.Control
                           type="text"
+                          size="sm"
                           value={tempGroupName}
                           onChange={(e) => setTempGroupName(e.target.value)}
                           autoFocus
                           isInvalid={!!groupNameError}
+                          style={{ maxWidth: '200px' }}
                         />
                         <Button size="sm" variant="success" onClick={() => saveGroupName(group.id)}>✓</Button>
                         <Button size="sm" variant="outline-secondary" onClick={() => { setEditingGroupName(null); setGroupNameError(null); }}>✕</Button>
-                        {groupNameError && <Form.Control.Feedback type="invalid" style={{display:'block'}}>{groupNameError}</Form.Control.Feedback>}
-                      </>
+                        {groupNameError && <Form.Control.Feedback type="invalid" style={{ display: 'block' }}>{groupNameError}</Form.Control.Feedback>}
+                      </div>
                     ) : (
                       <>
-                        <span>{group.name}</span>
+                        <div className="d-flex align-items-center gap-2">
+                          <h5 className="mb-0 fw-bold">{group.id === 'date' ? 'Date Group' : group.name}</h5>
+                          {group.id === 'date' && (
+                            <span className="badge bg-info text-dark">Auto-configured</span>
+                          )}
+                        </div>
                         {group.id !== 'date' && (
-                          <>
+                          <div className="d-flex align-items-center gap-2">
                             <Button size="sm" variant="outline-primary" onClick={() => startEditingGroupName(group.id, group.name)}>Rename</Button>
                             {group.id !== 'value' && (
-                              <Button size="sm" variant="outline-danger" onClick={() => removeGroup(group.id)} className="ms-2">Remove</Button>
+                              <Button size="sm" variant="outline-danger" onClick={() => removeGroup(group.id)}>Remove</Button>
                             )}
-                          </>
+                          </div>
                         )}
                       </>
                     )}
                   </div>
-                </Form.Group>
 
-                <h6>File Mappings</h6>
-                {Object.keys(fileConfigs).map((fileKey) => {
-                  const fileColumns = fileConfigs[fileKey].rawData.length > 0 ? Object.keys(fileConfigs[fileKey].rawData[0]) : [];
-                  const usedColumns = getUsedColumnsForFile(fileKey);
-                  const currentSelection = group.fileMappings[fileKey] || 'none';
-                  const availableColumns = fileColumns.filter(col => col === currentSelection || !usedColumns.includes(col));
+                  {Object.keys(fileConfigs).map((fileKey) => {
+                    const fileColumns = fileConfigs[fileKey].rawData.length > 0 ? Object.keys(fileConfigs[fileKey].rawData[0]) : [];
+                    const usedColumns = getUsedColumnsForFile(fileKey);
+                    const currentSelection = group.fileMappings[fileKey] || 'none';
+                    const availableColumns = fileColumns.filter(col => col === currentSelection || !usedColumns.includes(col));
+                    const errorKey = `${group.id}-${fileKey}`;
+                    const hasError = !!fieldErrors[errorKey];
 
-                  return (
-                    <Form.Group key={`${group.id}-${fileKey}`} className="mb-2">
-                      <Form.Label>{fileKey}</Form.Label>
-                      <Form.Select
-                        value={currentSelection}
-                        onChange={(e) => updateGroupMapping(group.id, fileKey, e.target.value)}
-                      >
-                        <option value="none">None</option>
-                        {availableColumns.map((col) => (
-                          <option key={`${group.id}-${fileKey}-${col}`} value={col}>{col}</option>
-                        ))}
-                      </Form.Select>
-                    </Form.Group>
-                  );
-                })}
-              </div>
-            ))}
+                    return (
+                      <Form.Group key={`${group.id}-${fileKey}`} className="mb-3">
+                        <div className="d-flex align-items-center gap-3">
+                          <div style={{ minWidth: '150px', fontWeight: '500' }}>
+                            {fileKey}
+                          </div>
+                          <div className="flex-grow-1">
+                            <Form.Select
+                              value={currentSelection}
+                              onChange={(e) => updateGroupMapping(group.id, fileKey, e.target.value)}
+                              isInvalid={hasError}
+                              size="sm"
+                            >
+                              <option value="none">None</option>
+                              {availableColumns.map((col) => (
+                                <option key={`${group.id}-${fileKey}-${col}`} value={col}>{col}</option>
+                              ))}
+                            </Form.Select>
+                            {hasError && (
+                              <Form.Control.Feedback type="invalid" style={{ display: 'block' }}>
+                                {fieldErrors[errorKey]}
+                              </Form.Control.Feedback>
+                            )}
+                          </div>
+                        </div>
+                      </Form.Group>
+                    );
+                  })}
+                </div>
+              );
+            })}
             <Button variant="outline-primary" onClick={addNewGroup}>+ Add New Group</Button>
           </>
         )}
       </Modal.Body>
 
       <Modal.Footer>
-        {validationError && (
-          <div className="alert alert-danger w-100 text-center p-2" role="alert">
-            {validationError}
-          </div>
-        )}
         {!(currentStep === 'file-preview' && currentFileIndex === 0) && (
           <Button variant="secondary" onClick={handleBack}>Back</Button>
         )}
@@ -712,8 +849,8 @@ export const DataImportPopup: React.FC<Props> = ({ show, files, onHide, onComple
           onClick={currentStep === 'file-preview' ? handleNextFilePreview : handleFinish}
           disabled={
             currentStep === 'file-preview'
-              ? isLoadingFile || !!errorParsingFile || !!renameError || (isPivotMode && !!pivotError)
-              : !!validationError
+              ? isLoadingFile || !!errorParsingFile || !!renameError || (isPivotMode[getFileId(currentFile)] && !!pivotError)
+              : Object.keys(fieldErrors).length > 0
           }
         >
           {currentStep === 'file-preview'
