@@ -943,7 +943,7 @@ def add_timeseries():
             return (
                 jsonify(
                     {
-                        "error": "Invalid data format for time '{time}': Expected a dictionary"
+                        "error": f"Invalid data format for time '{time}': Expected a dictionary"
                     }
                 ),
                 400,
