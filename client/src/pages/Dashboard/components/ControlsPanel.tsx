@@ -77,7 +77,7 @@ const ControlsPanel: React.FC<ControlsPanelProps> = (props) => {
                             </div>
 
 
-                            <div className="d-flex gap-3">
+                            <div className="d-flex gap-3 align-items-center">
                                 <components.DateTimePicker
                                     label="Start time"
                                     value={(props as StandardControlsProps).startDate}
@@ -96,6 +96,15 @@ const ControlsPanel: React.FC<ControlsPanelProps> = (props) => {
                                     maxDate={(props as StandardControlsProps).defaultMaxDate}
                                     openToDate={(props as StandardControlsProps).endDate ?? (props as StandardControlsProps).defaultMaxDate}
                                 />
+                                    <div className="text-nowrap" style={{ marginLeft: '8px' }}>
+                                    <Form>
+                                        <Form.Check
+                                            type="switch"
+                                            id="date-filter-toggle"
+                                            label={<span style={{ whiteSpace: 'nowrap' }}>Ignore time range</span>}
+                                        />
+                                    </Form>
+                                </div>
                             </div>
                         </div>
                         <div className="d-flex align-items-center gap-2, ms-3">
