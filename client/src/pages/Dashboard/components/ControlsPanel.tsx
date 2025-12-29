@@ -27,6 +27,9 @@ interface ControlsPanelProps {
     handleEndChange: (date: Date | null) => void;
     defaultMinDate: Date | null;
     defaultMaxDate: Date | null;
+    ignoreTimeRange: boolean;
+    setIgnoreTimeRange: (value: boolean) => void;
+
 }
 
 const ControlsPanel: React.FC<ControlsPanelProps> = ({
@@ -51,7 +54,9 @@ const ControlsPanel: React.FC<ControlsPanelProps> = ({
     handleStartChange,
     handleEndChange,
     defaultMinDate,
-    defaultMaxDate
+    defaultMaxDate,
+    ignoreTimeRange,
+    setIgnoreTimeRange,
 }) => {
     return (
         <div className="d-flex justify-content-between align-items-center w-100 mb-3">
@@ -106,6 +111,8 @@ const ControlsPanel: React.FC<ControlsPanelProps> = ({
                                             type="switch"
                                             id="date-filter-toggle"
                                             label={<span style={{ whiteSpace: 'nowrap' }}>Ignore time range</span>}
+                                            checked={ignoreTimeRange}
+                                            onChange={(e) => setIgnoreTimeRange(e.target.checked)}
                                         />
                                     </Form>
                                 </div>
