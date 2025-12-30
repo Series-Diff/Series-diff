@@ -72,17 +72,14 @@ export const useChartConfiguration = (
             let result: Record<string, services.TimeSeriesEntry[]> = {};
 
             for (const [key, series] of Object.entries(chartData)) {
-                for (const [key, series] of Object.entries(chartData)) {
-                    if (key.startsWith(`${category}.`)) {
-                        result[key] = series.filter(item => {
-                            const time = new Date(item.x).getTime();
-                            const afterStart = !startDate || time >= startDate.getTime();
-                            const beforeEnd = !endDate || time <= endDate.getTime();
-                            return afterStart && beforeEnd;
-                        });
-                    }
+                if (key.startsWith(`${category}.`)) {
+                    result[key] = series.filter(item => {
+                        const time = new Date(item.x).getTime();
+                        const afterStart = !startDate || time >= startDate.getTime();
+                        const beforeEnd = !endDate || time <= endDate.getTime();
+                        return afterStart && beforeEnd;
+                    });
                 }
-
             }
 
             const fileIds = Array.from(new Set(Object.keys(result).map(k => k.split(".")[1])));
@@ -129,7 +126,13 @@ export const useChartConfiguration = (
                         const parts = key.split(".");
                         const baseKey = parts.slice(0, -1).join(".");
                         const legendKey = `${baseKey} (MA ${maWindow})`;
-                        result[legendKey] = series;
+                        
+                        result[legendKey] = series.filter(item => {
+                            const time = new Date(item.x).getTime();
+                            const afterStart = !startDate || time >= startDate.getTime();
+                            const beforeEnd = !endDate || time <= endDate.getTime();
+                            return afterStart && beforeEnd;
+                        });
                     }
                 }
             }
@@ -144,7 +147,7 @@ export const useChartConfiguration = (
             primary,
             secondary: Object.keys(secondary).length > 0 ? secondary : null
         });
-    }, [chartData, selectedCategory, secondaryCategory, rangePerCategory, showMovingAverage, rollingMeanChartData, maWindow,startDate, endDate]);
+    }, [chartData, selectedCategory, secondaryCategory, rangePerCategory, showMovingAverage, rollingMeanChartData, maWindow, startDate, endDate]);
 
     const resetChartConfig = () => {
         setSelectedCategory(null);
