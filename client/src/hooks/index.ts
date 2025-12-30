@@ -10,3 +10,4 @@ export * from './useDynamicHeight';
 export * from './useLocalPlugins';
 export * from './usePluginResults';
 export * from './useDataImportPopup';
+export * from './useMetricsSelection';

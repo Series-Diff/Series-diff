@@ -22,6 +22,7 @@ function DashboardPage() {
   const { showTitleModal, setShowTitleModal, reportTitle, setReportTitle, isExporting, handleExportClick, handleExportToPDF } = hooks.useExport(chartData);
   const { isPopupOpen, selectedFiles, handleFileUpload, handlePopupComplete, handlePopupClose, resetFileUpload } = hooks.useFileUpload(handleFetchData, setError, setIsLoading);
   const { dataImportPopupRef, resetAllData } = hooks.useDataImportPopup();
+  const { userMetrics, selectedMetricsForDisplay, setSelectedMetricsForDisplay, showMetricsModal, setShowMetricsModal, filteredGroupedMetrics, shouldShowMetric } = hooks.useMetricsSelection(groupedMetrics);
 
   const { plugins } = hooks.useLocalPlugins();
 
@@ -237,10 +238,16 @@ function DashboardPage() {
           {/* Standard mode specific sections */}
           {!isInDifferenceMode && (
             <>
-              {Object.keys(groupedMetrics).length > 0 && (
+              {hasData && (
                 <div className="section-container p-3">
-                  <div className="d-flex justify-content-end align-items-center">
-                    {isExporting && <Spinner animation="border" size="sm" className="me-2" />}
+                  <div className="d-flex justify-content-end align-items-center gap-2 mb-3">
+                    <Button
+                  variant="outline-secondary"
+                  onClick={() => setShowMetricsModal(true)}
+                >
+                  Select Metrics
+                </Button>
+                {isExporting && <Spinner animation="border" size="sm" className="me-2" />}
                     <Button
                       variant="secondary"
                       onClick={handleExportClick}
@@ -249,11 +256,13 @@ function DashboardPage() {
                       {isExporting ? 'Exporting...' : 'Export to PDF'}
                     </Button>
                   </div>
-                  <components.Metrics groupedMetrics={groupedMetrics} />
-                </div>
+                  {Object.keys(filteredGroupedMetrics).length > 0 && (
+                <components.Metrics groupedMetrics={filteredGroupedMetrics} />
+                  )}
+            </div>
               )}
 
-              {selectedCategory && PearsonCorrelationValues[selectedCategory] && (
+              {shouldShowMetric('pearson_correlation') && selectedCategory && PearsonCorrelationValues[selectedCategory] && (
                 <div className="section-container p-3">
                   <components.CorrelationTable
                     data={PearsonCorrelationValues[selectedCategory]}
@@ -279,7 +288,7 @@ function DashboardPage() {
                 </div>
               )}
 
-              {selectedCategory && CosineSimilarityValues[selectedCategory] && (
+              {shouldShowMetric('cosine_similarity') && selectedCategory && CosineSimilarityValues[selectedCategory] && (
                 <div className="section-container p-3">
                   <components.CorrelationTable
                     data={CosineSimilarityValues[selectedCategory]}
@@ -301,7 +310,7 @@ function DashboardPage() {
                 </div>
               )}
 
-              {selectedCategory && maeValues[selectedCategory] && (
+              {shouldShowMetric('mae') && selectedCategory && maeValues[selectedCategory] && (
                 <div className="section-container p-3">
                   <components.StandardTable
                     data={maeValues[selectedCategory]}
@@ -321,7 +330,7 @@ function DashboardPage() {
                 </div>
               )}
 
-              {selectedCategory && rmseValues[selectedCategory] && (
+              {shouldShowMetric('rmse') && selectedCategory && rmseValues[selectedCategory] && (
                 <div className="section-container p-3">
                   <components.StandardTable
                     data={rmseValues[selectedCategory]}
@@ -341,7 +350,7 @@ function DashboardPage() {
                 </div>
               )}
 
-              {selectedCategory && DTWValues[selectedCategory] && (
+              {shouldShowMetric('dtw') && selectedCategory && DTWValues[selectedCategory] && (
                 <div className="section-container p-3">
                   <components.StandardTable
                     data={DTWValues[selectedCategory]}
@@ -361,7 +370,7 @@ function DashboardPage() {
                 </div>
               )}
 
-              {selectedCategory && EuclideanValues[selectedCategory] && (
+              {shouldShowMetric('euclidean') && selectedCategory && EuclideanValues[selectedCategory] && (
                 <div className="section-container p-3">
                   <components.StandardTable
                     data={EuclideanValues[selectedCategory]}
@@ -523,6 +532,14 @@ function DashboardPage() {
           </Button>
         </Modal.Footer>
       </Modal>
+
+      <components.MetricsSelectionModal
+        show={showMetricsModal}
+        onHide={() => setShowMetricsModal(false)}
+        userMetrics={userMetrics}
+        selectedMetrics={selectedMetricsForDisplay}
+        onApply={setSelectedMetricsForDisplay}
+      />
     </div>
   );
 }
