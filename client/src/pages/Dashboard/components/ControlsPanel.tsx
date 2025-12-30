@@ -44,6 +44,7 @@ interface CommonProps {
     isLoading: boolean;
     handleFileUpload: (event: React.ChangeEvent<HTMLInputElement>) => void;
     handleReset: () => void;
+
 }
 
 type ControlsPanelProps = CommonProps & (StandardControlsProps | DifferenceControlsProps);

@@ -16,6 +16,7 @@ export const useChartState = (
     primaryData: Record<string, TimeSeriesEntry[]>,
     secondaryData?: Record<string, TimeSeriesEntry[]>,
     manualData: Record<string, TimeSeriesEntry[]> = {}
+
 ) => {
     const [xaxisRange, setXaxisRange] = useState<[string | null, string | null]>([null, null]);
     const [tickFormat, setTickFormat] = useState('%d.%m.%Y'); // Only day before zoom

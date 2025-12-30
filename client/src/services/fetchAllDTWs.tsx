@@ -19,6 +19,7 @@ export async function fetchDTW(
   category: string,
   start?: string,
   end?: string
+
 ): Promise<number | null> {
   let url = `${API_URL}/api/timeseries/dtw?filename1=${encodeURIComponent(encodeURIComponent(filename1.trim()))}&filename2=${encodeURIComponent(encodeURIComponent(filename2.trim()))}&category=${encodeURIComponent(encodeURIComponent(category.trim()))}`;
   if (start) url += `&start=${encodeURIComponent(start)}`;

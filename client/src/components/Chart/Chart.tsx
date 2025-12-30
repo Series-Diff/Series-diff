@@ -33,6 +33,7 @@ const MyChart: React.FC<MyChartProps> = ({
 
     const { handleLegendClick, containerRef } = useChartInteractions(setVisibleMap);
 
+
     const traces = buildTraces(
         primaryData, 
         secondaryData, 

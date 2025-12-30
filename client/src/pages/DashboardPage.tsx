@@ -103,7 +103,6 @@ function DashboardPage() {
     <div className="d-flex" style={mainStyle}>
       <div className="App-main-content flex-grow-1 d-flex align-items-start w-100 rounded">
         <div className={chartLayoutClass}>
-          {/* Controls Panel - changes based on mode */}
           {isInDifferenceMode ? (
             <ControlsPanel
               mode="difference"

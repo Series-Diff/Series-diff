@@ -1,5 +1,6 @@
     const API_URL = (process.env.REACT_APP_API_URL || '').replace(/\/$/, '');
 
+
 const getAuthHeaders = (): HeadersInit => {
   const token = localStorage.getItem('session_token');
   return token ? { 'X-Session-ID': token } : {};
