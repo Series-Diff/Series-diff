@@ -6,13 +6,18 @@ export interface DataTableProps {
   data: Record<string, any>[];
   title: string;
   rowsOptions?: number[];
+  showPagination?: boolean;
 }
 
 
-export const DataTable: React.FC<DataTableProps> = ({ data, title, rowsOptions = [10, 20, 50, 100] }) => {
-  const [rowsNumber, setRowsNumber] = React.useState<number>(10);
+export const DataTable: React.FC<DataTableProps> = ({ data, title, rowsOptions = [5, 10, 20, 50, 100], showPagination = true }) => {
+  const [rowsNumber, setRowsNumber] = React.useState<number>(Math.min(5, Math.max(1, data.length)));
 
-  const rows = React.useMemo(() => data?.slice(0, rowsNumber) || [], [data, rowsNumber]);
+  React.useEffect(() => {
+    setRowsNumber(Math.min(5, Math.max(1, data.length)));
+  }, [data.length]);
+
+  const rows = React.useMemo(() => data?.slice(0, showPagination ? rowsNumber : 5) || [], [data, rowsNumber, showPagination]);
   const columns = React.useMemo(() => (rows.length > 0 ? Object.keys(rows[0]) : []), [rows]);
 
   const columnHeaderNames: Record<string, string> = {
@@ -24,7 +29,6 @@ export const DataTable: React.FC<DataTableProps> = ({ data, title, rowsOptions =
     if (value === null || value === undefined) {
       return <span className="text-muted">null</span>;
     }
-//jeśli wartośc jest booleanem, przekonwertuj na  string    
     if (typeof value === 'boolean') {
       return value.toString();
     }
@@ -70,7 +74,7 @@ export const DataTable: React.FC<DataTableProps> = ({ data, title, rowsOptions =
               {rows.map((entry, index) => (
                 <tr key={getRowKey(entry, index)}>
                   {columns.map((col) => (
-                    <td key={col}>
+                    <td key={col} style={{ whiteSpace: 'nowrap', minWidth: '100px' }}>
                       {renderCellContent((entry as any)[col])}
                     </td>
                   ))}
@@ -81,22 +85,24 @@ export const DataTable: React.FC<DataTableProps> = ({ data, title, rowsOptions =
         </div>
       )}
       {/* Pagination controls */}
-      <div className="mt-4 d-flex align-items-center">
-        <Dropdown>
-          <Dropdown.Toggle variant="light" id="dropdown-rows" size="sm" className="me-2">
-            {rowsNumber} rows
-          </Dropdown.Toggle>
+      {showPagination && (
+        <div className="mt-4 d-flex align-items-center">
+          <Dropdown>
+            <Dropdown.Toggle variant="light" id="dropdown-rows" size="sm" className="me-2">
+              {rowsNumber} rows
+            </Dropdown.Toggle>
 
-          <Dropdown.Menu>
-            {rowsOptions.map(opt => (
-              <Dropdown.Item as="button" key={opt} onClick={() => setRowsNumber(opt)}>
-                {opt}
-              </Dropdown.Item>
-            ))}
-          </Dropdown.Menu>
-        </Dropdown>
-        <small className="text-muted">Showing first {Math.min(rowsNumber, data.length)} rows of {data.length} total.</small>
-      </div>
+            <Dropdown.Menu>
+              {rowsOptions.map(opt => (
+                <Dropdown.Item as="button" key={opt} onClick={() => setRowsNumber(opt)}>
+                  {opt}
+                </Dropdown.Item>
+              ))}
+            </Dropdown.Menu>
+          </Dropdown>
+          <small className="text-muted">Showing first {Math.min(rowsNumber, data.length)} rows of {data.length} total.</small>
+        </div>
+      )}
     </div>
   );
 };
