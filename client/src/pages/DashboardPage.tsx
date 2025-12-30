@@ -271,7 +271,8 @@ function DashboardPage() {
                       handleCellClick(file1, file2, selectedCategory)
                     }
                     metric="Pearson Correlation"
-                  />
+                    metricKey="pearson_correlation"
+              />
 
                   {secondaryCategory && PearsonCorrelationValues[secondaryCategory] && (
                     <div className="mt-4">
@@ -282,7 +283,9 @@ function DashboardPage() {
                           handleCellClick(file1, file2, secondaryCategory)
                         }
                         metric="Pearson Correlation"
-                      />
+                        metricKey="pearson_correlation"
+                    showInfoIcon={false}
+                  />
                     </div>
                   )}
                 </div>
@@ -295,7 +298,8 @@ function DashboardPage() {
                     category={selectedCategory}
                     clickable={false}
                     metric="Cosine Similarity"
-                  />
+                    metricKey="cosine_similarity"
+              />
 
                   {secondaryCategory && CosineSimilarityValues[secondaryCategory] && (
                     <div className="mt-3">
@@ -304,7 +308,9 @@ function DashboardPage() {
                         category={secondaryCategory}
                         clickable={false}
                         metric="Cosine Similarity"
-                      />
+                        metricKey="cosine_similarity"
+                    showInfoIcon={false}
+                  />
                     </div>
                   )}
                 </div>
@@ -316,7 +322,8 @@ function DashboardPage() {
                     data={maeValues[selectedCategory]}
                     category={selectedCategory}
                     metric="MAE"
-                  />
+                    metricKey="mae"
+              />
 
                   {secondaryCategory && maeValues[secondaryCategory] && (
                     <div className="mt-3">
@@ -324,7 +331,9 @@ function DashboardPage() {
                         data={maeValues[secondaryCategory]}
                         category={secondaryCategory}
                         metric="MAE"
-                      />
+                        metricKey="mae"
+                    showInfoIcon={false}
+                  />
                     </div>
                   )}
                 </div>
@@ -336,7 +345,8 @@ function DashboardPage() {
                     data={rmseValues[selectedCategory]}
                     category={selectedCategory}
                     metric="RMSE"
-                  />
+                    metricKey="rmse"
+              />
 
                   {secondaryCategory && rmseValues[secondaryCategory] && (
                     <div className="mt-3">
@@ -344,7 +354,9 @@ function DashboardPage() {
                         data={rmseValues[secondaryCategory]}
                         category={secondaryCategory}
                         metric="RMSE"
-                      />
+                        metricKey="rmse"
+                    showInfoIcon={false}
+                  />
                     </div>
                   )}
                 </div>
@@ -356,7 +368,8 @@ function DashboardPage() {
                     data={DTWValues[selectedCategory]}
                     category={selectedCategory}
                     metric="DTW"
-                  />
+                    metricKey="dtw"
+              />
 
                   {secondaryCategory && DTWValues[secondaryCategory] && (
                     <div className="mt-4">
@@ -364,7 +377,9 @@ function DashboardPage() {
                         data={DTWValues[secondaryCategory]}
                         category={secondaryCategory}
                         metric="DTW"
-                      />
+                        metricKey="dtw"
+                    showInfoIcon={false}
+                  />
                     </div>
                   )}
                 </div>
@@ -376,7 +391,8 @@ function DashboardPage() {
                     data={EuclideanValues[selectedCategory]}
                     category={selectedCategory}
                     metric="Euclidean"
-                  />
+                    metricKey="euclidean"
+              />
 
                   {secondaryCategory && EuclideanValues[secondaryCategory] && (
                     <div className="mt-4">
@@ -384,7 +400,9 @@ function DashboardPage() {
                         data={EuclideanValues[secondaryCategory]}
                         category={secondaryCategory}
                         metric="Euclidean"
-                      />
+                        metricKey="euclidean"
+                    showInfoIcon={false}
+                  />
                     </div>
                   )}
                 </div>

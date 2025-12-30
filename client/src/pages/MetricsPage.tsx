@@ -1,9 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import './MetricsPage.css';
 import { Form, Tabs, Tab, Col, Button, Modal } from "react-bootstrap";
-import { Select, MetricModal, MetricRow, Header } from '../components';
+import { Select, MetricModal, MetricRow, Header, MetricInfoModal } from '../components';
 import { Metric, METRIC_CATEGORIES, PREDEFINED_METRICS } from '../constants/metricsConfig';
 import { useLocalPlugins } from '../hooks/useLocalPlugins';
+import { getMetricDescription, hasMetricDescription } from '../constants/metricsDescriptions';
 
 function MetricsPage() {
     const [selectedCategory, setSelectedCategory] = useState<string>("All");
@@ -22,6 +23,8 @@ function MetricsPage() {
     const [showModal, setShowModal] = useState(false);
     const [editingMetric, setEditingMetric] = useState<Metric | null>(null);
     const [metricToDelete, setMetricToDelete] = useState<Metric | null>(null);
+    const [showInfoModal, setShowInfoModal] = useState(false);
+    const [selectedMetricKey, setSelectedMetricKey] = useState<string | null>(null);
 
     const categories: string[] = [...METRIC_CATEGORIES];
 
@@ -85,6 +88,13 @@ function MetricsPage() {
 
     const handleDeleteMetric = (metric: Metric) => {
         setMetricToDelete(metric);
+    };
+
+    const handleShowInfo = (metricKey: string) => {
+        if (hasMetricDescription(metricKey)) {
+            setSelectedMetricKey(metricKey);
+            setShowInfoModal(true);
+        }
     };
 
     const confirmDeleteMetric = () => {
@@ -166,6 +176,8 @@ function MetricsPage() {
                                         description={opt.description}
                                         category={opt.category}
                                         showCheckbox={false}
+                                        metricKey={opt.value}
+                                        onShowInfo={handleShowInfo}
                                     />
                                 ))
                             )}
@@ -254,6 +266,14 @@ function MetricsPage() {
                     </Button>
                 </Modal.Footer>
             </Modal>
+
+            {selectedMetricKey && getMetricDescription(selectedMetricKey) && (
+                <MetricInfoModal
+                    show={showInfoModal}
+                    onHide={() => setShowInfoModal(false)}
+                    metricInfo={getMetricDescription(selectedMetricKey)!}
+                />
+            )}
         </Col>
     );
 }
