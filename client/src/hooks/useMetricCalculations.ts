@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useRef } from 'react';
 import * as services from '../services';
 
 import type { CombinedMetric } from '../components';
@@ -24,6 +24,55 @@ type PerCategoryCorrelationMetricEntry = {
     fetch: (...args: any[]) => Promise<Record<string, Record<string, number>>>;
 };
 
+const RATE_LIMIT_MESSAGE = 'Network or CORS issue (possibly triggered by rate limiting). Please wait and retry.';
+const SERVER_ERROR_MESSAGE = 'Server error while calculating metrics. Please try again.';
+const BAD_REQUEST_FALLBACK = 'Bad request. Server encountered an error processing your data.';
+
+const extractErrorDetail = (err: any): string | undefined => {
+    const body = (err as any)?.body;
+    if (typeof body === 'string' && body.trim()) {
+        try {
+            const parsed = JSON.parse(body);
+            if (parsed?.error) {
+                return String(parsed.error);
+            }
+        } catch {
+            return body.trim();
+        }
+    }
+
+    const message = err?.message;
+    if (typeof message === 'string') {
+        const dashParts = message.split(' - ');
+        if (dashParts.length > 1) {
+            return dashParts.slice(1).join(' - ').trim();
+        }
+        return message;
+    }
+
+    return undefined;
+};
+
+const buildErrorMessage = (err: any): string => {
+    const status = (err as any)?.status ?? err?.response?.status;
+    const detail = extractErrorDetail(err);
+
+    if (status === 429) {
+        return RATE_LIMIT_MESSAGE;
+    }
+    if (status === 500) {
+        return SERVER_ERROR_MESSAGE;
+    }
+    if (status === 400) {
+        return detail ? `Bad request: ${detail}` : BAD_REQUEST_FALLBACK;
+    }
+    if (err instanceof TypeError) {
+        return RATE_LIMIT_MESSAGE;
+    }
+
+    return detail || 'Failed to fetch metric';
+};
+
 export const useMetricCalculations = (
     filenamesPerCategory: Record<string, string[]>,
     selectedCategory: string | null,
@@ -42,6 +91,20 @@ export const useMetricCalculations = (
     const [CosineSimilarityValues, setCosineSimilarityValues] = useState<CorrelationMetricType>({});
 
     const [groupedMetrics, setGroupedMetrics] = useState<Record<string, CombinedMetric[]>>({});
+    
+    // Error states for metrics
+    const [metricErrors, setMetricErrors] = useState<Record<string, string>>({});
+    
+    // Loading state to prevent UI janking
+    const [isMetricsLoading, setIsMetricsLoading] = useState(false);
+    
+    // Track previous filenamesPerCategory to prevent re-fetching on tab switch
+    const prevFilenameCategoryRef = useRef<Record<string, string[]> | null>(null);
+    // Track whether metrics were restored from storage to avoid redundant refetch on remount
+    const restoredFromStorageRef = useRef(false);
+    // Track whether any stored metric failed to parse; if true we must refetch
+    const storageParseFailedRef = useRef(false);
+
 
     // Helper array for single metrics
     const singleMetrics = useMemo<SingleMetricEntry[]>(() => [
@@ -67,13 +130,20 @@ export const useMetricCalculations = (
     ], []);
 
     // Helper to load metric from storage (restored original conditional parsing)
-    const loadMetricFromStorage = (key: string, setter: React.Dispatch<React.SetStateAction<any>>, defaultValue = {}) => {
+    const loadMetricFromStorage = <T>(
+        key: string,
+        setter: React.Dispatch<React.SetStateAction<T>>,
+        defaultValue: T = {} as unknown as T,
+    ) => {
         const stored = localStorage.getItem(key);
         if (stored) {
             try {
-                setter(JSON.parse(stored));
+                const parsed = JSON.parse(stored) as T;
+                setter(parsed);
+                restoredFromStorageRef.current = true;
             } catch (e) {
                 console.error(`Failed to parse ${key} from storage`, e);
+                storageParseFailedRef.current = true;
                 setter(defaultValue); // Fallback to {} if parse fails
             }
         } else {
@@ -81,52 +151,102 @@ export const useMetricCalculations = (
         }
     };
 
+    // Load metricErrors from storage
     useEffect(() => {
-        // Load all metrics with original conditional logic
+        const storedErrors = localStorage.getItem('metricErrors');
+        if (storedErrors) {
+            try {
+                setMetricErrors(JSON.parse(storedErrors));
+            } catch (e) {
+                console.error('Failed to parse metricErrors from storage', e);
+                setMetricErrors({});
+            }
+        }
+    }, []);
+
+    useEffect(() => {
+        // Load all metrics from storage on mount (not on every metric change)
         singleMetrics.forEach(({ key, setter }) => loadMetricFromStorage(key, setter));
         allCorrelationMetrics.forEach(({ key, setter }) => loadMetricFromStorage(key, setter));
         perCategoryCorrelationMetrics.forEach(({ key, setter }) => loadMetricFromStorage(key, setter));
+        // Always clear the restoredFromStorageRef after initial mount
+        restoredFromStorageRef.current = false;
     }, [singleMetrics, allCorrelationMetrics, perCategoryCorrelationMetrics]);
 
     useEffect(() => {
         if (Object.keys(filenamesPerCategory).length === 0) return;
 
+        // Only skip fetch if filenames are identical to previous (prevents unnecessary reloads on tab switch)
+        const isSameFilenames = prevFilenameCategoryRef.current &&
+            JSON.stringify(prevFilenameCategoryRef.current) === JSON.stringify(filenamesPerCategory);
+        if (isSameFilenames) {
+            setIsMetricsLoading(false);
+            return;
+        }
+
+        prevFilenameCategoryRef.current = filenamesPerCategory;
+        setIsMetricsLoading(true);
+
         const fetchMetrics = async () => {
+            const errors: Record<string, string> = {};
             try {
-                // Fetch single metrics in parallel
                 await Promise.all(
-                    singleMetrics.map(async ({ fetch, setter }) => {
-                        const data = await fetch(filenamesPerCategory);
-                        setter(data);
-                    })
-                );
-
-                // Fetch all-correlation metrics in parallel
-                await Promise.all(
-                    allCorrelationMetrics.map(async ({ fetch, setter }) => {
-                        const data = await fetch(filenamesPerCategory);
-                        setter(data);
-                    })
-                );
-
-                // Fetch per-category correlation metrics
-                for (const { key, setter, fetch } of perCategoryCorrelationMetrics) {
-                    const data: CorrelationMetricType = {};
-                    for (const category of Object.keys(filenamesPerCategory)) {
-                        const files = filenamesPerCategory[category];
-                        // For Euclidean, it might need special params
-                        let result;
-                        if (key === 'EuclideanValues') {
-                            result = await fetch(files, null, category);
-                        } else {
-                            result = await fetch(files, category);
+                    singleMetrics.map(async ({ key, fetch, setter }) => {
+                        try {
+                            const data = await fetch(filenamesPerCategory);
+                            setter(data);
+                        } catch (err: any) {
+                            const errorMessage = buildErrorMessage(err);
+                            if (!errors.statistics) {
+                                errors.statistics = errorMessage;
+                            }
+                            console.error(`Error fetching single metric ${key}:`, err);
                         }
-                        data[category] = result;
+                    })
+                );
+
+                await Promise.all(
+                    allCorrelationMetrics.map(async ({ key, fetch, setter }) => {
+                        try {
+                            const data = await fetch(filenamesPerCategory);
+                            setter(data);
+                        } catch (err: any) {
+                            const errorMessage = buildErrorMessage(err);
+                            errors[key] = errors[key] || errorMessage;
+                            console.error(`Error fetching ${key}:`, err);
+                        }
+                    })
+                );
+
+                for (const { key, setter, fetch } of perCategoryCorrelationMetrics) {
+                    try {
+                        const data: CorrelationMetricType = {};
+                        for (const category of Object.keys(filenamesPerCategory)) {
+                            try {
+                                const files = filenamesPerCategory[category];
+                                const result = key === 'EuclideanValues'
+                                    ? await fetch(files, null, category)
+                                    : await fetch(files, category);
+                                data[category] = result;
+                            } catch (categoryErr: any) {
+                                const errorMessage = buildErrorMessage(categoryErr);
+                                errors[key] = errors[key] || errorMessage;
+                                console.error(`Error fetching ${key} for category ${category}:`, categoryErr);
+                            }
+                        }
+                        setter(data);
+                    } catch (err: any) {
+                        const errorMessage = buildErrorMessage(err);
+                        errors[key] = errors[key] || errorMessage;
+                        console.error(`Error fetching ${key}:`, err);
                     }
-                    setter(data);
                 }
+
+                setMetricErrors(errors);
             } catch (err) {
-                console.error('Error fetching metrics:', err);
+                console.error('Error in metric fetch batch:', err);
+            } finally {
+                setIsMetricsLoading(false);
             }
         };
 
@@ -181,7 +301,13 @@ export const useMetricCalculations = (
                 localStorage.setItem(key, JSON.stringify(value));
             }
         });
-    }, [meanValues, medianValues, varianceValues, stdDevsValues, autoCorrelationValues, maeValues, rmseValues, PearsonCorrelationValues, DTWValues, EuclideanValues, CosineSimilarityValues, singleMetrics, allCorrelationMetrics, perCategoryCorrelationMetrics]);
+
+        if (Object.keys(metricErrors).length > 0) {
+            localStorage.setItem('metricErrors', JSON.stringify(metricErrors));
+        } else {
+            localStorage.removeItem('metricErrors');
+        }
+    }, [meanValues, medianValues, varianceValues, stdDevsValues, autoCorrelationValues, maeValues, rmseValues, PearsonCorrelationValues, DTWValues, EuclideanValues, CosineSimilarityValues, singleMetrics, allCorrelationMetrics, perCategoryCorrelationMetrics, metricErrors]);
 
     const resetMetrics = () => {
         setMeanValues({});
@@ -196,6 +322,8 @@ export const useMetricCalculations = (
         setEuclideanValues({});
         setCosineSimilarityValues({});
         setGroupedMetrics({});
+        setMetricErrors({});
+        localStorage.removeItem('metricErrors');
 
         // Clear from localStorage
         localStorage.removeItem('meanValues');
@@ -219,6 +347,8 @@ export const useMetricCalculations = (
         EuclideanValues,
         CosineSimilarityValues,
         groupedMetrics,
+        metricErrors,
+        isMetricsLoading,
         resetMetrics,
     };
 };

@@ -1,7 +1,12 @@
 import React from 'react';
+import { Container } from 'react-bootstrap';
 
 const SettingsPage: React.FC = () => {
-  return <h1>This is Settings Page</h1>;
+  return (
+    <Container className="py-4">
+      <h1>This is Settings Page</h1>
+    </Container>
+  );
 };
 
 export default SettingsPage;
