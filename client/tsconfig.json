@@ -24,8 +24,7 @@
       "@/*": ["src/*"]
     },
     "sourceMap": true,
-    "inlineSources": true,
-    "types": ["node", "jest"]
+    "inlineSources": true
   },
   "include": [
     "src",

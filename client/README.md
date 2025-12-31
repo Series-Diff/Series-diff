@@ -34,6 +34,9 @@ To run app type `npm start` in the terminal or start the whole app by typing `do
 - Run tests: `npx playwright test` (Remember to have the app running with `npm start`).
 - Run and auto-open report: Use the script `npm run test:e2e` (runs tests and opens HTML report via `npx playwright show-report` in browser).
   - Report in `playwright-report/`.
+- **Run tests with trace and view results**: Use `npm run test:e2e:trace` to run tests with tracing enabled and open the HTML report.
+  - The report includes clickable trace links for each test, allowing step-by-step inspection of execution, network requests, and screenshots.
+  - Traces are automatically captured (configured in `playwright.config.ts` with `trace: 'on'`) and stored in `test-results/` directory.
 
 ## Authors 
 - Michał Bojara
