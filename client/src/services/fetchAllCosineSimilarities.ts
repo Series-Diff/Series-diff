@@ -21,7 +21,7 @@ export async function fetchCosineSimilarity(
   start?: string,
   end?: string
 ): Promise<number | null> {
-  let url = `${API_URL}/api/timeseries/cosine_similarity?filename1=${encodeURIComponent(encodeURIComponent(filename1.trim()))}&filename2=${encodeURIComponent(encodeURIComponent(filename2.trim()))}&category=${encodeURIComponent(encodeURIComponent(category.trim()))}`;
+  let url = `${API_URL}/api/timeseries/cosine_similarity?filename1=${encodeURIComponent(filename1.trim())}&filename2=${encodeURIComponent(filename2.trim())}&category=${encodeURIComponent(category.trim())}`;
   if (start) url += `&start=${encodeURIComponent(start)}`;
   if (end) url += `&end=${encodeURIComponent(end)}`;
 

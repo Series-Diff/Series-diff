@@ -103,7 +103,6 @@ function DashboardPage() {
     <div className="d-flex" style={mainStyle}>
       <div className="App-main-content flex-grow-1 d-flex align-items-start w-100 rounded">
         <div className={chartLayoutClass}>
-          {/* Controls Panel - changes based on mode */}
           {isInDifferenceMode ? (
             <ControlsPanel
               mode="difference"
@@ -138,14 +137,6 @@ function DashboardPage() {
               isLoading={isLoading}
               handleFileUpload={handleFileUpload}
               handleReset={handleReset}
-                          defaultMinDate={defaultMinDate}
-            defaultMaxDate={defaultMaxDate} 
-            startDate={startDate} 
-            endDate={endDate} 
-            handleStartChange={handleStartChange}
-             handleEndChange={handleEndChange}   
-              ignoreTimeRange={ignoreTimeRange}
-            setIgnoreTimeRange={setIgnoreTimeRange}
           />
           )}
           
@@ -161,6 +152,7 @@ function DashboardPage() {
             style={chartDynamicHeight ? { minHeight: chartDynamicHeight } : undefined}
           >
             {/* Standard Chart Mode */}
+ {/* Standard Chart Mode */}
             {!isInDifferenceMode && (
               <>
                 {isLoading && !hasData &&
@@ -172,24 +164,60 @@ function DashboardPage() {
                   <div className="d-flex align-items-center justify-content-center text-muted flex-grow-1" style={{ minHeight: chartDynamicHeight }}>
                     Load data to visualize
                   </div>}
+                
                 {!isLoading && hasData && (
-                  <div className="chart-wrapper" style={{ height: chartDynamicHeight }}>
-                                <div className="position-absolute top-0 end-0 mt-2 me-3" style={{ zIndex: 10 }}>
-                                <Button variant="outline-primary" size="sm" onClick={() => setShowManualModal(true)} disabled={Object.keys(chartData).length === 0}>
-                                    + Add Manual Point
-                                </Button>
-                            </div>
-                    <components.MyChart 
-                      primaryData={filteredData.primary}
-                      secondaryData={filteredData.secondary || undefined}
-                      syncColorsByFile={syncColorsByFile} 
-                      manualData={manualData}
-                    />
-                  </div>
+                    <><div className="d-flex w-100 px-3 py-2 ">
+                    <div className="d-flex  gap-2 w-100">
+                      <components.DateTimePicker
+                        label="Start"
+                        value={startDate}
+                        onChange={handleStartChange}
+                        minDate={defaultMinDate}
+                        maxDate={endDate ?? defaultMaxDate}
+                        openToDate={startDate ?? defaultMinDate} />
+
+                      <components.DateTimePicker
+                        label="End"
+                        value={endDate}
+                        onChange={handleEndChange}
+                        minDate={startDate ?? defaultMinDate}
+                        maxDate={defaultMaxDate}
+                        openToDate={endDate ?? defaultMaxDate} />
+
+                      <div className="d-flex align-items-center ms-2 pb-1">
+                        <Form.Check
+                          type="switch"
+                          id="date-filter-toggle"
+                          label={<span className="text-nowrap small text-muted">Ignore time range</span>}
+                          checked={ignoreTimeRange}
+                          onChange={(e) => setIgnoreTimeRange(e.target.checked)}
+                          className="mb-0" />
+
+                      </div>
+                      <div className="d-flex ms-auto p-2">
+                        <Button
+                          variant="outline-primary"
+                          size="sm"
+                          onClick={() => setShowManualModal(true)}
+                          disabled={Object.keys(chartData).length === 0}
+                          className="mb-1 text-nowrap"
+                        >
+                          + Add Manual Point
+                        </Button>
+                      </div>
+                    </div>
+                  </div><div className="chart-wrapper " style={{ height: chartDynamicHeight }}>
+
+                      <components.MyChart
+                        primaryData={filteredData.primary}
+                        secondaryData={filteredData.secondary || undefined}
+                        syncColorsByFile={syncColorsByFile}
+                        manualData={manualData} />
+
+                    </div></>
                 )}
               </>
             )}
-            
             {/* Difference Chart Mode */}
             {isInDifferenceMode && (
               <>
