@@ -19,8 +19,8 @@ async function fetchVariance(
   end?: string
 ): Promise<number | null> {
   const params = new URLSearchParams({
-    category,
-    filename,
+    category: category.trim(),
+    filename: filename.trim(),
     ...(start && { start }),
     ...(end && { end }),
   });
@@ -67,3 +67,4 @@ export async function fetchAllVariances(
 
   return varianceValues;
 }
+

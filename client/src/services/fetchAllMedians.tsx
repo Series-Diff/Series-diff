@@ -18,7 +18,7 @@ async function fetchMedian(
   start?: string,
   end?: string
 ): Promise<number | null> {
-  let url = `${API_URL}/api/timeseries/median?category=${encodeURIComponent(category)}&filename=${encodeURIComponent(filename)}`;
+  let url = `${API_URL}/api/timeseries/median?category=${encodeURIComponent(category.trim())}&filename=${encodeURIComponent(filename.trim())}`;
   if (start) url += `&start=${encodeURIComponent(start)}`;
   if (end) url += `&end=${encodeURIComponent(end)}`;
 

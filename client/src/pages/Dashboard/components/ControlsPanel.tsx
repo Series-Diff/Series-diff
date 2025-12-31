@@ -17,14 +17,6 @@ interface StandardControlsProps {
     handleApplyMaWindow: () => void;
     syncColorsByFile: boolean;
     setSyncColorsByFile: React.Dispatch<React.SetStateAction<boolean>>;
-        startDate: Date | null;
-    endDate: Date | null;
-    handleStartChange: (date: Date | null) => void;
-    handleEndChange: (date: Date | null) => void;
-    defaultMinDate: Date | null;
-    defaultMaxDate: Date | null;
-    ignoreTimeRange: boolean;
-    setIgnoreTimeRange: (value: boolean) => void;
 
 }
 
@@ -44,6 +36,7 @@ interface CommonProps {
     isLoading: boolean;
     handleFileUpload: (event: React.ChangeEvent<HTMLInputElement>) => void;
     handleReset: () => void;
+
 }
 
 type ControlsPanelProps = CommonProps & (StandardControlsProps | DifferenceControlsProps);
@@ -80,38 +73,6 @@ const ControlsPanel: React.FC<ControlsPanelProps> = (props) => {
                             </div>
 
 
-                            {(props as StandardControlsProps).showMovingAverage !== undefined && (props as StandardControlsProps).handleToggleMovingAverage && (
-                            <div className="d-flex gap-3 align-items-center">
-                                <components.DateTimePicker
-                                    label="Start time"
-                                    value={(props as StandardControlsProps).startDate}
-                                    onChange={(props as StandardControlsProps).handleStartChange}
-                                    placeholder="Start date"
-                                    minDate={(props as StandardControlsProps).defaultMinDate}
-                                    maxDate={(props as StandardControlsProps).endDate ?? (props as StandardControlsProps).defaultMaxDate}
-                                    openToDate={(props as StandardControlsProps).startDate ?? (props as StandardControlsProps).defaultMinDate}
-                                />
-                                <components.DateTimePicker
-                                    label="End time"
-                                    value={(props as StandardControlsProps).endDate}
-                                    onChange={(props as StandardControlsProps).handleEndChange}
-                                    placeholder="End date"
-                                    minDate={(props as StandardControlsProps).startDate ?? (props as StandardControlsProps).defaultMinDate}
-                                    maxDate={(props as StandardControlsProps).defaultMaxDate}
-                                    openToDate={(props as StandardControlsProps).endDate ?? (props as StandardControlsProps).defaultMaxDate}
-                                />
-                                    <div className="text-nowrap" style={{ marginLeft: '8px' }}>
-                                    <Form>
-                                        <Form.Check
-                                            type="switch"
-                                            id="date-filter-toggle"
-                                            label={<span style={{ whiteSpace: 'nowrap' }}>Ignore time range</span>}
-                                            checked={(props as StandardControlsProps).ignoreTimeRange}
-                                            onChange={(e) => (props as StandardControlsProps).setIgnoreTimeRange(e.target.checked)}
-                                        />
-                                    </Form>
-                                </div>
-                            </div>
                         </div>
                         <div className="d-flex align-items-center gap-2, ms-3">
                                 <Form.Check
@@ -140,7 +101,7 @@ const ControlsPanel: React.FC<ControlsPanelProps> = (props) => {
                                     Apply
                                 </Button>
                             </div>
-                        )}
+                        )
                         
                         <div className="d-flex align-items-center ms-3">
                             <Form.Check
