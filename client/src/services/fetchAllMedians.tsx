@@ -12,19 +12,32 @@
       }
     };
 
-    async function fetchMedian(category: string, filename: string): Promise<number | null>{
-        const resp = await fetch(`${API_URL}/api/timeseries/median?category=${category}&filename=${filename}`, {
-          headers: {
-            ...getAuthHeaders(),
-          },
-        });
-        handleSessionToken(resp);
-        if (!resp.ok) {
-            console.error("Failed to fetch median:", await resp.text());
+    async function fetchMedian(category: string, filename: string): Promise<number | null> {
+        try {
+          const resp = await fetch(`${API_URL}/api/timeseries/median?category=${category}&filename=${filename}`, {
+            headers: {
+              ...getAuthHeaders(),
+            },
+          });
+          handleSessionToken(resp);
+
+          if (!resp.ok) {
+            const bodyText = await resp.text();
+            console.error(`Failed to fetch median for ${category}.${filename}:`, bodyText);
             return null;
+          }
+
+          const data = await resp.json();
+          const value = data.median ?? null;
+          if (value !== null && Number.isNaN(value)) {
+            console.error(`Invalid median value (NaN) for ${category}.${filename}`);
+            return null;
+          }
+          return value;
+        } catch (err) {
+          console.error(`Error fetching median for ${category}.${filename}:`, err);
+          return null;
         }
-        const data = await resp.json();
-        return data.median ?? null;
     }
 
     export async function fetchAllMedians(

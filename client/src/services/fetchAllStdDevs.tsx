@@ -12,7 +12,8 @@ const handleSessionToken = (response: Response) => {
   }
 };
 
-async function fetchStdDev(category: string, filename: string): Promise<number | null>{
+async function fetchStdDev(category: string, filename: string): Promise<number | null> {
+  try {
     const resp = await fetch(`${API_URL}/api/timeseries/standard_deviation?category=${category}&filename=${filename}`, {
       headers: {
         ...getAuthHeaders(),
@@ -20,11 +21,21 @@ async function fetchStdDev(category: string, filename: string): Promise<number |
     });
     handleSessionToken(resp);
     if (!resp.ok) {
-        console.error("Failed to fetch standard deviation:", await resp.text());
-        return null;
+      const bodyText = await resp.text();
+      console.error("Failed to fetch standard deviation:", bodyText);
+      return null;
     }
     const data = await resp.json();
-    return data.standard_deviation ?? null;
+    const value = data.standard_deviation ?? null;
+    if (value !== null && Number.isNaN(value)) {
+      console.error('Invalid standard deviation value (NaN)');
+      return null;
+    }
+    return value;
+  } catch (err) {
+    console.warn(`Error fetching standard deviation for ${category}.${filename}:`, err);
+    return null;
+  }
 }
 
 export async function fetchAllStdDevs(
@@ -43,7 +54,7 @@ export async function fetchAllStdDevs(
               stdDevsValues[category][filename] = stdDev;
           }
       } catch (err) {
-        console.warn(`Error fetching standard deviation for ${category}.${filename}:`, err);
+        console.warn('Error fetching standard deviation', err);
       }
     }
   }

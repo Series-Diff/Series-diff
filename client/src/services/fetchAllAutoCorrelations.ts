@@ -14,7 +14,8 @@ const handleSessionToken = (response: Response) => {
   }
 };
 
-async function fetchAutocorrelation(category: string, filename: string): Promise<number | null>{
+async function fetchAutocorrelation(category: string, filename: string): Promise<number | null> {
+  try {
     const resp = await fetch(`${API_URL}/api/timeseries/autocorrelation?category=${category}&filename=${filename}`, {
       headers: {
         ...getAuthHeaders(),
@@ -22,11 +23,21 @@ async function fetchAutocorrelation(category: string, filename: string): Promise
     });
     handleSessionToken(resp);
     if (!resp.ok) {
-        console.error("Failed to fetch autocorrelation:", await resp.text());
-        return null;
+      const bodyText = await resp.text();
+      console.error("Failed to fetch autocorrelation:", bodyText);
+      return null;
     }
     const data = await resp.json();
-    return data.autocorrelation ?? null;
+    const value = data.autocorrelation ?? null;
+    if (value !== null && Number.isNaN(value)) {
+      console.error('Invalid autocorrelation value (NaN)');
+      return null;
+    }
+    return value;
+  } catch (err) {
+    console.warn(`Error fetching autocorrelation for ${category}.${filename}:`, err);
+    return null;
+  }
 }
 
 export async function fetchAllAutoCorrelations(
@@ -45,7 +56,7 @@ export async function fetchAllAutoCorrelations(
               autocorrelationsValues[category][filename] = autocorrelation;
           }
       } catch (err) {
-        console.warn(`Error fetching autocorrelation for ${category}.${filename}:`, err);
+        console.warn('Error fetching autocorrelation', err);
       }
     }
   }

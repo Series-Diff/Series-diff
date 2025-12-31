@@ -29,9 +29,18 @@ export async function fetchPearsonCorrelation(
     });
     handleSessionToken(response);
 
-    // Jeśli zapytanie nie powiodło się — logujemy błąd i zwracamy null
+    // Jeśli zapytanie nie powiodło się — logujemy błąd i rzucamy exception dla poważnych błędów
     if (!response.ok) {
-      console.error(`Failed to fetch correlation for ${filename1} vs ${filename2}:`, await response.text());
+      const errorText = await response.text();
+      console.error(`Failed to fetch correlation for ${filename1} vs ${filename2}:`, errorText);
+      // Throw exception for 429/500/400 errors so they can be caught and displayed
+      if (response.status === 429 || response.status === 500 || response.status === 400) {
+        const details = errorText ? ` - ${errorText}` : '';
+        const error = new Error(`HTTP ${response.status}: ${response.statusText}${details}`);
+        (error as any).status = response.status;
+        (error as any).body = errorText;
+        throw error;
+      }
       return null;
     }
 
@@ -39,6 +48,10 @@ export async function fetchPearsonCorrelation(
     const data = await response.json();
     return data.pearson_correlation ?? null;
   } catch (err) {
+    // Re-throw network errors and HTTP errors so they propagate to useMetricCalculations
+    if (err instanceof TypeError || (err as any)?.status) {
+      throw err;
+    }
     console.error(`Error fetching correlation for ${filename1} vs ${filename2}:`, err);
     return null;
   }
@@ -55,8 +68,13 @@ export async function fetchAllPearsonCorrelations(
   for (const file1 of filenames) {
     correlations[file1] = {};
     for (const file2 of filenames) {
-      const value = await fetchPearsonCorrelation(file1, file2, category);
-      correlations[file1][file2] = value ?? 0;
+      try {
+        const value = await fetchPearsonCorrelation(file1, file2, category);
+        correlations[file1][file2] = value ?? 0;
+      } catch (err) {
+        // Re-throw errors so they propagate to useMetricCalculations
+        throw err;
+      }
     }
   }
   // Zwracamy pełną macierz korelacji w formacie: file1 -> (file2 -> wartość)

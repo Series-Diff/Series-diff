@@ -12,20 +12,30 @@ const handleSessionToken = (response: Response) => {
   }
 };
 
-async function fetchVariance(category: string, filename: string): Promise<number | null>{
+async function fetchVariance(category: string, filename: string): Promise<number | null> {
+  try {
     const resp = await fetch(`${API_URL}/api/timeseries/variance?category=${category}&filename=${filename}`,{
       headers: {
         ...getAuthHeaders(),
       },
     });
     handleSessionToken(resp);
-    
     if (!resp.ok) {
-        console.error("Failed to fetch variance:", await resp.text());
-        return null;
+      const bodyText = await resp.text();
+      console.error("Failed to fetch variance:", bodyText);
+      return null;
     }
     const data = await resp.json();
-    return data.variance ?? null;
+    const value = data.variance ?? null;
+    if (value !== null && Number.isNaN(value)) {
+      console.error('Invalid variance value (NaN)');
+      return null;
+    }
+    return value;
+  } catch (err) {
+    console.warn(`Error fetching variance for ${category}.${filename}:`, err);
+    return null;
+  }
 }
 
 export async function fetchAllVariances(

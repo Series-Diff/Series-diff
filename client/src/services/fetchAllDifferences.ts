@@ -1,5 +1,3 @@
-// services/fetchAllDifferences.ts
-
 import {TimeSeriesEntry} from "../services/fetchTimeSeries";
 
 const API_URL = (process.env.REACT_APP_API_URL || '').replace(/\/$/, '');
@@ -49,9 +47,7 @@ export async function fetchAllDifferences(
     const files = filenamesPerCategory[category];
     if (files.length < 2) continue; // Need at least two files to calculate a difference
 
-      if (!differenceValues[category]) {
-        differenceValues[category] = {};
-    }
+    differenceValues[category] = {};
     for (let i = 0; i < files.length; i++) {
       for (let j = i + 1; j < files.length; j++) {
         const filename1 = files[i];
@@ -61,21 +57,20 @@ export async function fetchAllDifferences(
         try {
           const diffSeries = await fetchDifference(category, filename1, filename2, toleranceString);
           if (diffSeries) {
-            if (!differenceValues[category]) {
-              differenceValues[category] = {};
+            if (diffSeries.length > 0) {
+              // Sort the difference series by date
+              differenceValues[category][differenceKey] = diffSeries.sort((a, b) => new Date(a.x).getTime() - new Date(b.x).getTime());
+            } else {
+              console.warn(`Empty difference series for ${category}.${differenceKey}, skipping.`);
             }
-            // Sort the difference series by date
-            differenceValues[category][differenceKey] = diffSeries.sort((a, b) => new Date(a.x).getTime() - new Date(b.x).getTime());
-            console.log("fetchAllDifferences result:", differenceValues);
-
           }
 
         } catch (err) {
           console.warn(`Error fetching difference for ${category}.${differenceKey}:`, err);
-          throw err;
         }
       }
     }
+    console.log("fetchAllDifferences result:", differenceValues);
   }
   return differenceValues;
 }
