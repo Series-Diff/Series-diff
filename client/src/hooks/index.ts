@@ -6,4 +6,3 @@ export * from './useScatterPlot';
 export * from './useExport';
 export * from './useFileUpload';
 export * from './useDifferenceChart';
-export * from './useDynamicHeight';

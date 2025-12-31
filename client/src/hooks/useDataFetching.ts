@@ -52,16 +52,28 @@ export const useDataFetching = () => {
             
             const resp = await fetch(`${API_URL}/api/clear-timeseries`, { method: 'DELETE', headers: { ...getAuthHeaders() } });
             handleSessionToken(resp);
+            
             if (!resp.ok) {
-                const errorText = await resp.text();
-                console.error("Failed to clear timeseries on backend:", errorText);
-                setError(`Failed to clear data on server: ${errorText}. Chart data has been reset.`);
+                // Handle rate limiting
+                if (resp.status === 429) {
+                    setError('Rate limit exceeded. Please wait before trying again. Chart data has been reset locally.');
+                    console.error('Rate limit exceeded (429)');
+                } else {
+                    const errorText = await resp.text();
+                    console.error("Failed to clear timeseries on backend:", errorText);
+                    setError(`Failed to clear data on server: ${resp.status} ${resp.statusText}. Chart data has been reset.`);
+                }
             } else {
                 console.log("Timeseries data cleared on backend.");
             }
         } catch (err: any) {
             console.error("Error clearing timeseries on backend:", err);
-            setError(`Error while clearing data on server: ${err.message}. Chart data has been reset.`);
+            // More specific error message for network issues
+            if (err.message === 'Failed to fetch') {
+                setError('Unable to connect to server. Chart data has been reset locally.');
+            } else {
+                setError(`Error while clearing data on server: ${err.message}. Chart data has been reset.`);
+            }
         } finally {
             setIsLoading(false);
         }
@@ -89,10 +101,28 @@ export const useDataFetching = () => {
 
     useEffect(() => {
         if (Object.keys(chartData).length > 0) {
-            localStorage.setItem('chartData', JSON.stringify(chartData));
+            try {
+                localStorage.setItem('chartData', JSON.stringify(chartData));
+            } catch (err: any) {
+                if (err.name === 'QuotaExceededError') {
+                    setError('Storage quota exceeded: The dataset is too large to save. You can still view and analyze the data, but it may not persist after refresh.');
+                    console.error('localStorage quota exceeded', err);
+                } else {
+                    setError('Failed to save data to local storage.');
+                    console.error('localStorage error', err);
+                }
+            }
         }
         if (Object.keys(filenamesPerCategory).length > 0) {
-            localStorage.setItem('filenamesPerCategory', JSON.stringify(filenamesPerCategory));
+            try {
+                localStorage.setItem('filenamesPerCategory', JSON.stringify(filenamesPerCategory));
+            } catch (err: any) {
+                if (err.name === 'QuotaExceededError') {
+                    console.warn('localStorage quota exceeded for filenamesPerCategory', err);
+                } else {
+                    console.error('localStorage error for filenamesPerCategory', err);
+                }
+            }
         }
     }, [chartData, filenamesPerCategory]);
 

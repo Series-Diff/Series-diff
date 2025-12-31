@@ -19,6 +19,11 @@ export const useFileUpload = (
         event.target.value = '';
     };
 
+    const handlePopupError = (error: string) => {
+        // Pass errors from popup (pivot transform, server errors) to dashboard
+        setError(error);
+    };
+
     const handlePopupComplete = async (groupedData: Record<string, any>) => {
         setIsPopupOpen(false); // Close popup first
 
@@ -54,6 +59,7 @@ export const useFileUpload = (
         handleFileUpload,
         handlePopupComplete,
         handlePopupClose,
+        handlePopupError,
         resetFileUpload,
     };
 };
