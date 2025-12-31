@@ -22,43 +22,23 @@ async function fetchRmse(
 ): Promise<number | null> {
   const tolParam = tolerance ? `&tolerance=${encodeURIComponent(tolerance)}` : "";
 
-  try {
-    const resp = await fetch(
-      `${API_URL}/api/timeseries/rmse?category=${encodeURIComponent(category.trim())}&filename1=${encodeURIComponent(filename1.trim())}&filename2=${encodeURIComponent(filename2.trim())}${tolParam}`
-    , {
-        headers: {
-          ...getAuthHeaders(),
-        },
-      });
+  const resp = await fetch(
+    `${API_URL}/api/timeseries/rmse?category=${encodeURIComponent(category.trim())}&filename1=${encodeURIComponent(filename1.trim())}&filename2=${encodeURIComponent(filename2.trim())}${tolParam}`
+  , {
+      headers: {
+        ...getAuthHeaders(),
+      },
+    });
 
-    handleSessionToken(resp);
+  handleSessionToken(resp);
 
-    if (!resp.ok) {
-      const bodyText = await resp.text();
-      console.error("Failed to fetch RMSE:", bodyText);
-
-      if ([429, 500, 400].includes(resp.status)) {
-        const details = bodyText ? ` - ${bodyText}` : '';
-        const error = new Error(`HTTP ${resp.status}: ${resp.statusText}${details}`);
-        (error as any).status = resp.status;
-        (error as any).body = bodyText;
-        throw error;
-      }
-
-      return null;
-    }
-
-    const data = await resp.json();
-    return data.rmse ?? null;
-  } catch (err) {
-    // Rethrow errors that were intentionally created for specific HTTP statuses
-    if (err && (err as any).status) {
-      throw err;
-    }
-    // For other unexpected errors (e.g., network issues), return null as before
-    console.warn(`Error fetching RMSE for ${category}.${filename1} vs ${filename2}:`, err);
+  if (!resp.ok) {
+    console.error("Failed to fetch RMSE:", await resp.text());
     return null;
   }
+
+  const data = await resp.json();
+  return data.rmse ?? null;
 }
 
 export async function fetchAllRmse(
@@ -69,17 +49,16 @@ export async function fetchAllRmse(
 
   for (const category of Object.keys(filenamesPerCategory)) {
     const files = filenamesPerCategory[category];
-    rmseValues[category] = {};
 
-    // Initialize entries for all files (even if only one file, we need the structure)
     for (const f1 of files) {
-      if (!rmseValues[category][f1]) rmseValues[category][f1] = {};
-      
       for (const f2 of files) {
         if (f1 === f2) continue;
 
         try {
           const rmse = await fetchRmse(category, f1, f2, tolerance);
+
+          if (!rmseValues[category]) rmseValues[category] = {};
+          if (!rmseValues[category][f1]) rmseValues[category][f1] = {};
 
           if (rmse != null) {
             rmseValues[category][f1][f2] = rmse;

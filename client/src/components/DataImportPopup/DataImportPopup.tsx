@@ -726,7 +726,7 @@ export const DataImportPopup: React.FC<Props> = ({ show, files, onHide, onComple
                   </Button>
                 </div>
               )}
-              {pivotError && <Alert variant="danger" className="mt-2 mb-0 py-1 small">{pivotError}</Alert>}
+              {pivotError && <Alert variant="danger" className="mt-2 py-1 small">{pivotError}</Alert>}
             </div>
             {/* --- SEKCJA PIVOT END --- */}
 

@@ -28,18 +28,9 @@ export async function fetchDTW(
     });
     handleSessionToken(response);
 
-    // Jeśli zapytanie nie powiodło się — logujemy błąd i rzucamy exception dla poważnych błędów
+    // Jeśli zapytanie nie powiodło się — logujemy błąd i zwracamy null
     if (!response.ok) {
-      const errorText = await response.text();
-      console.error(`Failed to fetch DTW for ${filename1} vs ${filename2}:`, errorText);
-      // Throw exception for 429, 500, and 400 errors so they can be caught and displayed
-      if (response.status === 429 || response.status === 500 || response.status === 400) {
-        const details = errorText ? ` - ${errorText}` : '';
-        const error = new Error(`HTTP ${response.status}: ${response.statusText}${details}`);
-        (error as any).status = response.status;
-        (error as any).body = errorText;
-        throw error;
-      }
+      console.error(`Failed to fetch DTW for ${filename1} vs ${filename2}:`, await response.text());
       return null;
     }
 
@@ -47,10 +38,6 @@ export async function fetchDTW(
     const data = await response.json();
     return data.dtw_distance ?? 0;
   } catch (err) {
-    // Re-throw network errors and HTTP errors so they propagate to useMetricCalculations
-    if (err instanceof TypeError || (err as any)?.status) {
-      throw err;
-    }
     console.error(`Error fetching DTW for ${filename1} vs ${filename2}:`, err);
     return null;
   }
@@ -80,17 +67,12 @@ export async function fetchAllDTWs(
     for (let j = i + 1; j < numFiles; j++) {
       const file2 = filenames[j];
 
-      try {
-        const value = await fetchDTW(file1, file2, category);
-        const dtwValue = value ?? 0;
+      const value = await fetchDTW(file1, file2, category);
+      const dtwValue = value ?? 0;
 
-        // Ustawiamy wartość symetrycznie
-        DTWs[file1][file2] = dtwValue; // np. DTW(A, B)
-        DTWs[file2][file1] = dtwValue; // np. DTW(B, A)
-      } catch (err) {
-        // Re-throw errors so they propagate to useMetricCalculations
-        throw err;
-      }
+      // Ustawiamy wartość symetrycznie
+      DTWs[file1][file2] = dtwValue; // np. DTW(A, B)
+      DTWs[file2][file1] = dtwValue; // np. DTW(B, A)
     }
   }
   return DTWs;

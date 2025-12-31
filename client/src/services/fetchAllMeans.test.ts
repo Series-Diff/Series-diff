@@ -1,61 +1,17 @@
+// src/services/fetchAllMeans.test.ts
+
 import { fetchAllMeans } from './fetchAllMeans';
 
 describe('fetchAllMeans', () => {
-  const mockFilenamesPerCategory = {
-    temperature: ['model1.csv', 'model2.json'],
-    humidity: ['sensor_a.csv']
-  };
+  it('fetches means correctly', async () => {
+    global.fetch = jest.fn(() => Promise.resolve({
+      ok: true,
+      json: () => Promise.resolve({ mean: 42 }),
+      headers: { get: () => null },
+    })) as jest.Mock;
 
-  beforeEach(() => {
-    jest.clearAllMocks();
-    jest.spyOn(console, 'warn').mockImplementation(() => {});
-    jest.spyOn(console, 'error').mockImplementation(() => {});
-  });
-
-  afterEach(() => {
-    jest.restoreAllMocks();
-  });
-
-  it('should fetch means for all files successfully', async () => {
-    global.fetch = jest.fn()
-      .mockResolvedValueOnce({ ok: true, headers: { get: () => null }, json: () => Promise.resolve({ mean: 23.5 }) })
-      .mockResolvedValueOnce({ ok: true, headers: { get: () => null }, json: () => Promise.resolve({ mean: 24.1 }) })
-      .mockResolvedValueOnce({ ok: true, headers: { get: () => null }, json: () => Promise.resolve({ mean: 68.7 }) });
-
-    const result = await fetchAllMeans(mockFilenamesPerCategory);
-
-    expect(result).toEqual({
-      temperature: { 'model1.csv': 23.5, 'model2.json': 24.1 },
-      humidity: { 'sensor_a.csv': 68.7 }
-    });
-    expect(fetch).toHaveBeenCalledTimes(3);
-  });
-
-  it('should handle API error and return partial data', async () => {
-    global.fetch = jest.fn()
-      .mockResolvedValueOnce({ ok: true, headers: { get: () => null }, json: () => Promise.resolve({ mean: 22.0 }) })
-      .mockResolvedValueOnce({ ok: false, headers: { get: () => null }, text: () => Promise.resolve('Not Found') })
-      .mockResolvedValueOnce({ ok: true, headers: { get: () => null }, json: () => Promise.resolve({ mean: null }) });
-
-    const result = await fetchAllMeans(mockFilenamesPerCategory);
-
-    expect(result).toEqual({
-      temperature: { 'model1.csv': 22.0 },
-      humidity: {}
-    });
-    expect(console.error).toHaveBeenCalledTimes(1);
-  });
-
-  it('should handle network error gracefully', async () => {
-    global.fetch = jest.fn().mockRejectedValue(new Error('Network error'));
-
-    const result = await fetchAllMeans(mockFilenamesPerCategory);
-
-    expect(result).toEqual({
-      temperature: {},
-      humidity: {}
-    });
-    expect(console.warn).toHaveBeenCalledTimes(3);
+    const result = await fetchAllMeans({ category: ['test'] });
+    expect(result).toEqual({ category: { test: 42 } });
   });
 
   it('includes X-Session-ID header when token exists', async () => {

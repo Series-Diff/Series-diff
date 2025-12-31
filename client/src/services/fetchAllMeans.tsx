@@ -14,8 +14,7 @@ const handleSessionToken = (response: Response) => {
   }
 };
 
-async function fetchMean(category: string, filename: string): Promise<number | null> {
-  try {
+async function fetchMean(category: string, filename: string): Promise<number | null>{
     const resp = await fetch(`${API_URL}/api/timeseries/mean?category=${category}&filename=${filename}`, {
       headers: {
         ...getAuthHeaders(),
@@ -23,29 +22,11 @@ async function fetchMean(category: string, filename: string): Promise<number | n
     });
     handleSessionToken(resp);
     if (!resp.ok) {
-      const bodyText = await resp.text();
-      console.error("Failed to fetch mean:", bodyText);
-      const details = bodyText ? ` - ${bodyText}` : '';
-      if ([429, 500, 400].includes(resp.status)) {
-        const error = new Error(`HTTP ${resp.status}: ${resp.statusText}${details}`);
-        (error as any).status = resp.status;
-        (error as any).body = bodyText;
-        throw error;
-      }
-      return null;
+        console.error("Failed to fetch mean:", await resp.text());
+        return null;
     }
-
     const data = await resp.json();
     return data.mean ?? null;
-  } catch (err: any) {
-    // Re-throw errors we explicitly created for certain HTTP statuses (they carry a `status` field).
-    if (err && typeof err === 'object' && 'status' in err) {
-      throw err;
-    }
-    // For network or unexpected errors, log and return null so callers can handle gracefully.
-    console.warn(`Network or unexpected error while fetching mean for ${category}.${filename}:`, err);
-    return null;
-  }
 }
 
 export async function fetchAllMeans(
@@ -60,11 +41,11 @@ export async function fetchAllMeans(
         if (!meanValues[category]) {
           meanValues[category] = {};
         }
-        if (mean != null) {
-          meanValues[category][filename] = mean;
-        }
+          if (mean != null) {
+              meanValues[category][filename] = mean;
+          }
       } catch (err) {
-        console.warn(`Error fetching mean for ${category}.${filename}`, err);
+        console.warn(`Error fetching mean for ${category}.${filename}:`, err);
       }
     }
   }

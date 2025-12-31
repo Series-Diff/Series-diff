@@ -1,5 +1,5 @@
-import { useEffect, useState } from 'react';
-import { Button, Modal, Form, Spinner, Alert } from 'react-bootstrap';
+import { useState, useRef } from 'react';
+import { Button, Modal, Form, Spinner } from 'react-bootstrap';
 import './DashboardPage.css';
 import '../components/Chart/Chart.css';
 import '../components/Metric/Metrics.css';
@@ -12,29 +12,21 @@ import DifferenceSelectionPanel from './Dashboard/components/DifferenceSelection
 
 function DashboardPage() {
   const [chartMode, setChartMode] = useState<'standard' | 'difference'>('standard');
-  const [singleFileDismissed, setSingleFileDismissed] = useState(false);
+  const chartContainerRef = useRef<HTMLDivElement>(null);
   
   const { chartData, error, setError, isLoading, setIsLoading, filenamesPerCategory, handleFetchData, handleReset: baseReset } = hooks.useDataFetching();
   const { showMovingAverage, maWindow, setMaWindow, isMaLoading, rollingMeanChartData, handleToggleMovingAverage, handleApplyMaWindow, resetMovingAverage, } = hooks.useMovingAverage(filenamesPerCategory, setError);
   const { selectedCategory, secondaryCategory, handleRangeChange, syncColorsByFile, setSyncColorsByFile, filteredData, handleDropdownChange, handleSecondaryDropdownChange, resetChartConfig } = hooks.useChartConfiguration(filenamesPerCategory, chartData, rollingMeanChartData, showMovingAverage, maWindow);
-  const { maeValues, rmseValues, PearsonCorrelationValues, DTWValues, EuclideanValues, CosineSimilarityValues, groupedMetrics, metricErrors, isMetricsLoading, resetMetrics } = hooks.useMetricCalculations(filenamesPerCategory, selectedCategory, secondaryCategory);
+  const { maeValues, rmseValues, PearsonCorrelationValues, DTWValues, EuclideanValues, CosineSimilarityValues, groupedMetrics, resetMetrics } = hooks.useMetricCalculations(filenamesPerCategory, selectedCategory, secondaryCategory);
   const { scatterPoints, isScatterLoading, isScatterOpen, selectedPair, handleCloseScatter, handleCellClick } = hooks.useScatterPlot();
   const { showTitleModal, setShowTitleModal, reportTitle, setReportTitle, isExporting, handleExportClick, handleExportToPDF } = hooks.useExport(chartData);
-  const { isPopupOpen, selectedFiles, handleFileUpload, handlePopupComplete, handlePopupClose, handlePopupError, resetFileUpload } = hooks.useFileUpload(handleFetchData, setError, setIsLoading);
+  const { isPopupOpen, selectedFiles, handleFileUpload, handlePopupComplete, handlePopupClose, resetFileUpload } = hooks.useFileUpload(handleFetchData, setError, setIsLoading);
 
   const hasData = Object.keys(chartData).length > 0;
-  // Count unique files across all categories
-  const uniqueFiles = new Set(Object.values(filenamesPerCategory).flat());
-  const totalFilesLoaded = Object.values(filenamesPerCategory).reduce((sum, files) => sum + files.length, 0);
-  const shouldShowSingleFileAlert = uniqueFiles.size === 1 && !singleFileDismissed;
   
-  const chartPanelStyle = {
-    display: 'flex',
-    flexDirection: 'column' as const,
-    gap: '16px',
-    height: `calc(100vh - var(--nav-height) - 2 * var(--section-margin))`,
-    overflow: 'hidden' as const,
-  };
+  // Dynamic height calculation for chart container
+  // Recalculates when hasData or isLoading changes (to handle layout changes after data loads)
+  const chartDynamicHeight = hooks.useDynamicHeight(chartContainerRef, [hasData, isLoading]);
   
   // Difference chart hook
   const {
@@ -68,25 +60,32 @@ function DashboardPage() {
 
   const hasDifferenceData = Object.keys(differenceChartData).length > 0;
   const isInDifferenceMode = chartMode === 'difference';
-
-  const hasStatistics = Object.keys(groupedMetrics).length > 0;
-  const statisticsError = metricErrors['statistics'];
   
   // Check if there are enough files for difference chart (need at least 2 files in any category)
   const hasEnoughFilesForDifference = Object.values(filenamesPerCategory).some(files => files.length >= 2);
+  const totalFilesLoaded = Object.values(filenamesPerCategory).reduce((sum, files) => sum + files.length, 0);
 
-  useEffect(() => {
-    setSingleFileDismissed(false);
-  }, [totalFilesLoaded]);
+  // Determine if we need full height:
+  // - Standard mode without data: full height
+  // - Difference mode: always full height (no statistics below)
+  const needsFullHeight = isInDifferenceMode || !hasData;
 
-  const mainStyle = {
-    gap: '16px',
-    minHeight: `calc(100vh - var(--nav-height) - 2 * var(--section-margin))`,
+  // Use height (not minHeight) for diff mode to prevent scroll
+  // overflow: hidden prevents scrollbar from appearing
+  const mainStyle = needsFullHeight ? {
+    gap: "16px",
+    height: `calc(100vh - var(--nav-height) - 2 * var(--section-margin))`,
+    overflow: "hidden" as const
+  } : {
+    gap: "16px",
+    minHeight: `calc(100vh - var(--nav-height) - 2 * var(--section-margin))`
   };
 
-  const chartLayoutClass = 'd-flex flex-column gap-3 w-100 flex-grow-1';
+  // Chart layout container: h-100 when we need full height
+  const chartLayoutClass = `d-flex flex-column gap-3 w-100 flex-grow-1${needsFullHeight ? ' h-100' : ''}`;
 
-  const chartContainerClass = 'Chart-container section-container position-relative d-flex flex-column flex-grow-1';
+  // Chart container: flex-grow-1 to fill available space
+  const chartContainerClass = `Chart-container section-container position-relative flex-grow-1`;
 
   const toggleChartMode = () => {
     setChartMode(prev => prev === 'standard' ? 'difference' : 'standard');
@@ -96,95 +95,69 @@ function DashboardPage() {
     <div className="d-flex" style={mainStyle}>
       <div className="App-main-content flex-grow-1 d-flex align-items-start w-100 rounded">
         <div className={chartLayoutClass}>
-          <div style={chartPanelStyle}>
-            {/* Controls Panel - changes based on mode */}
-            {isInDifferenceMode ? (
-              <ControlsPanel
-                mode="difference"
-                filenamesPerCategory={filenamesPerCategory}
-                selectedDiffCategory={selectedDiffCategory}
-                handleDiffCategoryChange={handleDiffCategoryChange}
-                customToleranceValue={customToleranceValue}
-                setCustomToleranceValue={setCustomToleranceValue}
-                handleApplyTolerance={handleApplyTolerance}
-                handleResetTolerance={handleResetTolerance}
-                isDiffLoading={isDiffLoading}
-                isLoading={isLoading}
-                handleFileUpload={handleFileUpload}
-                handleReset={handleReset}
-              />
-            ) : (
-              <ControlsPanel
-                mode="standard"
-                selectedCategory={selectedCategory}
-                secondaryCategory={secondaryCategory}
-                filenamesPerCategory={filenamesPerCategory}
-                handleDropdownChange={handleDropdownChange}
-                handleSecondaryDropdownChange={handleSecondaryDropdownChange}
-                showMovingAverage={showMovingAverage}
-                handleToggleMovingAverage={handleToggleMovingAverage}
-                isMaLoading={isMaLoading}
-                maWindow={maWindow}
-                setMaWindow={setMaWindow}
-                handleApplyMaWindow={handleApplyMaWindow}
-                syncColorsByFile={syncColorsByFile}
-                setSyncColorsByFile={setSyncColorsByFile}
-                isLoading={isLoading}
-                handleFileUpload={handleFileUpload}
-                handleReset={handleReset}
-              />
-            )}
-            
-            {/* Show general errors, but not tolerance/diff-related errors (those are shown in chart area) */}
-            {error && !error.includes('No overlapping timestamps') && !error.includes('tolerance') && !error.includes('no units specified') && (
-              <Alert
-                variant={error.includes('Storage quota exceeded') ? 'warning' : 'danger'}
-                className="mb-0"
-                dismissible
-                onClose={() => setError(null)}
-              >
-                <strong>{error.includes('Storage quota exceeded') ? 'Storage Warning:' : 'Error:'}</strong> {error}
-                {error.includes('Storage quota exceeded') && (
-                  <>
-                    <br />
-                    <small className="mt-2 d-block">
-                      LocalStorage has a typical limit of 5-10MB per domain. Consider resetting the application or clearing cache if problems persist.
-                    </small>
-                  </>
-                )}
-              </Alert>
-            )}
-
-            {shouldShowSingleFileAlert && (
-              <Alert
-                variant="warning"
-                className="mb-0"
-                dismissible
-                onClose={() => setSingleFileDismissed(true)}
-              >
-                <strong>More files needed:</strong> Comparison metrics require at least two files in the same category. Upload another file to view full statistics and pairwise tables.
-              </Alert>
-            )}
-            
-            {/* Chart Container */}
-            <div 
-              className={chartContainerClass}
-              style={{ flex: 1, minHeight: 0 }}
-            >
+          {/* Controls Panel - changes based on mode */}
+          {isInDifferenceMode ? (
+            <ControlsPanel
+              mode="difference"
+              filenamesPerCategory={filenamesPerCategory}
+              selectedDiffCategory={selectedDiffCategory}
+              handleDiffCategoryChange={handleDiffCategoryChange}
+              customToleranceValue={customToleranceValue}
+              setCustomToleranceValue={setCustomToleranceValue}
+              handleApplyTolerance={handleApplyTolerance}
+              handleResetTolerance={handleResetTolerance}
+              isDiffLoading={isDiffLoading}
+              isLoading={isLoading}
+              handleFileUpload={handleFileUpload}
+              handleReset={handleReset}
+            />
+          ) : (
+            <ControlsPanel
+              mode="standard"
+              selectedCategory={selectedCategory}
+              secondaryCategory={secondaryCategory}
+              filenamesPerCategory={filenamesPerCategory}
+              handleDropdownChange={handleDropdownChange}
+              handleSecondaryDropdownChange={handleSecondaryDropdownChange}
+              showMovingAverage={showMovingAverage}
+              handleToggleMovingAverage={handleToggleMovingAverage}
+              isMaLoading={isMaLoading}
+              maWindow={maWindow}
+              setMaWindow={setMaWindow}
+              handleApplyMaWindow={handleApplyMaWindow}
+              syncColorsByFile={syncColorsByFile}
+              setSyncColorsByFile={setSyncColorsByFile}
+              isLoading={isLoading}
+              handleFileUpload={handleFileUpload}
+              handleReset={handleReset}
+            />
+          )}
+          
+          {/* Show general errors, but not tolerance/diff-related errors (those are shown in chart area) */}
+          {error && !error.includes('No overlapping timestamps') && !error.includes('tolerance') && !error.includes('no units specified') && (
+            <p className="text-danger text-center mb-0">Error: {error}</p>
+          )}
+          
+          {/* Chart Container */}
+          <div 
+            ref={chartContainerRef}
+            className={chartContainerClass}
+            style={chartDynamicHeight ? { minHeight: chartDynamicHeight } : undefined}
+          >
             {/* Standard Chart Mode */}
             {!isInDifferenceMode && (
               <>
                 {isLoading && !hasData &&
-                  <div className="d-flex align-items-center justify-content-center text-muted flex-grow-1 flex-fill">
+                  <div className="d-flex align-items-center justify-content-center text-muted flex-grow-1" style={{ minHeight: chartDynamicHeight }}>
                     <Spinner animation="border" size="sm" className="me-2" />
                     Loading chart...
                   </div>}
                 {!isLoading && !hasData && !error &&
-                  <div className="d-flex align-items-center justify-content-center text-muted flex-grow-1 flex-fill">
+                  <div className="d-flex align-items-center justify-content-center text-muted flex-grow-1" style={{ minHeight: chartDynamicHeight }}>
                     Load data to visualize
                   </div>}
                 {!isLoading && hasData && (
-                  <div className="chart-wrapper flex-grow-1" style={{ height: '100%' }}>
+                  <div className="chart-wrapper" style={{ height: chartDynamicHeight }}>
                     <components.MyChart 
                       primaryData={filteredData.primary}
                       secondaryData={filteredData.secondary || undefined}
@@ -200,12 +173,12 @@ function DashboardPage() {
               <>
                 {/* Not enough files loaded */}
                 {!hasData && !isLoading && !error && (
-                  <div className="d-flex align-items-center justify-content-center text-muted flex-grow-1 flex-fill">
+                  <div className="d-flex align-items-center justify-content-center text-muted flex-grow-1" style={{ minHeight: chartDynamicHeight }}>
                     Load data to visualize differences
                   </div>
                 )}
                 {hasData && !hasEnoughFilesForDifference && (
-                  <div className="d-flex align-items-center justify-content-center text-muted flex-grow-1 flex-fill">
+                  <div className="d-flex align-items-center justify-content-center text-muted flex-grow-1" style={{ minHeight: chartDynamicHeight }}>
                     <div>
                       <p className="mb-2">Difference chart requires at least 2 files in the same category.</p>
                       <p className="small mb-0">Currently loaded: {totalFilesLoaded} file{totalFilesLoaded !== 1 ? 's' : ''} across {Object.keys(filenamesPerCategory).length} categor{Object.keys(filenamesPerCategory).length !== 1 ? 'ies' : 'y'}.</p>
@@ -216,13 +189,13 @@ function DashboardPage() {
                 {hasData && hasEnoughFilesForDifference && (
                   <>
                     {isDiffLoading && (
-                      <div className="d-flex align-items-center justify-content-center text-muted flex-grow-1 flex-fill">
+                      <div className="d-flex align-items-center justify-content-center text-muted flex-grow-1" style={{ minHeight: chartDynamicHeight }}>
                         <Spinner animation="border" size="sm" className="me-2" />
                         Loading difference data...
                       </div>
                     )}
                     {!isDiffLoading && diffError && (
-                      <div className="d-flex align-items-center justify-content-center text-muted flex-grow-1 flex-fill text-center">
+                      <div className="d-flex align-items-center justify-content-center text-muted flex-grow-1 text-center" style={{ minHeight: chartDynamicHeight }}>
                         <div>
                           <p className="mb-2">Unable to render difference chart with current tolerance.</p>
                           <p className="small mb-0">{diffError.includes('No overlapping timestamps') ? 'No overlapping timestamps within tolerance. Reset tolerance to see the chart.' : diffError}</p>
@@ -230,12 +203,12 @@ function DashboardPage() {
                       </div>
                     )}
                     {!isDiffLoading && !diffError && !hasDifferenceData && !error && (
-                      <div className="d-flex align-items-center justify-content-center text-muted flex-grow-1 flex-fill">
+                      <div className="d-flex align-items-center justify-content-center text-muted flex-grow-1" style={{ minHeight: chartDynamicHeight }}>
                         Select differences to visualize
                       </div>
                     )}
                     {!isDiffLoading && !diffError && hasDifferenceData && (
-                      <div className="chart-wrapper flex-grow-1" style={{ height: '100%' }}>
+                      <div className="chart-wrapper">
                         <components.MyChart 
                           primaryData={differenceChartData}
                         />
@@ -258,174 +231,147 @@ function DashboardPage() {
               </Button>
             )}
           </div>
-        </div>
           
           {/* Standard mode specific sections - hidden in difference mode */}
           {!isInDifferenceMode && (
             <>
-              {(hasStatistics || statisticsError || isMetricsLoading) && (
+              {Object.keys(groupedMetrics).length > 0 && (
                 <div className="section-container p-3">
                   <div className="d-flex justify-content-end align-items-center">
                     {isExporting && <Spinner animation="border" size="sm" className="me-2" />}
-                    {hasStatistics && !isMetricsLoading && (
-                      <Button
-                        variant="secondary"
-                        onClick={handleExportClick}
-                        disabled={!hasData || isExporting}
-                      >
-                        {isExporting ? 'Exporting...' : 'Export to PDF'}
-                      </Button>
-                    )}
+                    <Button
+                      variant="secondary"
+                      onClick={handleExportClick}
+                      disabled={!hasData || isExporting}
+                    >
+                      {isExporting ? 'Exporting...' : 'Export to PDF'}
+                    </Button>
                   </div>
-                  <components.Metrics groupedMetrics={groupedMetrics} error={statisticsError} isLoading={isMetricsLoading} />
+                  <components.Metrics groupedMetrics={groupedMetrics} />
                 </div>
               )}
-              {selectedCategory && (PearsonCorrelationValues[selectedCategory] || metricErrors['PearsonCorrelationValues'] || isMetricsLoading) && filenamesPerCategory[selectedCategory]?.length > 1 && (
-                <div className="section-container p-3 d-flex flex-column gap-3">
+              {selectedCategory && PearsonCorrelationValues[selectedCategory] && (
+                <div className="section-container p-3">
                   <components.CorrelationTable
-                    data={PearsonCorrelationValues[selectedCategory] || {}}
+                    data={PearsonCorrelationValues[selectedCategory]}
                     category={selectedCategory}
                     onCellClick={(file1, file2) =>
                       handleCellClick(file1, file2, selectedCategory)
                     }
                     metric="Pearson Correlation"
-                    error={metricErrors['PearsonCorrelationValues']}
-                    isLoading={isMetricsLoading}
                   />
 
-                  {secondaryCategory && (PearsonCorrelationValues[secondaryCategory] || metricErrors['PearsonCorrelationValues']) && filenamesPerCategory[secondaryCategory]?.length > 1 && (
-                    <div>
+                  {secondaryCategory && PearsonCorrelationValues[secondaryCategory] && (
+                    <div className="mt-4">
                       <components.CorrelationTable
-                        data={PearsonCorrelationValues[secondaryCategory] || {}}
+                        data={PearsonCorrelationValues[secondaryCategory]}
                         category={secondaryCategory}
                         onCellClick={(file1, file2) =>
                           handleCellClick(file1, file2, secondaryCategory)
                         }
                         metric="Pearson Correlation"
-                        error={metricErrors['PearsonCorrelationValues']}
-                        isLoading={isMetricsLoading}
                       />
                     </div>
                   )}
                 </div>
               )}
 
-              {selectedCategory && (CosineSimilarityValues[selectedCategory] || metricErrors['CosineSimilarityValues'] || isMetricsLoading) && filenamesPerCategory[selectedCategory]?.length > 1 && (
-                <div className="section-container p-3 d-flex flex-column gap-3">
+              {selectedCategory && CosineSimilarityValues[selectedCategory] && (
+                <div className="section-container p-3">
                   <components.CorrelationTable
-                    data={CosineSimilarityValues[selectedCategory] || {}}
+                    data={CosineSimilarityValues[selectedCategory]}
                     category={selectedCategory}
                     clickable={false}
                     metric="Cosine Similarity"
-                    error={metricErrors['CosineSimilarityValues']}
-                    isLoading={isMetricsLoading}
                   />
 
-                  {secondaryCategory && (CosineSimilarityValues[secondaryCategory] || metricErrors['CosineSimilarityValues']) && filenamesPerCategory[secondaryCategory]?.length > 1 && (
-                    <div>
+                  {secondaryCategory && CosineSimilarityValues[secondaryCategory] && (
+                    <div className="mt-3">
                       <components.CorrelationTable
-                        data={CosineSimilarityValues[secondaryCategory] || {}}
+                        data={CosineSimilarityValues[secondaryCategory]}
                         category={secondaryCategory}
                         clickable={false}
                         metric="Cosine Similarity"
-                        error={metricErrors['CosineSimilarityValues']}
-                        isLoading={isMetricsLoading}
                       />
                     </div>
                   )}
                 </div>
               )}
 
-              {selectedCategory && (maeValues[selectedCategory] || metricErrors['maeValues'] || isMetricsLoading) && filenamesPerCategory[selectedCategory]?.length > 1 && (
-                <div className="section-container p-3 d-flex flex-column gap-3">
+              {selectedCategory && maeValues[selectedCategory] && (
+                <div className="section-container p-3">
                   <components.StandardTable
-                    data={maeValues[selectedCategory] || {}}
+                    data={maeValues[selectedCategory]}
                     category={selectedCategory}
                     metric="MAE"
-                    error={metricErrors['maeValues']}
-                    isLoading={isMetricsLoading}
                   />
 
-                  {secondaryCategory && (maeValues[secondaryCategory] || metricErrors['maeValues']) && filenamesPerCategory[secondaryCategory]?.length > 1 && (
-                    <div>
+                  {secondaryCategory && maeValues[secondaryCategory] && (
+                    <div className="mt-3">
                       <components.StandardTable
-                        data={maeValues[secondaryCategory] || {}}
+                        data={maeValues[secondaryCategory]}
                         category={secondaryCategory}
                         metric="MAE"
-                        error={metricErrors['maeValues']}
-                        isLoading={isMetricsLoading}
                       />
                     </div>
                   )}
                 </div>
               )}
 
-              {selectedCategory && (rmseValues[selectedCategory] || metricErrors['rmseValues'] || isMetricsLoading) && filenamesPerCategory[selectedCategory]?.length > 1 && (
-                <div className="section-container p-3 d-flex flex-column gap-3">
+              {selectedCategory && rmseValues[selectedCategory] && (
+                <div className="section-container p-3">
                   <components.StandardTable
-                    data={rmseValues[selectedCategory] || {}}
+                    data={rmseValues[selectedCategory]}
                     category={selectedCategory}
                     metric="RMSE"
-                    error={metricErrors['rmseValues']}
-                    isLoading={isMetricsLoading}
                   />
 
-                  {secondaryCategory && (rmseValues[secondaryCategory] || metricErrors['rmseValues']) && filenamesPerCategory[secondaryCategory]?.length > 1 && (
-                    <div>
+                  {secondaryCategory && rmseValues[secondaryCategory] && (
+                    <div className="mt-3">
                       <components.StandardTable
-                        data={rmseValues[secondaryCategory] || {}}
+                        data={rmseValues[secondaryCategory]}
                         category={secondaryCategory}
                         metric="RMSE"
-                        error={metricErrors['rmseValues']}
-                        isLoading={isMetricsLoading}
                       />
                     </div>
                   )}
                 </div>
               )}
 
-              {selectedCategory && (DTWValues[selectedCategory] || metricErrors['DTWValues'] || isMetricsLoading) && filenamesPerCategory[selectedCategory]?.length > 1 && (
-                <div className="section-container p-3 d-flex flex-column gap-3">
+              {selectedCategory && DTWValues[selectedCategory] && (
+                <div className="section-container p-3">
                   <components.StandardTable
-                    data={DTWValues[selectedCategory] || {}}
+                    data={DTWValues[selectedCategory]}
                     category={selectedCategory}
                     metric="DTW"
-                    error={metricErrors['DTWValues']}
-                    isLoading={isMetricsLoading}
                   />
 
-                  {secondaryCategory && (DTWValues[secondaryCategory] || metricErrors['DTWValues']) && filenamesPerCategory[secondaryCategory]?.length > 1 && (
-                    <div>
+                  {secondaryCategory && DTWValues[secondaryCategory] && (
+                    <div className="mt-4">
                       <components.StandardTable
-                        data={DTWValues[secondaryCategory] || {}}
+                        data={DTWValues[secondaryCategory]}
                         category={secondaryCategory}
                         metric="DTW"
-                        error={metricErrors['DTWValues']}
-                        isLoading={isMetricsLoading}
                       />
                     </div>
                   )}
                 </div>
               )}
 
-              {selectedCategory && (EuclideanValues[selectedCategory] || metricErrors['EuclideanValues'] || isMetricsLoading) && filenamesPerCategory[selectedCategory]?.length > 1 && (
-                <div className="section-container p-3 d-flex flex-column gap-3">
+              {selectedCategory && EuclideanValues[selectedCategory] && (
+                <div className="section-container p-3">
                   <components.StandardTable
-                    data={EuclideanValues[selectedCategory] || {}}
+                    data={EuclideanValues[selectedCategory]}
                     category={selectedCategory}
                     metric="Euclidean"
-                    error={metricErrors['EuclideanValues']}
-                    isLoading={isMetricsLoading}
                   />
 
-                  {secondaryCategory && (EuclideanValues[secondaryCategory] || metricErrors['EuclideanValues']) && filenamesPerCategory[secondaryCategory]?.length > 1 && (
-                    <div>
+                  {secondaryCategory && EuclideanValues[secondaryCategory] && (
+                    <div className="mt-4">
                       <components.StandardTable
-                        data={EuclideanValues[secondaryCategory] || {}}
+                        data={EuclideanValues[secondaryCategory]}
                         category={secondaryCategory}
                         metric="Euclidean"
-                        error={metricErrors['EuclideanValues']}
-                        isLoading={isMetricsLoading}
                       />
                     </div>
                   )}

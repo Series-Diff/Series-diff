@@ -18,7 +18,7 @@ export async function fetchEuclidean(
     filename1: string,
     filename2: string,
     tolerance?: string
-): Promise<number | null> {
+    ): Promise<number | null> {
     const toleranceParam = tolerance !== undefined ? String(tolerance) : undefined;
     const params = new URLSearchParams({
         category: category.trim(),
@@ -26,33 +26,20 @@ export async function fetchEuclidean(
         filename2: filename2.trim(),
         ...(toleranceParam && { tolerance: toleranceParam })
     });
+    const resp = await fetch(`${API_URL}/api/timeseries/euclidean_distance?${params}`, {
+      headers: {
+        ...getAuthHeaders(),
+      },
+    });
+    handleSessionToken(resp);
 
-    try {
-        const resp = await fetch(`${API_URL}/api/timeseries/euclidean_distance?${params}`, {
-            headers: {
-                ...getAuthHeaders(),
-            },
-        });
-        handleSessionToken(resp);
-        if (!resp.ok) {
-          const bodyText = await resp.text();
-          console.error("Failed to fetch euclidean distance:", bodyText);
-          if ([429, 500, 400].includes(resp.status)) {
-            const details = bodyText ? ` - ${bodyText}` : '';
-            const error = new Error(`HTTP ${resp.status}: ${resp.statusText}${details}`);
-            (error as any).status = resp.status;
-            (error as any).body = bodyText;
-            throw error;
-          }
-          return null;
-        }
-        const data = await resp.json();
-        return data.euclidean_distance ?? 0;
-      } catch (err) {
-        // Rethrow to allow callers/tests to observe network errors
-        throw err;
-      }
-}
+    if (!resp.ok) {
+        console.error("Failed to fetch euclidean distance:", await resp.text());
+        return null;
+    }
+    const data = await resp.json();
+    return data.euclidean_distance ?? 0;
+    }
     // Funkcja pobiera macierz odległości euklidesowych między wszystkimi plikami w danej kategorii
 export async function fetchAllEuclideans(
   filenames: string[],

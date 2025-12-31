@@ -40,8 +40,8 @@ export async function fetchRollingMean(
     for (const [timestamp, value] of Object.entries(rollingMeanData)) {
       if (typeof value === 'number') {
         seriesData.push({
-          x: timestamp, // Timestamp
-          y: value,     // Value
+          x: timestamp, // Znacznik czasu
+          y: value,     // Wartość
         });
       }
     }
@@ -49,9 +49,6 @@ export async function fetchRollingMean(
     seriesData.sort((a, b) => new Date(a.x).getTime() - new Date(b.x).getTime());
 
     out['rolling_mean'] = seriesData;
-    if (seriesData.length === 0) {
-      console.warn(`No valid numerical data points found in rolling_mean for ${category}/${filename}`);
-    }
 
   } else {
     console.warn(`Unexpected data structure from rolling_mean API for ${category}/${filename}:`, data);
@@ -76,19 +73,23 @@ export async function fetchAllRollingMeans(
       try {
         const seriesMap = await fetchRollingMean(category, filename, window_size);
 
-        for (const seriesKey in seriesMap) {
-          const seriesData = seriesMap[seriesKey];
+        if (seriesMap && typeof seriesMap === 'object' && !Array.isArray(seriesMap)) {
 
-          const fullKey = `${keyPrefix}.${seriesKey}`;
+          for (const seriesKey in seriesMap) {
+            const seriesData = seriesMap[seriesKey];
 
-          if (seriesData.length > 0) {
-            rollingMeanValues[fullKey] = seriesData;
-          } else {
-            console.warn(`Empty array for sub-key ${fullKey}, skipping. Received:`, seriesData);
+            const fullKey = `${keyPrefix}.${seriesKey}`;
+
+            if (Array.isArray(seriesData)) {
+              rollingMeanValues[fullKey] = seriesData;
+            } else {
+              console.warn(`Data for sub-key ${fullKey} was not an array, skipping. Received:`, seriesData);
+            }
           }
-        }
-        if (Object.keys(seriesMap).length === 0) {
-          console.log(`No rolling mean data found for ${keyPrefix}.`);
+        } else if (Object.keys(seriesMap).length === 0) {
+            console.log(`No rolling mean data found for ${keyPrefix}.`);
+        } else {
+            console.warn(`Unexpected data structure for ${keyPrefix}. Expected an object, received:`, seriesMap);
         }
 
       } catch (err) {
