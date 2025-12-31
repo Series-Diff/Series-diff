@@ -30,12 +30,21 @@ export async function fetchCosineSimilarity(
     });
     handleSessionToken(response);
 
-    // Jeśli zapytanie nie powiodło się — logujemy błąd i zwracamy null
+    // Jeśli zapytanie nie powiodło się — logujemy błąd i rzucamy exception dla poważnych błędów
     if (!response.ok) {
+      const errorText = await response.text();
       console.error(
         `Failed to fetch cosine similarity for ${filename1} vs ${filename2}:`,
-        await response.text()
+        errorText
       );
+      // Throw exception for 429/500/400 errors so they can be caught and displayed
+      if (response.status === 429 || response.status === 500 || response.status === 400) {
+        const details = errorText ? ` - ${errorText}` : '';
+        const error = new Error(`HTTP ${response.status}: ${response.statusText}${details}`);
+        (error as any).status = response.status;
+        (error as any).body = errorText;
+        throw error;
+      }
       return null;
     }
 
@@ -43,6 +52,10 @@ export async function fetchCosineSimilarity(
     const data = await response.json();
     return data.cosine_similarity ?? null;
   } catch (err) {
+    // Re-throw network errors and HTTP errors so they propagate to useMetricCalculations
+    if (err instanceof TypeError || (err as any)?.status) {
+      throw err;
+    }
     console.error(`Error fetching cosine similarity for ${filename1} vs ${filename2}:`, err);
     return null;
   }
@@ -59,8 +72,13 @@ export async function fetchAllCosineSimilarities(
   for (const file1 of filenames) {
     similarities[file1] = {};
     for (const file2 of filenames) {
-      const value = await fetchCosineSimilarity(file1, file2, category);
-      similarities[file1][file2] = value ?? 0;
+      try {
+        const value = await fetchCosineSimilarity(file1, file2, category);
+        similarities[file1][file2] = value ?? 0;
+      } catch (err) {
+        // Re-throw errors so they propagate to useMetricCalculations
+        throw err;
+      }
     }
   }
 
