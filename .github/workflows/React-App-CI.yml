@@ -11,10 +11,8 @@ on:
 jobs:
   build-and-test:
     runs-on: ubuntu-latest
-
-    defaults:
-      run:
-        working-directory: client
+    env:
+      IS_E2E: ${{ github.event_name == 'pull_request' || (github.event_name == 'push' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/dev')) }}
 
     steps:
       - name: Checkout repository
@@ -24,46 +22,107 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: 20
-          
-      - name: Cache node modules
+
+      - name: Cache NPM
         uses: actions/cache@v4
         with:
           path: ~/.npm
-          key: ${{ runner.os }}-node-${{ hashFiles('client/package-lock.json') }}
-          restore-keys: ${{ runner.os }}-node-
+          key: ${{ runner.os }}-npm-${{ hashFiles('client/package-lock.json') }}
+          restore-keys: ${{ runner.os }}-npm-
 
-      - name: Cache Playwright browsers
-        uses: actions/cache@v4
-        with:
-          path: ~/.cache/ms-playwright
-          key: ${{ runner.os }}-playwright-${{ hashFiles('client/package-lock.json') }}
-          restore-keys: ${{ runner.os }}-playwright-
+      - name: Fix permissions
+        run: sudo chown -R $(id -u):$(id -g) client/
 
-      - name: Cache apt packages
-        uses: actions/cache@v4
-        with:
-          path: /var/cache/apt/archives
-          key: ${{ runner.os }}-apt-${{ hashFiles('client/package-lock.json') }}
-          restore-keys: ${{ runner.os }}-apt-
+      - name: Install dependencies
+        working-directory: client
+        run: npm ci --cache ~/.npm --prefer-offline
+
+      - name: Build project
+        working-directory: client
+        run: CI=false npm run build
+
+      - name: Run unit tests
+        working-directory: client
+        run: npm test -- --watchAll=false --passWithNoTests
 
       - name: Install minimal apt dependencies for Playwright
+        if: env.IS_E2E == 'true'
         run: |
           sudo apt-get update
           sudo apt-get install -y --no-install-recommends \
             libnss3 libatk-bridge2.0-0 libdrm-dev libxkbcommon-dev libgbm-dev libasound2t64 \
             libatspi2.0-0 libxshmfence-dev fonts-liberation fonts-noto-color-emoji
 
-      - name: Install npm dependencies
-        run: npm ci
+      - name: Set up Docker Buildx
+        if: env.IS_E2E == 'true'
+        uses: docker/setup-buildx-action@v3
 
-      - name: Build project
-        run: CI=false npm run build
+      - name: Cache Docker layers (backend)
+        if: env.IS_E2E == 'true'
+        uses: actions/cache@v4
+        with:
+          key: ${{ runner.os }}-docker-backend-${{ hashFiles('docker-compose.yml', 'Flask-API/Dockerfile') }}
+          path: /tmp/docker-cache-backend
+          restore-keys: ${{ runner.os }}-docker-backend-
 
-      - name: Run unit tests
-        run: npm test -- --watchAll=false --passWithNoTests
+      - name: Cache Docker layers (frontend)
+        if: env.IS_E2E == 'true'
+        uses: actions/cache@v4
+        with:
+          key: ${{ runner.os }}-docker-frontend-${{ hashFiles('docker-compose.yml', 'client/Dockerfile') }}
+          path: /tmp/docker-cache-frontend
+          restore-keys: ${{ runner.os }}-docker-frontend-
+
+      - name: Build backend image
+        if: env.IS_E2E == 'true'
+        uses: docker/build-push-action@v6
+        with:
+          context: ./Flask-API
+          file: ./Flask-API/Dockerfile
+          push: false
+          tags: series-diff-backend:latest
+          cache-from: type=local,src=/tmp/docker-cache-backend
+          cache-to: type=local,dest=/tmp/docker-cache-backend,mode=max
+
+      - name: Build frontend image
+        if: env.IS_E2E == 'true'
+        uses: docker/build-push-action@v6
+        with:
+          context: ./client
+          file: ./client/Dockerfile
+          push: false
+          tags: series-diff-frontend:latest
+          cache-from: type=local,src=/tmp/docker-cache-frontend
+          cache-to: type=local,dest=/tmp/docker-cache-frontend,mode=max
+
+      - name: Start services
+        if: env.IS_E2E == 'true'
+        run: docker compose up -d
+
+      - name: Wait for services
+        if: env.IS_E2E == 'true'
+        run: |
+          timeout 30 bash -c 'until nc -z localhost 5000; do sleep 1; done'
+          timeout 30 bash -c 'until nc -z localhost 3000; do sleep 1; done'
+
+      - name: Cache Playwright browsers
+        if: env.IS_E2E == 'true'
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/ms-playwright
+          key: ${{ runner.os }}-playwright-${{ hashFiles('client/package-lock.json') }}
+          restore-keys: ${{ runner.os }}-playwright-
 
       - name: Install Playwright
+        if: env.IS_E2E == 'true'
+        working-directory: client
         run: npx playwright install --with-deps
 
       - name: Run E2E tests
+        if: env.IS_E2E == 'true'
+        working-directory: client
         run: npx playwright test
+
+      - name: Stop services
+        if: always() && env.IS_E2E == 'true'
+        run: docker compose down
