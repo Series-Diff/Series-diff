@@ -1,22 +1,19 @@
 import sys
 import uuid
-from services.time_series_manager import TimeSeriesManager
+from container import container
 import services.metric_service as metric_service
 from utils.data_utils import pivot_file
 from flask_cors import CORS
 from flask import Flask, jsonify, request
-from flask_limiter import Limiter
-from flask_limiter.util import get_remote_address
 from utils.time_utils import convert_timeseries_keys_timezone
 
 sys.stdout.reconfigure(line_buffering=True)
 
-
-timeseries_manager = TimeSeriesManager()
 app = Flask(__name__)
 app.config["MAX_CONTENT_LENGTH"] = 16 * 1024 * 1024  # 16MB max
 CORS(
     app,
+    expose_headers=["X-Session-ID"],
     resources={
         r"/api/*": {
             "origins": "*",
@@ -24,20 +21,23 @@ CORS(
         }
     },
 )
-logger = app.logger
-logger.setLevel("DEBUG")
 
-limiter = Limiter(
-    app=app,
-    key_func=get_remote_address,
-    default_limits=["800 per day", "90 per hour"],
-)
+logger = container.logger
+redis_client = container.redis_client
+timeseries_manager = container.time_series_manager
+limiter = container.limiter
+limiter.init_app(app)
 
 
 def _all_required_services_are_running():
     """
     Check if all required services are running.
     """
+    try:
+        redis_client.ping()
+    except Exception:
+        logger.error("Redis service is not running.")
+        return False
     return True
 
 
@@ -72,10 +72,12 @@ def _create_response(data, status_code=200, token=None):
 
 @app.route("/health")
 def health_check():
-    if _all_required_services_are_running():
-        return "OK", 200
-    else:
-        return "Service Unavailable", 500
+    try:
+        if _all_required_services_are_running():
+            return "OK", 200
+    except Exception as e:
+        logger.error(f"Health check failed: {e}")
+    return "Service Unavailable", 503
 
 
 @app.route("/", methods=["GET"])
@@ -103,7 +105,7 @@ def get_timeseries():
     try:
         data = timeseries_manager.get_timeseries(
             token=token,
-            time=time,
+            timestamp=time,
             filename=filename,
             category=category,
             start=start,
@@ -877,6 +879,7 @@ def get_rolling_mean():
 
 @app.route("/api/timeseries/dtw", methods=["GET"])
 def get_dtw():
+    token, _ = _get_session_token()
     filename1 = request.args.get("filename1")
     filename2 = request.args.get("filename2")
     category = request.args.get("category")
@@ -885,11 +888,11 @@ def get_dtw():
 
     try:
         data1 = timeseries_manager.get_timeseries(
-            filename=filename1, category=category, start=start, end=end
+            token=token, filename=filename1, category=category, start=start, end=end
         )
         series1 = metric_service.extract_series_from_dict(data1, category, filename1)
         data2 = timeseries_manager.get_timeseries(
-            filename=filename2, category=category, start=start, end=end
+            token=token, filename=filename2, category=category, start=start, end=end
         )
         series2 = metric_service.extract_series_from_dict(data2, category, filename2)
 
