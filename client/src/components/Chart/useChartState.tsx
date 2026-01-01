@@ -55,14 +55,20 @@ export const useChartState = (
     // Set initial X-range based on data
     // This hook allows for dynamic X-axis range right after loading data, without it you need to refresh the page first
     useEffect(() => {
-        const allXValues = Object.values(allData).flat().map(d => new Date(d.x));
-        if (allXValues.length === 0) return;
-        const minDate = new Date(Math.min(...allXValues.map(d => d.getTime())));
-        const maxDate = new Date(Math.max(...allXValues.map(d => d.getTime())));
+        const allXStrings = Object.values(allData).flat().map(d => d.x);
+        if (allXStrings.length === 0) return;
+                const stringsWithTimestamps = allXStrings.map(str => ({
+            str,
+            ts: new Date(str).getTime()
+        }));
+        const minTs = Math.min(...stringsWithTimestamps.map(item => item.ts));
+        const maxTs = Math.max(...stringsWithTimestamps.map(item => item.ts));
+        const minXString = stringsWithTimestamps.find(item => item.ts === minTs)?.str || allXStrings[0];
+        const maxXString = stringsWithTimestamps.find(item => item.ts === maxTs)?.str || allXStrings[allXStrings.length - 1];
 
         const fakeEvent = {
-            'xaxis.range[0]': minDate.toISOString(),
-            'xaxis.range[1]': maxDate.toISOString(),
+            'xaxis.range[0]': minXString,
+            'xaxis.range[1]': maxXString,
         };
 
         handleRelayout(fakeEvent);
