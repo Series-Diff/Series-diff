@@ -54,7 +54,7 @@ const isValidDateString = (value: any): boolean => {
   // Check various date formats
   const datePatterns = [
     /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(\.\d{3})?Z?$/,  // ISO 8601
-    /^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}$/,              // YYYY-MM-DD HH:mm:ss
+    /^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}(.\d{1,5})$/,    // YYYY-MM-DD HH:mm:ss(.sss)  optional miliseconds
     /^\d{4}-\d{2}-\d{2}$/,                                // YYYY-MM-DD
     /^\d{2}\/\d{2}\/\d{4}$/,                              // MM/DD/YYYY
   ];

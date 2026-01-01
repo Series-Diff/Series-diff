@@ -18,8 +18,8 @@ export const ValidationErrorDisplay: React.FC<Props> = ({ validationResult, file
 
   return (
     <div className="validation-display">
-      {/* File Preview Section */}
-      {filePreview && (
+      {/* File Preview Section - only show when there are errors */}
+      {filePreview && errors.length > 0 && (
         <Alert variant="info" className="validation-alert">
           <Alert.Heading className="validation-heading">
             <strong>📄 File Preview {fileName && `- "${fileName}"`}</strong>
@@ -72,56 +72,6 @@ export const ValidationErrorDisplay: React.FC<Props> = ({ validationResult, file
 ]`}
             </pre>
           </div>
-        </Alert>
-      )}
-      
-      {warnings.length > 0 && (
-        <Alert variant="warning" className="validation-alert">
-          <Alert.Heading className="validation-heading">
-            <strong>⚠️ Warnings {fileName && `for "${fileName}"`}</strong>
-          </Alert.Heading>
-          <ul className="mb-0">
-            {warnings.map((warning, idx) => (
-              <li key={idx} className="validation-item">{warning}</li>
-            ))}
-          </ul>
-          
-          {detectedFormat && (
-            <div className="mt-3">
-              <strong>Detected Format:</strong> {detectedFormat}
-              {dateColumns && dateColumns.length > 0 && (
-                <div className="mt-1">
-                  <small>Date columns: {dateColumns.join(', ')}</small>
-                </div>
-              )}
-              {numericColumns && numericColumns.length > 0 && (
-                <div>
-                  <small>Numeric columns: {numericColumns.join(', ')}</small>
-                </div>
-              )}
-            </div>
-          )}
-        </Alert>
-      )}
-      
-      {isValid && errors.length === 0 && warnings.length === 0 && (
-        <Alert variant="success" className="validation-alert">
-          <strong>✓ Validation Passed {fileName && `for "${fileName}"`}</strong>
-          {detectedFormat && (
-            <div className="mt-2">
-              Format: <strong>{detectedFormat}</strong>
-              {dateColumns && dateColumns.length > 0 && (
-                <div className="mt-1">
-                  <small>Date columns: {dateColumns.join(', ')}</small>
-                </div>
-              )}
-              {numericColumns && numericColumns.length > 0 && (
-                <div>
-                  <small>Numeric columns: {numericColumns.join(', ')}</small>
-                </div>
-              )}
-            </div>
-          )}
         </Alert>
       )}
     </div>
