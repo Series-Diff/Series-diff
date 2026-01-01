@@ -7,13 +7,13 @@ from typing import Optional
 
 logger = logging.getLogger(__name__)
 
+
 class SandboxedExecutor:
 
     EXECUTOR_IMAGE = "sandboxed-plugin-executor:latest"
     CPU_LIMIT = "0.5"
     PLUGIN_TIMEOUT_SECONDS = 120
     PLUGIN_MEMORY_LIMIT = "256m"
-
 
     def __init__(self):
         self._check_docker_available()
@@ -27,7 +27,8 @@ class SandboxedExecutor:
             self.docker_available = False
 
     # Execution template - processes multiple pairs in one container
-    EXECUTOR_TEMPLATE = textwrap.dedent("""
+    EXECUTOR_TEMPLATE = textwrap.dedent(
+        """
         import sys
         import json
         import pandas as pd
@@ -114,16 +115,17 @@ class SandboxedExecutor:
         except Exception:
             print(json.dumps({"error": traceback.format_exc()}))
             sys.exit(1)
-        """)
+        """
+    )
 
     def execute(self, code: str, pairs: list) -> dict:
         """
         Execute plugin code on multiple pairs in a single Docker container.
-        
+
         Args:
             code: Python plugin code
             pairs: List of dicts with 'series1', 'series2', and optional 'key'
-        
+
         Returns:
             dict with 'results' list or 'error'
         """
@@ -137,7 +139,9 @@ class SandboxedExecutor:
 
         try:
             docker_cmd = [
-                "docker", "run", "--rm",
+                "docker",
+                "run",
+                "--rm",
                 "--network=none",
                 "--read-only",
                 f"--memory={self.PLUGIN_MEMORY_LIMIT}",
@@ -148,7 +152,9 @@ class SandboxedExecutor:
                 "--user=65534:65534",
                 "-i",
                 self.EXECUTOR_IMAGE,
-                "python", "-c", self.EXECUTOR_TEMPLATE
+                "python",
+                "-c",
+                self.EXECUTOR_TEMPLATE,
             ]
 
             result = subprocess.run(
@@ -156,7 +162,7 @@ class SandboxedExecutor:
                 input=input_data,
                 capture_output=True,
                 text=True,
-                timeout=self.PLUGIN_TIMEOUT_SECONDS
+                timeout=self.PLUGIN_TIMEOUT_SECONDS,
             )
 
             if result.stderr:
@@ -179,6 +185,8 @@ class SandboxedExecutor:
 
 # Singleton setup
 _executor = None
+
+
 def get_executor():
     global _executor
     if _executor is None:

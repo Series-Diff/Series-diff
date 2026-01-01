@@ -409,7 +409,6 @@ def get_variance():
     return _create_response({"variance": variance}, 200)
 
 
-
 @app.route("/api/timeseries/standard_deviation", methods=["GET"])
 def get_standard_deviation():
     """
@@ -457,7 +456,6 @@ def get_standard_deviation():
     )
 
     return _create_response({"standard_deviation": std_dev}, 200)
-
 
 
 @app.route("/api/timeseries/autocorrelation", methods=["GET"])
@@ -516,7 +514,6 @@ def get_autocorrelation():
     return _create_response({"autocorrelation": acf_value}, 200)
 
 
-
 @app.route("/api/timeseries/coefficient_of_variation", methods=["GET"])
 def get_coefficient_of_variation():
     """
@@ -564,7 +561,6 @@ def get_coefficient_of_variation():
     )
 
     return _create_response({"coefficient_of_variation": cv}, 200)
-
 
 
 @app.route("/api/timeseries/iqr", methods=["GET"])
@@ -733,7 +729,6 @@ def get_cosine_similarity():
     return _create_response({"cosine_similarity": similarity}, 200)
 
 
-
 @app.route("/api/timeseries/mae", methods=["GET"])
 def get_mae():
     """
@@ -860,6 +855,7 @@ def get_difference():
 
     return _create_response({"difference": difference_series}, 200)
 
+
 @app.route("/api/timeseries/rolling_mean", methods=["GET"])
 def get_rolling_mean():
     token, _ = _get_session_token()
@@ -879,6 +875,7 @@ def get_rolling_mean():
         return _create_response({"error": str(e)}, 400)
 
     return _create_response({"rolling_mean": rolling_mean_series}, 200)
+
 
 @app.route("/api/timeseries/dtw", methods=["GET"])
 def get_dtw():
@@ -905,7 +902,6 @@ def get_dtw():
         return _create_response({"error": str(e)}, 400)
 
     return _create_response({"dtw_distance": dtw_distance}, 200)
-
 
 
 @app.route("/api/timeseries/euclidean_distance", methods=["GET"])
@@ -979,7 +975,6 @@ def add_timeseries():
     return _create_response({"status": "Data uploaded"}, 201)
 
 
-
 @app.route("/api/clear-timeseries", methods=["DELETE"])
 def clear_timeseries():
     """
@@ -1017,7 +1012,6 @@ def api_validate_plugin_code():
     result = validate_plugin_code(data["code"])
 
     return jsonify(result), 200
-
 
 
 @app.route("/api/plugins/execute", methods=["POST"])
@@ -1061,7 +1055,7 @@ def api_execute_plugin():
                 category=data["category"],
                 start=data.get("start"),
                 end=data.get("end"),
-                token=token
+                token=token,
             )
             series_data[filename] = metric_service.extract_series_from_dict(
                 raw_data, data["category"], filename
@@ -1071,11 +1065,13 @@ def api_execute_plugin():
         pairs = []
         for file1 in filenames:
             for file2 in filenames:
-                pairs.append({
-                    "series1": series_data[file1],
-                    "series2": series_data[file2],
-                    "key": f"{file1}|{file2}"
-                })
+                pairs.append(
+                    {
+                        "series1": series_data[file1],
+                        "series2": series_data[file2],
+                        "key": f"{file1}|{file2}",
+                    }
+                )
 
         # Execute
         executor = get_executor()
