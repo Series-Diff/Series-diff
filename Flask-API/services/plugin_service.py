@@ -153,7 +153,8 @@ def execute_plugin_code(code: str, series1, series2) -> dict:
 
     executor = get_executor()
 
-    return executor.execute(code, series1_dict, series2_dict)
+    pairs = [(series1_dict, series2_dict)]
+    return executor.execute(code, pairs)
 
 
 def get_template(name: str = "Custom Metric", description: str = "") -> str:
