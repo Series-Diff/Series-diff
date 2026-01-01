@@ -4,6 +4,11 @@ FROM python:3.11-slim
 # Set the working directory in the container
 WORKDIR /app
 
+# App needs Docker to run containers inside
+RUN apt-get update && \
+    apt-get install -y docker.io && \
+    rm -rf /var/lib/apt/lists/*
+
 # Setup environment
 ENV POETRY_VERSION=2.2.1
 ENV PIP_BREAK_SYSTEM_PACKAGES=1

@@ -1,18 +1,19 @@
-import React, {useState, useEffect} from 'react';
-import {Modal, Form, Button} from 'react-bootstrap';
+import React, { useState, useEffect } from 'react';
+import { Modal, Form, Button, Spinner } from 'react-bootstrap';
 import Select from '../Select/Select';
+import Editor from 'react-simple-code-editor';
+import { highlight, languages } from 'prismjs';
+import 'prismjs/components/prism-python';
+import 'prismjs/themes/prism.css';
+import { validatePluginCode } from '../../services/pluginService';
 
-const PLUGIN_TEMPLATE = `import pandas as pd
-import numpy as np
-
-def calculate(series1: pd.Series, series2: pd.Series) -> float:
-        aligned = pd.merge(
-            series1.reset_index(), 
-            series2.reset_index(), 
-            on='index', 
-            how='inner'
-        )
-        return (aligned['y_x'] - aligned['y_y']).abs().mean()
+const PLUGIN_TEMPLATE = `def calculate(series1, series2) -> float:
+    # Align series by timestamp (returns DataFrame with 'value1', 'value2' columns)
+    aligned = get_aligned_data(series1, series2)
+    
+    # Calculate your metric
+    diff = aligned['value1'] - aligned['value2']
+    return float(np.mean(np.abs(diff)))
 `;
 
 interface MetricData {
@@ -33,19 +34,20 @@ interface MetricModalProps {
 }
 
 const MetricModal: React.FC<MetricModalProps> = ({
-                                                     show,
-                                                     onHide,
-                                                     onSave,
-                                                     editingMetric,
-                                                     categories,
-                                                     existingLabels
-                                                 }) => {
+    show,
+    onHide,
+    onSave,
+    editingMetric,
+    categories,
+    existingLabels
+}) => {
     const [label, setLabel] = useState('');
     const [description, setDescription] = useState('');
     const [category, setCategory] = useState(categories[0] || '');
     const [code, setCode] = useState('');
     const [titleError, setTitleError] = useState<string | null>(null);
     const [codeError, setCodeError] = useState<string | null>(null);
+    const [isValidating, setIsValidating] = useState(false);
     const isEditing = !!editingMetric;
 
     useEffect(() => {
@@ -64,6 +66,7 @@ const MetricModal: React.FC<MetricModalProps> = ({
             }
             setTitleError(null);
             setCodeError(null);
+            setIsValidating(false);
         }
     }, [show, editingMetric, categories]);
 
@@ -73,7 +76,7 @@ const MetricModal: React.FC<MetricModalProps> = ({
         }
     }, [categories, category]);
 
-    const handleSubmit = (e: React.FormEvent) => {
+    const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
 
         let hasError = false;
@@ -106,7 +109,23 @@ const MetricModal: React.FC<MetricModalProps> = ({
             return;
         }
 
-        onSave({label: trimmedLabel, description, category, code});
+        // Backend validation for security and syntax
+        setIsValidating(true);
+        try {
+            const validationResult = await validatePluginCode(code);
+            if (!validationResult.valid) {
+                setCodeError(validationResult.error || 'Invalid plugin code');
+                setIsValidating(false);
+                return;
+            }
+        } catch (err: any) {
+            setCodeError('Failed to validate code. Please try again.');
+            setIsValidating(false);
+            return;
+        }
+        setIsValidating(false);
+
+        onSave({ label: trimmedLabel, description, category, code });
     };
 
     const handleLabelChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -158,39 +177,72 @@ const MetricModal: React.FC<MetricModalProps> = ({
                     </Form.Group>
 
                     <Form.Group className="mb-3">
-                        <Form.Label>Python code <span className="text-danger">*</span></Form.Label>
-                        <Form.Control
-                            as="textarea"
-                            rows={15}
-                            value={code}
-                            onChange={(e) => {
-                                setCode(e.target.value);
-                                if (e.target.value.trim()) setCodeError(null);
-                            }}
-                            isInvalid={!!codeError}
-                            style={{
-                                fontFamily: 'monospace',
-                                fontSize: '0.85em',
-                                color: code === PLUGIN_TEMPLATE ? '#6c757d' : 'inherit'
-                            }}                        />
+                        <div className="d-flex justify-content-between align-items-center mb-1">
+                            <Form.Label className="mb-0">Python code <span className="text-danger">*</span></Form.Label>
+                            <Button
+                                variant="outline-secondary"
+                                size="sm"
+                                onClick={() => setCode(PLUGIN_TEMPLATE)}
+                                disabled={isValidating}
+                            >
+                                Insert Template
+                            </Button>
+                        </div>
+                        <div className={`form-control p-0 ${!!codeError ? 'is-invalid' : ''}`} style={{ overflow: 'hidden' }}>
+                            <Editor
+                                value={code}
+                                onValueChange={(code) => {
+                                    setCode(code);
+                                    if (code.trim()) setCodeError(null);
+                                }}
+                                highlight={code => highlight(code, languages.python, 'python')}
+                                padding={10}
+                                style={{
+                                    fontFamily: 'monospace',
+                                    fontSize: '0.85em',
+                                    minHeight: '300px',
+                                    color: code === PLUGIN_TEMPLATE ? '#6c757d' : 'inherit'
+                                }}
+                                textareaClassName="focus-ring"
+                            />
+                        </div>
+
                         {codeError && (
-                             <Form.Text className="text-danger d-block">
+                            <Form.Text className="text-danger d-block">
                                 {codeError}
                             </Form.Text>
                         )}
                         <Form.Text className="text-muted">
-                            Plugin needs to implement function <br/> <code>calculate(series1, series2) -&gt; float</code>
+                            Plugin needs to implement function <br /> <code>calculate(series1, series2)
+                                -&gt; float</code>
+                        </Form.Text>
+                        <Form.Text className="text-muted">
+                            <br />Helper function:
+                            <br /><code>get_aligned_data(series1, series2, tolerance=None)</code>
+                            <br /><small>Aligns two series by timestamp. Returns DataFrame with 'value1', 'value2' columns.</small>
+                        </Form.Text>
+                        <Form.Text className="text-muted">
+                            <br />Available libraries:
+                            <br /><code>pd (pandas), np (numpy), scipy, scipy.stats, scipy.signal,
+                                <br />sklearn.metrics, statsmodels.api (sm), statsmodels.tsa.api (tsa)</code>
                         </Form.Text>
                     </Form.Group>
 
                 </Form>
             </Modal.Body>
             <Modal.Footer className="justify-content-end">
-                <Button variant="secondary" onClick={onHide} className="me-2">
+                <Button variant="secondary" onClick={onHide} className="me-2" disabled={isValidating}>
                     Cancel
                 </Button>
-                <Button variant="primary" onClick={handleSubmit}>
-                    Save
+                <Button variant="primary" onClick={handleSubmit} disabled={isValidating}>
+                    {isValidating ? (
+                        <>
+                            <Spinner animation="border" size="sm" className="me-2" />
+                            Validating...
+                        </>
+                    ) : (
+                        'Save'
+                    )}
                 </Button>
             </Modal.Footer>
         </Modal>

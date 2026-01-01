@@ -28,7 +28,7 @@ export const useChartInteractions = (
         const container = containerRef.current;
         if (!container) return;
         const isAllowedPointerDown = (ev: PointerEvent) => {
-            const isLeft = ev.button === 0; 
+            const isLeft = ev.button === 0;
             if (isLeft && !ev.ctrlKey && !ev.altKey && !ev.metaKey) return true;
             if (isLeft && ev.shiftKey) return true;
             return false;

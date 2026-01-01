@@ -6,11 +6,14 @@ services:
     environment:
       - FLASK_APP=main.py
       - FLASK_ENV=development
+      - HOST_TEMP_PATH=./backend_temp
     networks:
       - comparison-tool-network
     volumes:
       - ./Flask-API:/app
       - /app/.venv
+      - /var/run/docker.sock:/var/run/docker.sock
+      - ./backend_temp:/app/backend_temp
   frontend:
     build: ./client
     ports:
@@ -25,6 +28,11 @@ services:
     volumes:
       - ./client:/app
       - /app/node_modules
+  executor-builder:
+    build:
+      context: ./Flask-API
+      dockerfile: Dockerfile.executor
+    image: sandboxed-plugin-executor:latest
 networks:
   comparison-tool-network:
    driver: bridge

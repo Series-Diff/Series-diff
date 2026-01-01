@@ -1,0 +1,18 @@
+# Dockerfile.executor
+FROM python:3.11-slim
+
+ENV PYTHONDONTWRITEBYTECODE=1 PYTHONUNBUFFERED=1
+
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    libgomp1 \
+    && rm -rf /var/lib/apt/lists/*
+
+# 1. Instalujemy biblioteki potrzebne pluginom
+RUN pip install --no-cache-dir pandas numpy scipy scikit-learn statsmodels
+
+# 2. Tworzymy użytkownika bez uprawnień (Security)
+RUN useradd -m -u 1000 pluginuser
+
+# 3. Ustawiamy go jako domyślnego
+USER pluginuser
+WORKDIR /home/pluginuser

@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { LocalPlugin } from './useLocalPlugins';
-import { executePluginCode } from '../services/pluginService';
+import { executePlugin } from '../services/pluginService';
 
 export interface PluginResultsMap {
     [pluginId: string]: {
@@ -41,31 +41,35 @@ export const usePluginResults = (
         try {
             const newResults: PluginResultsMap = {};
 
-            // Iterujemy przez aktywne pluginy
+            // For each plugin, execute per category
             for (const plugin of enabledPlugins) {
                 newResults[plugin.id] = {};
 
-                // Iterujemy przez kategorie
                 for (const category of Object.keys(filenamesPerCategory)) {
-                    newResults[plugin.id][category] = {};
-                    
                     const files = filenamesPerCategory[category];
 
-                    for (const file1 of files) {
-                        newResults[plugin.id][category][file1] = {};
-                        for (const file2 of files) {
-                            try {
-                                const result = await executePluginCode(
-                                    plugin.code, 
-                                    file1, 
-                                    file2, 
-                                    category
-                                );
-                                newResults[plugin.id][category][file1][file2] = result.result || 0;
-                            } catch (e) {
-                                console.warn(`Error calc ${plugin.name} for ${file1}-${file2}`, e);
-                            }
+                    if (files.length < 2) {
+                        newResults[plugin.id][category] = {};
+                        continue;
+                    }
+
+                    try {
+                        const pluginResult = await executePlugin(
+                            plugin.code,
+                            category,
+                            files
+                        );
+
+                        if (pluginResult.error) {
+                            console.warn(`Plugin error for ${plugin.name}/${category}:`, pluginResult.error);
+                            newResults[plugin.id][category] = {};
+                        } else if (pluginResult.results) {
+                            // Results already in correct nested format
+                            newResults[plugin.id][category] = pluginResult.results as any;
                         }
+                    } catch (e) {
+                        console.warn(`Error executing for ${plugin.name}/${category}`, e);
+                        newResults[plugin.id][category] = {};
                     }
                 }
             }
@@ -78,7 +82,7 @@ export const usePluginResults = (
         }
     }, [filenamesPerCategory, plugins]);
 
-    // Automatyczne odświeżanie, gdy zmienią się pliki lub definicje pluginów
+    // Auto-refresh when files or plugin definitions change
     useEffect(() => {
         if (Object.keys(filenamesPerCategory).length > 0 && plugins.length > 0) {
             refreshPluginResults();

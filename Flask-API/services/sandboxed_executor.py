@@ -1,398 +1,185 @@
-"""
-Secure plugin executor using Docker isolation.
-Runs untrusted plugin code in a sandboxed container with:
-- No network access
-- Read-only filesystem
-- Memory and CPU limits
-- Execution timeout
-"""
-
 import subprocess
 import json
-import tempfile
 import os
-from typing import Optional
 import logging
+import textwrap
+from typing import Optional
 
 logger = logging.getLogger(__name__)
 
-
 class SandboxedExecutor:
-    """
-    Executes plugin code in an isolated Docker container.
-    """
 
-    # Docker image with Python and minimal dependencies
-    EXECUTOR_IMAGE = "python:3.11-slim"
-
-    # Resource limits
-    MEMORY_LIMIT = "128m"
+    EXECUTOR_IMAGE = "sandboxed-plugin-executor:latest"
     CPU_LIMIT = "0.5"
-    TIMEOUT_SECONDS = 30
+    PLUGIN_TIMEOUT_SECONDS = 120
+    PLUGIN_MEMORY_LIMIT = "256m"
 
-    # Template for the executor script
-    EXECUTOR_TEMPLATE = """
-import sys
-import json
-import pandas as pd
-import numpy as np
-
-# Read input data from stdin
-input_data = json.loads(sys.stdin.read())
-
-series1_dict = input_data["series1"]
-series2_dict = input_data["series2"]
-plugin_code = input_data["code"]
-
-# Convert to pandas Series
-series1 = pd.Series(series1_dict)
-series2 = pd.Series(series2_dict)
-
-# Create restricted namespace
-namespace = {
-    "pd": pd,
-    "np": np,
-    "numpy": np,
-    "pandas": pd,
-    "series1": series1,
-    "series2": series2,
-}
-
-try:
-    # Execute plugin code
-    exec(plugin_code, namespace)
-
-    if "calculate" not in namespace:
-        print(json.dumps({"error": "Plugin must define 'calculate' function"}))
-        sys.exit(1)
-
-    # Call calculate function
-    result = namespace["calculate"](series1, series2)
-
-    if not isinstance(result, (int, float)):
-        print(json.dumps({"error": f"Result must be a number, got {type(result).__name__}"}))
-        sys.exit(1)
-
-    print(json.dumps({"result": float(result)}))
-
-except Exception as e:
-    print(json.dumps({"error": str(e)}))
-    sys.exit(1)
-"""
 
     def __init__(self):
         self._check_docker_available()
 
     def _check_docker_available(self):
-        """Check if Docker is available."""
         try:
-            result = subprocess.run(
-                ["docker", "version"], capture_output=True, timeout=5
-            )
-            if result.returncode != 0:
-                logger.warning(
-                    "Docker not available, falling back to restricted execution"
-                )
-                self.docker_available = False
-            else:
-                self.docker_available = True
-        except (subprocess.TimeoutExpired, FileNotFoundError):
-            logger.warning("Docker not available, falling back to restricted execution")
+            subprocess.run(["docker", "version"], capture_output=True, check=True)
+            self.docker_available = True
+        except (subprocess.CalledProcessError, FileNotFoundError):
+            logger.critical("DOCKER IS NOT AVAILABLE. Plugin execution disabled.")
             self.docker_available = False
 
-    def execute(self, code: str, series1: dict, series2: dict) -> dict:
-        """
-        Execute plugin code safely.
+    # Execution template - processes multiple pairs in one container
+    EXECUTOR_TEMPLATE = textwrap.dedent("""
+        import sys
+        import json
+        import pandas as pd
+        import numpy as np
+        import scipy
+        import scipy.stats
+        import scipy.signal
+        import sklearn.metrics
+        import statsmodels.api
+        import statsmodels.tsa.api
+        import traceback
 
-        Args:
-            code: Plugin Python code
-            series1: First time series as dict {timestamp: value}
-            series2: Second time series as dict {timestamp: value}
+        def get_aligned_data(series1, series2, tolerance=None):
+            if isinstance(series1, pd.Series):
+                series1 = series1.to_dict()
+            if isinstance(series2, pd.Series):
+                series2 = series2.to_dict()
+            if not isinstance(series1, dict) or not isinstance(series2, dict):
+                raise ValueError("Inputs must be dictionaries or pandas Series")
 
-        Returns:
-            dict with 'result' or 'error'
-        """
-        if self.docker_available:
-            return self._execute_in_docker(code, series1, series2)
-        else:
-            return self._execute_restricted(code, series1, series2)
+            df1 = pd.DataFrame({
+                "time": pd.to_datetime(list(series1.keys())),
+                "value1": list(series1.values()),
+            }).set_index("time").sort_index()
 
-    def _execute_in_docker(self, code: str, series1: dict, series2: dict) -> dict:
-        """Execute code in isolated Docker container."""
+            df2 = pd.DataFrame({
+                "time": pd.to_datetime(list(series2.keys())),
+                "value2": list(series2.values()),
+            }).set_index("time").sort_index()
 
-        # Prepare input data
-        input_data = json.dumps({"series1": series1, "series2": series2, "code": code})
+            df1 = df1[~df1.index.duplicated(keep="first")]
+            df2 = df2[~df2.index.duplicated(keep="first")]
 
-        # Create temporary file for executor script
-        with tempfile.NamedTemporaryFile(mode="w", suffix=".py", delete=False) as f:
-            f.write(self.EXECUTOR_TEMPLATE)
-            executor_path = f.name
+            if tolerance is None:
+                deltas = []
+                if len(df1.index) > 1:
+                    deltas.append((df1.index[1:] - df1.index[:-1]).median())
+                if len(df2.index) > 1:
+                    deltas.append((df2.index[1:] - df2.index[:-1]).median())
+                if not deltas:
+                    return pd.DataFrame()
+                tolerance_td = max(deltas)
+            else:
+                tolerance_td = pd.Timedelta(tolerance)
+
+            return pd.merge_asof(df1, df2, left_index=True, right_index=True,
+                                 direction="nearest", tolerance=tolerance_td).dropna()
 
         try:
-            # Run in Docker with security constraints
-            docker_cmd = [
-                "docker",
-                "run",
-                "--rm",  # Remove container after execution
-                "--network=none",  # No network access
-                "--read-only",  # Read-only filesystem
-                f"--memory={self.MEMORY_LIMIT}",  # Memory limit
-                f"--cpus={self.CPU_LIMIT}",  # CPU limit
-                "--pids-limit=50",  # Limit number of processes
-                "--security-opt=no-new-privileges",  # No privilege escalation
-                "-i",  # Interactive (for stdin)
-                "-v",
-                f"{executor_path}:/executor.py:ro",  # Mount executor script
-                self.EXECUTOR_IMAGE,
-                "python",
-                "/executor.py",
-            ]
+            input_data = json.loads(sys.stdin.read())
+            pairs = input_data["pairs"]
+            plugin_code = input_data["code"]
 
-            logger.debug(f"Running Docker command: {' '.join(docker_cmd)}")
+            namespace = {
+                "pd": pd, "np": np, "numpy": np, "pandas": pd,
+                "scipy": scipy, "stats": scipy.stats, "signal": scipy.signal,
+                "metrics": sklearn.metrics, "statsmodels": statsmodels,
+                "sm": statsmodels.api, "tsa": statsmodels.tsa.api,
+                "get_aligned_data": get_aligned_data,
+            }
+
+            exec(plugin_code, namespace)
+
+            if "calculate" not in namespace:
+                print(json.dumps({"error": "Plugin must define 'calculate' function"}))
+                sys.exit(1)
+
+            calculate = namespace["calculate"]
+            results = []
+
+            for pair in pairs:
+                try:
+                    s1 = pd.Series(pair["series1"])
+                    s2 = pd.Series(pair["series2"])
+                    result = calculate(s1, s2)
+                    if isinstance(result, (np.integer, np.floating)):
+                        result = float(result)
+                    results.append({"result": result, "key": pair.get("key")})
+                except Exception as e:
+                    results.append({"error": str(e), "key": pair.get("key")})
+
+            print(json.dumps({"results": results}))
+
+        except Exception:
+            print(json.dumps({"error": traceback.format_exc()}))
+            sys.exit(1)
+        """)
+
+    def execute(self, code: str, pairs: list) -> dict:
+        """
+        Execute plugin code on multiple pairs in a single Docker container.
+        
+        Args:
+            code: Python plugin code
+            pairs: List of dicts with 'series1', 'series2', and optional 'key'
+        
+        Returns:
+            dict with 'results' list or 'error'
+        """
+        if not self.docker_available:
+            return {"error": "Secure execution environment unavailable"}
+
+        if not pairs:
+            return {"results": []}
+
+        input_data = json.dumps({"pairs": pairs, "code": code})
+
+        try:
+            docker_cmd = [
+                "docker", "run", "--rm",
+                "--network=none",
+                "--read-only",
+                f"--memory={self.PLUGIN_MEMORY_LIMIT}",
+                f"--cpus={self.CPU_LIMIT}",
+                "--pids-limit=100",
+                "--security-opt=no-new-privileges",
+                "--cap-drop=ALL",
+                "--user=65534:65534",
+                "-i",
+                self.EXECUTOR_IMAGE,
+                "python", "-c", self.EXECUTOR_TEMPLATE
+            ]
 
             result = subprocess.run(
                 docker_cmd,
                 input=input_data,
                 capture_output=True,
                 text=True,
-                timeout=self.TIMEOUT_SECONDS,
+                timeout=self.PLUGIN_TIMEOUT_SECONDS
             )
+
+            if result.stderr:
+                logger.warning(f"Docker stderr: {result.stderr}")
 
             if result.returncode != 0:
-                stderr = result.stderr.strip()
-                if stderr:
-                    logger.error(f"Docker execution error: {stderr}")
-                    return {"error": f"Execution failed: {stderr[:200]}"}
-
-            # Parse output
-            stdout = result.stdout.strip()
-            if not stdout:
-                return {"error": "No output from plugin"}
+                return {"error": f"Execution failed (code {result.returncode})"}
 
             try:
-                return json.loads(stdout)
+                return json.loads(result.stdout.strip())
             except json.JSONDecodeError:
-                return {"error": f"Invalid plugin output: {stdout[:200]}"}
+                return {"error": "Invalid output format from plugin"}
 
         except subprocess.TimeoutExpired:
-            logger.error(f"Plugin execution timed out after {self.TIMEOUT_SECONDS}s")
-            return {
-                "error": f"Execution timed out after {self.TIMEOUT_SECONDS} seconds"
-            }
+            return {"error": "Execution timed out"}
         except Exception as e:
-            logger.error(f"Docker execution error: {e}")
-            return {"error": f"Execution error: {str(e)}"}
-        finally:
-            # Clean up temp file
-            os.unlink(executor_path)
-
-    def _execute_restricted(self, code: str, series1: dict, series2: dict) -> dict:
-        """
-        Fallback: Execute with RestrictedPython if Docker unavailable.
-        Less secure but still provides basic protection.
-        """
-        try:
-            from RestrictedPython import compile_restricted, safe_builtins
-            from RestrictedPython.Guards import (
-                guarded_iter_unpack_sequence,
-            )
-            from RestrictedPython.Eval import default_guarded_getitem
-        except ImportError:
-            # If RestrictedPython not available, use basic sandboxing
-            return self._execute_basic_sandbox(code, series1, series2)
-
-        import pandas as pd
-        import numpy as np
-
-        # Convert dicts to Series
-        s1 = pd.Series(series1)
-        s2 = pd.Series(series2)
-
-        # Compile with restrictions
-        try:
-            byte_code = compile_restricted(code, "<plugin>", "exec")
-        except SyntaxError as e:
-            return {"error": f"Syntax error: {e}"}
-
-        # Create restricted namespace
-        restricted_globals = {
-            "__builtins__": safe_builtins,
-            "_getitem_": default_guarded_getitem,
-            "_iter_unpack_sequence_": guarded_iter_unpack_sequence,
-            "pd": pd,
-            "np": np,
-            "numpy": np,
-            "pandas": pd,
-        }
-
-        restricted_locals = {}
-
-        try:
-            exec(byte_code, restricted_globals, restricted_locals)
-        except Exception as e:
-            return {"error": f"Execution error: {str(e)}"}
-
-        if "calculate" not in restricted_locals:
-            return {"error": "Plugin must define 'calculate' function"}
-
-        try:
-            result = restricted_locals["calculate"](s1, s2)
-            if not isinstance(result, (int, float)):
-                return {
-                    "error": f"Result must be a number, got {type(result).__name__}"
-                }
-            return {"result": float(result)}
-        except Exception as e:
-            return {"error": f"Calculation error: {str(e)}"}
-
-    def _execute_basic_sandbox(self, code: str, series1: dict, series2: dict) -> dict:
-        """
-        Basic sandboxing without Docker or RestrictedPython.
-        Uses subprocess with timeout as minimal protection.
-        """
-        import pandas as pd
-        import numpy as np
-
-        # Enhanced dangerous pattern check
-        dangerous_patterns = [
-            # File operations
-            "open(",
-            "open (",
-            "file(",
-            "with open",
-            # System access
-            "import os",
-            "from os",
-            "import sys",
-            "from sys",
-            "import subprocess",
-            "from subprocess",
-            "import shutil",
-            "from shutil",
-            "import socket",
-            "from socket",
-            "import requests",
-            "from requests",
-            "import urllib",
-            "from urllib",
-            # Code execution
-            "exec(",
-            "exec (",
-            "eval(",
-            "eval (",
-            "__import__",
-            "importlib",
-            # Introspection attacks
-            "__class__",
-            "__bases__",
-            "__subclasses__",
-            "__globals__",
-            "__code__",
-            "__builtins__",
-            # Shell access
-            "os.system",
-            "os.popen",
-            "subprocess.",
-            "commands.",
-            "popen",
-        ]
-
-        code_lower = code.lower()
-        for pattern in dangerous_patterns:
-            if pattern.lower() in code_lower:
-                return {
-                    "error": f"Forbidden pattern: '{pattern}'. "
-                    "Plugins cannot access system resources."
-                }
-
-        # Check for 'calculate' function
-        if "def calculate(" not in code:
-            return {
-                "error": "Plugin must define 'calculate(series1, series2)' function"
-            }
-
-        # Convert to Series
-        s1 = pd.Series(series1)
-        s2 = pd.Series(series2)
-
-        # Safe import function - only allows pandas and numpy
-        allowed_modules = {
-            "pandas": pd,
-            "numpy": np,
-            "pd": pd,
-            "np": np,
-        }
-
-        def safe_import(name, globals=None, locals=None, fromlist=(), level=0):
-            if name in allowed_modules:
-                return allowed_modules[name]
-            raise ImportError(
-                f"Import of '{name}' is not allowed. Only 'pandas' and 'numpy' are permitted."
-            )
-
-        # Create minimal namespace with safe import
-        namespace = {
-            "pd": pd,
-            "np": np,
-            "numpy": np,
-            "pandas": pd,
-            "__builtins__": {
-                # Only safe builtins
-                "abs": abs,
-                "all": all,
-                "any": any,
-                "bool": bool,
-                "dict": dict,
-                "float": float,
-                "int": int,
-                "len": len,
-                "list": list,
-                "max": max,
-                "min": min,
-                "pow": pow,
-                "range": range,
-                "round": round,
-                "set": set,
-                "sorted": sorted,
-                "str": str,
-                "sum": sum,
-                "tuple": tuple,
-                "zip": zip,
-                "map": map,
-                "filter": filter,
-                "enumerate": enumerate,
-                "isinstance": isinstance,
-                "type": type,
-                "True": True,
-                "False": False,
-                "None": None,
-                "__import__": safe_import,  # Allow safe imports
-            },
-        }
-
-        try:
-            exec(code, namespace)
-        except Exception as e:
-            return {"error": f"Execution error: {str(e)}"}
-
-        if "calculate" not in namespace:
-            return {"error": "Plugin must define 'calculate' function"}
-
-        try:
-            result = namespace["calculate"](s1, s2)
-            if not isinstance(result, (int, float)):
-                return {"error": f"Result must be number, got {type(result).__name__}"}
-            return {"result": float(result)}
-        except Exception as e:
-            return {"error": f"Calculation error: {str(e)}"}
+            logger.exception("Unexpected error in docker execution")
+            return {"error": "Internal execution error"}
 
 
-# Singleton instance
-_executor: Optional[SandboxedExecutor] = None
-
-
-def get_executor() -> SandboxedExecutor:
-    """Get the singleton executor instance."""
+# Singleton setup
+_executor = None
+def get_executor():
     global _executor
     if _executor is None:
         _executor = SandboxedExecutor()
