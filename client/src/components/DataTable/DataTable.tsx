@@ -6,14 +6,28 @@ export interface DataTableProps {
   data: Record<string, any>[];
   title: string;
   rowsOptions?: number[];
+  showPagination?: boolean;
 }
 
 
-export const DataTable: React.FC<DataTableProps> = ({ data, title, rowsOptions = [10, 20, 50, 100] }) => {
+export const DataTable: React.FC<DataTableProps> = ({ data, title, rowsOptions = [5, 10, 20, 50, 100], showPagination = true }) => {
   const [rowsNumber, setRowsNumber] = React.useState<number>(10);
+  const [currentPage, setCurrentPage] = React.useState<number>(Math.min(5, Math.max(1, data.length)));
 
-  const rows = React.useMemo(() => data?.slice(0, rowsNumber) || [], [data, rowsNumber]);
+  const totalPages = React.useMemo(() => Math.ceil((data?.length || 0) / rowsNumber), [data, rowsNumber]);
+  
+  const rows = React.useMemo(() => {
+    const startIndex = (currentPage - 1) * rowsNumber;
+    const endIndex = startIndex + rowsNumber;
+    return showPagination ? data?.slice(startIndex, endIndex) || [] : data || [];
+  }, [data, currentPage, rowsNumber, showPagination]);
+  
   const columns = React.useMemo(() => (rows.length > 0 ? Object.keys(rows[0]) : []), [rows]);
+
+  // Reset to page 1 when rows per page or data changes
+  React.useEffect(() => {
+    setCurrentPage(1);
+  }, [rowsNumber, data]);
 
   const columnHeaderNames: Record<string, string> = {
     x: 'Date',
@@ -24,7 +38,6 @@ export const DataTable: React.FC<DataTableProps> = ({ data, title, rowsOptions =
     if (value === null || value === undefined) {
       return <span className="text-muted">null</span>;
     }
-//jeśli wartośc jest booleanem, przekonwertuj na  string    
     if (typeof value === 'boolean') {
       return value.toString();
     }
@@ -70,7 +83,7 @@ export const DataTable: React.FC<DataTableProps> = ({ data, title, rowsOptions =
               {rows.map((entry, index) => (
                 <tr key={getRowKey(entry, index)}>
                   {columns.map((col) => (
-                    <td key={col}>
+                    <td key={col} style={{ whiteSpace: 'nowrap', minWidth: '100px' }}>
                       {renderCellContent((entry as any)[col])}
                     </td>
                   ))}
@@ -81,21 +94,107 @@ export const DataTable: React.FC<DataTableProps> = ({ data, title, rowsOptions =
         </div>
       )}
       {/* Pagination controls */}
-      <div className="mt-4 d-flex align-items-center">
-        <Dropdown>
-          <Dropdown.Toggle variant="light" id="dropdown-rows" size="sm" className="me-2">
-            {rowsNumber} rows
-          </Dropdown.Toggle>
+      <div className="mt-4 d-flex align-items-center justify-content-between flex-wrap gap-3">
+        <div className="d-flex align-items-center">
+          <Dropdown>
+            <Dropdown.Toggle variant="light" id="dropdown-rows" size="sm" className="me-2">
+              {rowsNumber} rows
+            </Dropdown.Toggle>
 
-          <Dropdown.Menu>
-            {rowsOptions.map(opt => (
-              <Dropdown.Item as="button" key={opt} onClick={() => setRowsNumber(opt)}>
-                {opt}
-              </Dropdown.Item>
-            ))}
-          </Dropdown.Menu>
-        </Dropdown>
-        <small className="text-muted">Showing first {Math.min(rowsNumber, data.length)} rows of {data.length} total.</small>
+            <Dropdown.Menu>
+              {rowsOptions.map(opt => (
+                <Dropdown.Item as="button" key={opt} onClick={() => setRowsNumber(opt)}>
+                  {opt}
+                </Dropdown.Item>
+              ))}
+            </Dropdown.Menu>
+          </Dropdown>
+          <small className="text-muted">
+            Showing {data.length > 0 ? (currentPage - 1) * rowsNumber + 1 : 0} to {Math.min(currentPage * rowsNumber, data.length)} of {data.length} rows
+          </small>
+        </div>
+        
+        {totalPages > 1 && (
+          <nav aria-label="Table pagination">
+            <ul className="pagination pagination-sm mb-0">
+              <li className={`page-item ${currentPage === 1 ? 'disabled' : ''}`}>
+                <button 
+                  className="page-link" 
+                  onClick={() => setCurrentPage(1)}
+                  disabled={currentPage === 1}
+                  aria-label="First page"
+                >
+                  «
+                </button>
+              </li>
+              <li className={`page-item ${currentPage === 1 ? 'disabled' : ''}`}>
+                <button 
+                  className="page-link" 
+                  onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
+                  disabled={currentPage === 1}
+                  aria-label="Previous page"
+                >
+                  ‹
+                </button>
+              </li>
+              
+              {/* Page numbers */}
+              {Array.from({ length: totalPages }, (_, i) => i + 1)
+                .filter(page => {
+                  // Show first page, last page, current page, and 2 pages around current
+                  if (page === 1 || page === totalPages) return true;
+                  if (Math.abs(page - currentPage) <= 2) return true;
+                  return false;
+                })
+                .map((page, index, array) => {
+                  // Add ellipsis if there's a gap
+                  const prevPage = array[index - 1];
+                  const showEllipsis = prevPage && page - prevPage > 1;
+                  
+                  return (
+                    <React.Fragment key={page}>
+                      {showEllipsis && (
+                        <li className="page-item disabled">
+                          <span className="page-link">…</span>
+                        </li>
+                      )}
+                      <li className={`page-item ${currentPage === page ? 'active' : ''}`}>
+                        <button 
+                          className="page-link" 
+                          onClick={() => setCurrentPage(page)}
+                          aria-label={`Page ${page}`}
+                          aria-current={currentPage === page ? 'page' : undefined}
+                        >
+                          {page}
+                        </button>
+                      </li>
+                    </React.Fragment>
+                  );
+                })}
+              
+              <li className={`page-item ${currentPage === totalPages ? 'disabled' : ''}`}>
+                <button 
+                  className="page-link" 
+                  onClick={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))}
+                  disabled={currentPage === totalPages}
+                  aria-label="Next page"
+                >
+                  ›
+                </button>
+              </li>
+              <li className={`page-item ${currentPage === totalPages ? 'disabled' : ''}`}>
+                <button 
+                  className="page-link" 
+                  onClick={() => setCurrentPage(totalPages)}
+                  disabled={currentPage === totalPages}
+                  aria-label="Last page"
+                >
+                  »
+                </button>
+              </li>
+            </ul>
+          </nav>
+        )}
       </div>
     </div>
   );

@@ -1,5 +1,8 @@
 from datetime import datetime
-from typing import Any, Dict, Optional
+import json
+from typing import Any, Dict, List, Optional
+from logging import Logger
+from redis import Redis
 
 
 class TimeSeriesManager:
@@ -15,16 +18,34 @@ class TimeSeriesManager:
         bool: True if added successfully, False otherwise
     """
 
-    def __init__(self):
-        self.sessions: Dict[str, Dict[str, Any]] = {}
+    def __init__(self, redis_client: Redis, logger: Logger):
+        self.redis = redis_client
+        self.logger = logger
+        self._ttl_seconds = 3600 * 2  # 2 hours
+
+    def _get_key(self, token: str) -> str:
+        """Generate Redis key for a given token."""
+        return f"session:{token}"
+
+    def _refresh_ttl(self, token: str) -> None:
+        """Refresh the TTL for an active session to keep it alive."""
+        key = self._get_key(token)
+        try:
+            if self.redis.exists(key):
+                self.redis.expire(key, self._ttl_seconds)
+                self.logger.debug(f"Refreshed TTL for session {token}")
+        except Exception as e:
+            self.logger.warning(f"Failed to refresh TTL for token {token}: {e}")
 
     def _validate_parameters(
         self,
-        time: Optional[str],
-        filename: Optional[str],
-        category: Optional[str],
-        start: Optional[str],
-        end: Optional[str],
+        time: Optional[str] = None,
+        filename: Optional[str] = None,
+        category: Optional[str] = None,
+        start: Optional[str] = None,
+        end: Optional[str] = None,
+        filenames: Optional[list] = None,
+        categories: Optional[list] = None,
     ):
         """Validate input parameters."""
         for param, param_type in [
@@ -39,16 +60,119 @@ class TimeSeriesManager:
                     f"Invalid {param_type} format: {param}. Expected a string."
                 )
 
+        if filenames and not isinstance(filenames, list):
+            raise ValueError(f"Invalid filenames format: {filenames}. Expected list.")
+        if categories and not isinstance(categories, list):
+            raise ValueError(f"Invalid categories format: {categories}. Expected list.")
+
         if start and end and start > end:
             raise ValueError(f"Start date {start} is after end date {end}.")
 
     def _get_session_data(self, token: str) -> Dict[str, Any]:
         """Retrieve session data for a given token."""
-        if token not in self.sessions:
-            self.sessions[token] = {}
-        return self.sessions[token]
+        key = self._get_key(token)
+        try:
+            data = self.redis.hgetall(key)
+            if data:
+                self._refresh_ttl(token)
+            return data
+        except Exception as e:
+            self.logger.error(f"Error retrieving session data for token {token}: {e}")
+            raise e
 
-    def _parse_dates(self, start: str, end: str) -> tuple:
+    def _get_redis_subset(
+        self,
+        token: str,
+        timestamp: Optional[str] = None,
+        start: Optional[str] = None,
+        end: Optional[str] = None,
+    ) -> Dict[str, Any]:
+        """
+        Retrieve a subset of Redis data based on time filters.
+
+        Args:
+            token (str): The token identifying the session
+            timestamp (str, optional): Specific timestamp to filter by
+            start (str, optional): Start of the time interval
+            end (str, optional): End of the time interval
+        """
+        key = self._get_key(token)
+        try:
+            timestamps = self.redis.hkeys(key)
+            filtered_data = []
+            datetime_start, datetime_end = self._parse_dates(start, end)
+
+            for ts_key in timestamps:
+                if self._matches_time_filter(
+                    ts_key, timestamp, datetime_start, datetime_end
+                ):
+                    filtered_data.append(ts_key)
+            if not filtered_data:
+                self.logger.info(f"No data found for token {token} with given filters.")
+            values = self.redis.hmget(key, filtered_data)
+            filtered_data = {
+                ts: val for ts, val in zip(filtered_data, values) if val is not None
+            }
+
+            if filtered_data:
+                self._refresh_ttl(token)
+
+            return filtered_data
+        except Exception as e:
+            self.logger.error(f"Error retrieving Redis subset for token {token}: {e}")
+            raise e
+
+    def _process_data(
+        self,
+        data: Dict[str, Any],
+        timestamp: Optional[str] = None,
+        start: Optional[str] = None,
+        end: Optional[str] = None,
+        categories: Optional[List[str]] = None,
+        filenames: Optional[List[str]] = None,
+    ) -> Dict[str, Any]:
+        """
+        Process raw Redis data into structured format based on time filters.
+
+        Args:
+            data (Dict[str, Any]): Raw data from Redis
+            timestamp (str, optional): Specific timestamp to filter by
+            start (str, optional): Start of the time interval
+            end (str, optional): End of the time interval
+            categories (List[str], optional): List of categories to filter by
+            filenames (List[str], optional): List of filenames to filter by
+
+        Returns:
+            Dict[str, Any]: Processed and filtered data
+        """
+        processed_data = {}
+        datetime_start, datetime_end = self._parse_dates(start, end)
+
+        for ts_key, ts_value in data.items():
+            if self._matches_time_filter(
+                ts_key, timestamp, datetime_start, datetime_end
+            ):
+                try:
+                    self._add_matching_data(
+                        result=processed_data,
+                        timestamp=ts_key,
+                        values=json.loads(ts_value),
+                        category=None,
+                        filename=None,
+                        categories=categories,
+                        filenames=filenames,
+                    )
+                except json.JSONDecodeError as e:
+                    self.logger.error(
+                        f"Error decoding JSON for timestamp {ts_key}: {e}"
+                    )
+                    continue
+
+        return processed_data
+
+    def _parse_dates(
+        self, start: Optional[str] = None, end: Optional[str] = None
+    ) -> tuple:
         """Parse ISO format dates."""
         try:
             datetime_start = datetime.fromisoformat(start) if start else None
@@ -81,26 +205,57 @@ class TimeSeriesManager:
 
         return True
 
+    def _filter_files_in_category(
+        self,
+        files_data: Dict[str, Any],
+        target_filename: Optional[str],
+        target_filenames_list: Optional[List[str]],
+    ) -> Dict[str, Any]:
+        """
+        Helper method to filter files within a category.
+        Reduces complexity of _add_matching_data.
+        """
+        filtered_files = {}
+        for file_name, value in files_data.items():
+            if target_filename and file_name != target_filename:
+                continue
+            if target_filenames_list and file_name not in target_filenames_list:
+                continue
+            filtered_files[file_name] = value
+        return filtered_files
+
     def _add_matching_data(
         self,
-        result: dict,
-        timeseries: str,
-        categories: dict,
-        category: str,
-        filename: str,
+        result: Dict[str, Any],
+        timestamp: str,
+        values: Dict[str, Any],
+        category: Optional[str],
+        filename: Optional[str],
+        categories: Optional[List[str]],
+        filenames: Optional[List[str]],
     ):
         """Add matching data to result dictionary."""
-        for ts_category, ts_filenames in categories.items():
+        for ts_category, ts_filenames in values.items():
             if category and ts_category != category:
                 continue
+            if categories and ts_category not in categories:
+                continue
 
-            for file, value in ts_filenames.items():
-                if filename and file != filename:
-                    continue
+            if isinstance(ts_filenames, dict) and ts_filenames:
+                filtered_filenames = self._filter_files_in_category(
+                    ts_filenames, filename, filenames
+                )
 
-                result.setdefault(timeseries, {}).setdefault(ts_category, {})[
-                    file
-                ] = value
+                if filtered_filenames:
+                    if timestamp not in result:
+                        result[timestamp] = {}
+                    if ts_category not in result[timestamp]:
+                        result[timestamp][ts_category] = {}
+                    result[timestamp][ts_category].update(filtered_filenames)
+            else:
+                if timestamp not in result:
+                    result[timestamp] = {}
+                result[timestamp][ts_category] = ts_filenames
 
     def add_timeseries(self, token: str, time: str, data: dict):
         """
@@ -118,28 +273,37 @@ class TimeSeriesManager:
         Returns:
             bool: True if added successfully, False otherwise
         """
-        if isinstance(data, dict):
-            session_data = self._get_session_data(token)
-            session_data[time] = data
-            for timeserie, categories in data.items():
-                if not isinstance(categories, dict):
-                    raise ValueError(f"Invalid category '{timeserie}': {categories}")
-                for category, files in categories.items():
-                    if not isinstance(files, (float, int)):
-                        raise ValueError(
-                            f"Invalid file data for category '{category}': {files}"
-                        )
+        self._validate_parameters(time=time)
+
+        if not isinstance(data, dict):
+            raise ValueError(f"Invalid data format: {data}. Expected a dictionary.")
+
+        if not data:
+            raise ValueError("Data cannot be empty.")
+
+        key = self._get_key(token)
+
+        try:
+            pipeline = self.redis.pipeline()
+            json_value = json.dumps(data)
+            pipeline.hset(key, time, json_value)
+            pipeline.expire(key, self._ttl_seconds)
+            pipeline.execute()
             return True
-        return False
+        except Exception as e:
+            self.logger.error(f"Error adding timeseries for token {token}: {e}")
+            return False
 
     def get_timeseries(
         self,
         token: str,
-        time: str = None,
+        timestamp: str = None,
         filename: str = None,
         category: str = None,
         start: str = None,
         end: str = None,
+        filenames: list = None,
+        categories: list = None,
     ) -> dict:
         """
         Retrieve timeseries data.
@@ -153,21 +317,32 @@ class TimeSeriesManager:
         Returns:
             dict: Timeseries data for the specified time or all timeseries if no key is provided
         """
-        self._validate_parameters(time, filename, category, start, end)
-        datetime_start, datetime_end = self._parse_dates(start, end)
+        self._validate_parameters(
+            timestamp, filename, category, start, end, filenames, categories
+        )
 
-        result = self._get_session_data(token)
-        if not self.sessions[token]:
-            return result
+        if timestamp or start or end:
+            raw_data = self._get_redis_subset(token, timestamp, start, end)
+        else:
+            raw_data = self._get_session_data(token)
 
-        for timeseries, categories in self.sessions[token].items():
-            if not self._matches_time_filter(
-                timeseries, time, datetime_start, datetime_end
-            ):
-                continue
-            self._add_matching_data(result, timeseries, categories, category, filename)
+        if not raw_data:
+            return {}
 
-        return result
+        # Convert single values to lists for unified processing
+        category_filter = (
+            categories if categories else ([category] if category else None)
+        )
+        filename_filter = filenames if filenames else ([filename] if filename else None)
+
+        return self._process_data(
+            raw_data,
+            timestamp=timestamp,
+            start=start,
+            end=end,
+            categories=category_filter,
+            filenames=filename_filter,
+        )
 
     def clear_timeseries(self, token: str) -> dict:
         """
@@ -176,7 +351,9 @@ class TimeSeriesManager:
             dict: Message indicating the result of the operation
         """
         try:
-            self.sessions[token].clear()
+            key = self._get_key(token)
+            self.redis.delete(key)
             return {"message": "All timeseries data cleared successfully."}, 200
         except Exception as e:
+            self.logger.error(f"Error clearing timeseries for token {token}: {e}")
             return {"error": str(e)}, 500
