@@ -56,10 +56,25 @@ const MyChart: React.FC<MyChartProps> = ({
                             fixedrange: false,
                             showspikes: true,
                             spikemode: 'across',
-                            rangeselector: { buttons: [{ count: 1, label: "1d", step: "day", stepmode: "backward" }, { step: "all" }] },
+                                                        spikesnap: "cursor",
+                            spikedash: "solid",
+                            spikethickness: 1,
+                            rangeselector: {
+                                buttons: [
+                                    { count: 1, label: "1d", step: "day", stepmode: "backward" },
+                                    { count: 7, label: "1w", step: "day", stepmode: "backward" },
+                                    { count: 1, label: "1m", step: "month", stepmode: "backward" },
+                                    { step: "all" }
+                                ]
+                            },
                             range: xaxisRange[0] && xaxisRange[1] ? xaxisRange : undefined,
-                            rangeslider: { visible: true, thickness: 0.05 },
-                        },
+                            rangeslider: {
+                                visible: true,
+                                thickness: 0.05,
+                                bgcolor: '#f8f9fa',
+                                bordercolor: '#ced4da',
+                                borderwidth: 1
+                            },                        },
                         yaxis: {
                             title: { text: Object.keys(primaryData)[0]?.split('.')[0] || 'Y-Axis' },
                             side: 'left',
@@ -74,6 +89,7 @@ const MyChart: React.FC<MyChartProps> = ({
                             spikethickness: 1
                         },
                         yaxis2: {
+                            title: { text: secondaryData ? Object.keys(secondaryData)[0]?.split('.')[0] || 'Second Y-Axis' : '' },
                             overlaying: 'y',
                             // Only disable autorange when BOTH min and max are provided
                             autorange: !(customRange2 && customY2Min !== '' && customY2Max !== ''),
@@ -89,6 +105,8 @@ const MyChart: React.FC<MyChartProps> = ({
                         height: undefined,
                         autosize: true,
                         legend: { orientation: "h" },
+                        plot_bgcolor: 'white',
+                        dragmode: 'pan',
                     }}
                     style={{ width: '100%', height: '100%' }}
                     config={{
