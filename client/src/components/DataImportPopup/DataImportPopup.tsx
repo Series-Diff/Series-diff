@@ -816,7 +816,9 @@ export const DataImportPopup: React.FC<Props> = ({ show, files, onHide, onComple
             )}
             
             {errorParsingFile && !isPivotMode[getFileId(currentFile)] && !validationResults[currentFileKey] && (
-              <p style={{ color: 'red' }}>Error: {errorParsingFile}</p>
+              <Alert variant="danger" className="mt-3">
+                <strong>Error:</strong> {errorParsingFile}
+              </Alert>
             )}
 
             {!isLoadingFile && currentConfig?.rawData && (
