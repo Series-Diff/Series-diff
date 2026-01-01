@@ -738,7 +738,7 @@ export const DataImportPopup: React.FC<Props> = ({ show, files, onHide, onComple
                 <DataTable
                   data={currentConfig.rawData}
                   title={pivotApplied[getFileId(currentFile)] ? "Preview (Transformed)" : "File Preview (Raw)"}
-                  showPagination={false}
+                  showPagination={true}
                 />
                 {isPivotMode[getFileId(currentFile)] && currentConfig.rawData.length > 0 && (
                   <p className="text-muted small mt-1">
