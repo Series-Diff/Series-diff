@@ -40,7 +40,7 @@ const ManualDataEdit: React.FC<Props> = ({
   return (
     <Modal show={show} onHide={onHide} size="lg" scrollable>
       <Modal.Header closeButton>
-        <Modal.Title>Manual Data — Review & Edit</Modal.Title>
+        <Modal.Title>Manual Measurements</Modal.Title>
       </Modal.Header>
 
       <Modal.Body>
@@ -59,7 +59,7 @@ const ManualDataEdit: React.FC<Props> = ({
               size="sm"
               onClick={onClearAll}
             >
-              Clear all
+              Remove all
             </Button>
           </div>
         </div>

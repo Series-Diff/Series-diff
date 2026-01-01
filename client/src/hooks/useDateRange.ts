@@ -1,17 +1,30 @@
 import { useEffect, useState, useMemo, useRef } from "react";
+import { TimeSeriesEntry } from "../services/fetchTimeSeries";
 
-export function useDateRange(loadedData: any[] = []) {
+export function useDateRange(loadedData: any[] = [], manualData: Record<string, TimeSeriesEntry[]> = {}) {
   const [startDate, setStartDate] = useState<Date | null>(null);
   const [endDate, setEndDate] = useState<Date | null>(null);
   const [ignoreTimeRange, setIgnoreTimeRange] = useState(false);
 
   const dataBounds = useMemo(() => {
-    if (!loadedData?.length) return { min: null, max: null };
-    const allDates = loadedData.flatMap(file =>
-      (file.entries ?? [])
-        .map((e: any) => new Date(e.x ))
-        .filter((d: { getTime: () => number; }) => !isNaN(d.getTime()))
-    );
+    const allDates: Date[] = [];
+
+    if (loadedData?.length) {
+      const loadedDates = loadedData.flatMap(file =>
+        (file.entries ?? [])
+          .map((e: any) => new Date(e.x))
+          .filter((d: { getTime: () => number; }) => !isNaN(d.getTime()))
+      );
+      allDates.push(...loadedDates);
+    }
+
+    if (Object.keys(manualData).length > 0) {
+      const manualDates = Object.values(manualData)
+        .flat()
+        .map((e: TimeSeriesEntry) => new Date(e.x))
+        .filter((d: { getTime: () => number; }) => !isNaN(d.getTime()));
+      allDates.push(...manualDates);
+    }
 
     if (!allDates.length) return { min: null, max: null };
 
@@ -19,7 +32,7 @@ export function useDateRange(loadedData: any[] = []) {
       min: new Date(Math.min(...allDates.map(d => d.getTime()))),
       max: new Date(Math.max(...allDates.map(d => d.getTime()))),
     };
-  }, [loadedData]);
+  }, [loadedData, manualData]);
 
   const prevBoundsRef = useRef<{ min: Date | null; max: Date | null }>({ min: null, max: null });
 
