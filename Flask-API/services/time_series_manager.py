@@ -27,6 +27,16 @@ class TimeSeriesManager:
         """Generate Redis key for a given token."""
         return f"session:{token}"
 
+    def _refresh_ttl(self, token: str) -> None:
+        """Refresh the TTL for an active session to keep it alive."""
+        key = self._get_key(token)
+        try:
+            if self.redis.exists(key):
+                self.redis.expire(key, self._ttl_seconds)
+                self.logger.debug(f"Refreshed TTL for session {token}")
+        except Exception as e:
+            self.logger.warning(f"Failed to refresh TTL for token {token}: {e}")
+
     def _validate_parameters(
         self,
         time: Optional[str] = None,
@@ -62,7 +72,10 @@ class TimeSeriesManager:
         """Retrieve session data for a given token."""
         key = self._get_key(token)
         try:
-            return self.redis.hgetall(key)
+            data = self.redis.hgetall(key)
+            if data:
+                self._refresh_ttl(token)
+            return data
         except Exception as e:
             self.logger.error(f"Error retrieving session data for token {token}: {e}")
             raise e
@@ -100,6 +113,9 @@ class TimeSeriesManager:
             filtered_data = {
                 ts: val for ts, val in zip(filtered_data, values) if val is not None
             }
+
+            if filtered_data:
+                self._refresh_ttl(token)
 
             return filtered_data
         except Exception as e:

@@ -75,11 +75,9 @@ def health_check():
     try:
         if _all_required_services_are_running():
             return "OK", 200
-        else:
-            return "Service Unavailable", 500
     except Exception as e:
         logger.error(f"Health check failed: {e}")
-        return "Service Unavailable", 500
+    return "Service Unavailable", 503
 
 
 @app.route("/", methods=["GET"])
