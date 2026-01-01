@@ -1,9 +1,7 @@
 import subprocess
 import json
-import os
 import logging
 import textwrap
-from typing import Optional
 
 logger = logging.getLogger(__name__)
 
@@ -178,7 +176,7 @@ class SandboxedExecutor:
 
         except subprocess.TimeoutExpired:
             return {"error": "Execution timed out"}
-        except Exception as e:
+        except Exception:
             logger.exception("Unexpected error in docker execution")
             return {"error": "Internal execution error"}
 

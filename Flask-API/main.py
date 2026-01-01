@@ -8,10 +8,7 @@ from flask import Flask, jsonify, request
 from flask_limiter import Limiter
 from flask_limiter.util import get_remote_address
 from utils.time_utils import convert_timeseries_keys_timezone
-from services.plugin_service import (
-    validate_plugin_code,
-    execute_plugin_code,
-)
+from services.plugin_service import validate_plugin_code
 
 sys.stdout.reconfigure(line_buffering=True)
 
