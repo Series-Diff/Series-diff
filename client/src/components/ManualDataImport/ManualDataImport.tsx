@@ -9,31 +9,33 @@ interface SimplePoint {
 interface Props {
   show: boolean;
   onHide: () => void;
-  existingData: Record<string, any[]>;
+  onHideToEdit?: () => void;
+  existingData: Record<string, SimplePoint[]>;
   onAddData: (newEntries: Record<string, SimplePoint[]>) => void;
 }
 
-export const ManualDataImport: React.FC<Props> = ({ show, onHide, existingData, onAddData }) => {
+const ManualDataImport: React.FC<Props> = ({ show, onHide, onHideToEdit, existingData, onAddData }) => {
   const availableGroups = useMemo(() => {
     const groups = new Set<string>();
     Object.keys(existingData).forEach(key => {
-      const parts = key.split('.');
-      if (parts.length > 0) groups.add(parts[0]);
+      const group = key.split('.')[0];
+      if (group) groups.add(group);
     });
     return Array.from(groups);
   }, [existingData]);
 
   const [date, setDate] = useState('');
-  const [seriesName, setSeriesName] = useState('Rzeczywiste'); 
+  const [seriesName, setSeriesName] = useState('Actual');
   const [values, setValues] = useState<Record<string, string>>({});
+  const [hasAddedData, setHasAddedData] = useState(false);
 
-  // Reset formularza po otwarciu
   useEffect(() => {
     if (show) {
       const now = new Date();
       now.setMinutes(now.getMinutes() - now.getTimezoneOffset());
-      setDate(now.toISOString().slice(0, 16));
+            setDate(now.toISOString().slice(0, 16));
       setValues({});
+      setHasAddedData(false);
     }
   }, [show]);
 
@@ -42,8 +44,8 @@ export const ManualDataImport: React.FC<Props> = ({ show, onHide, existingData, 
   };
 
   const trySubmitData = (): boolean => {
-    if (!date || !seriesName) return false;
-    
+    if (!date || !seriesName.trim()) return false;
+
     const newEntries: Record<string, SimplePoint[]> = {};
     let hasData = false;
 
@@ -61,28 +63,33 @@ export const ManualDataImport: React.FC<Props> = ({ show, onHide, existingData, 
 
     if (hasData) {
       onAddData(newEntries);
+      setValues({});
       return true;
     }
+
     return false;
   };
 
   const handleAddAndNext = () => {
     if (trySubmitData()) {
-      setValues({});
-
+      setHasAddedData(true);
     }
   };
 
-  const handleAddAndClose = () => {
-    if (trySubmitData()) {
-      onHide();
+  const handleAddAndFinish = () => {
+    const hasData = Object.values(values).some(v => v && !isNaN(parseFloat(v)));
+    if (hasData) {
+      trySubmitData();
     }
+    // Zawsze zamykaj
+    if (onHideToEdit) onHideToEdit();
+    else onHide();
   };
 
   const isFormValid = date && seriesName.trim();
 
   return (
-    <Modal show={show} onHide={onHide} centered>
+    <Modal show={show} onHide={onHideToEdit || onHide} centered>
       <Modal.Header closeButton>
         <Modal.Title>Add Manual Point</Modal.Title>
       </Modal.Header>
@@ -90,20 +97,21 @@ export const ManualDataImport: React.FC<Props> = ({ show, onHide, existingData, 
         <Form>
           <Form.Group className="mb-3">
             <Form.Label>Date</Form.Label>
-            <Form.Control 
-              type="datetime-local" 
-              value={date} 
-              onChange={e => setDate(e.target.value)} 
+            <Form.Control
+              type="datetime-local"
+              value={date}
+              onChange={e => setDate(e.target.value)}
             />
           </Form.Group>
           <Form.Group className="mb-3">
             <Form.Label>Series Name</Form.Label>
-            <Form.Control 
-              type="text" 
-              value={seriesName} 
-              onChange={e => setSeriesName(e.target.value)} 
+            <Form.Control
+              type="text"
+              value={seriesName}
+              onChange={e => setSeriesName(e.target.value)}
             />
           </Form.Group>
+
           <hr />
           <h6>Values for groups:</h6>
           {availableGroups.length === 0 && <p className="text-muted">No loaded groups.</p>}
@@ -111,15 +119,15 @@ export const ManualDataImport: React.FC<Props> = ({ show, onHide, existingData, 
             <Form.Group as={Row} key={group} className="mb-2 align-items-center">
               <Form.Label column sm="4">{group}</Form.Label>
               <Col sm="8">
-                <Form.Control 
-                  type="number" 
+                <Form.Control
+                  type="number"
                   placeholder="Value"
                   value={values[group] || ''}
                   onChange={e => handleValueChange(group, e.target.value)}
-                  onKeyDown={(e) => {
+                  onKeyDown={e => {
                     if (e.key === 'Enter') {
-                        e.preventDefault();
-                        handleAddAndNext();
+                      e.preventDefault();
+                      handleAddAndNext();
                     }
                   }}
                 />
@@ -129,8 +137,11 @@ export const ManualDataImport: React.FC<Props> = ({ show, onHide, existingData, 
         </Form>
       </Modal.Body>
       <Modal.Footer>
-        <Button variant="secondary" onClick={onHide}>Cancel</Button>
-        
+        {onHideToEdit && hasAddedData && (
+          <Button variant="secondary" onClick={onHideToEdit}>
+            Back
+          </Button>
+        )}
         <Button 
           variant="primary" 
           onClick={handleAddAndNext} 
@@ -141,10 +152,9 @@ export const ManualDataImport: React.FC<Props> = ({ show, onHide, existingData, 
 
         <Button 
           variant="success" 
-          onClick={handleAddAndClose} 
-          disabled={!isFormValid}
+          onClick={handleAddAndFinish}
         >
-          Close
+          Finish
         </Button>
       </Modal.Footer>
     </Modal>

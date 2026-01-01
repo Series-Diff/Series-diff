@@ -6,7 +6,7 @@ import '../components/Metric/Metrics.css';
 import '../components/Dropdown/Dropdown.css';
 import * as components from '../components';
 import * as hooks from '../hooks';
-import { useManualData } from '../hooks/useManualData'; // Twoje: Import manual data
+import { useManualData } from '../hooks/useManualData'; 
 
 import ControlsPanel from './Dashboard/components/ControlsPanel';
 import DifferenceSelectionPanel from './Dashboard/components/DifferenceSelectionPanel';
@@ -18,8 +18,9 @@ function DashboardPage() {
 
   const { chartData, error, setError, isLoading, setIsLoading, filenamesPerCategory, handleFetchData, handleReset: baseReset  } = hooks.useDataFetching();
  
-  const { manualData, addManualData, clearManualData } = useManualData();
+  const { manualData, addManualData, clearManualData, removeByFileId, removeTimestampFromGroup, updateManualPoint } = useManualData();
   const [showManualModal, setShowManualModal] = useState(false);
+  const [showManualEdit, setShowManualEdit] = useState(false);
   const { showMovingAverage, maWindow, setMaWindow, isMaLoading, rollingMeanChartData, handleToggleMovingAverage, handleApplyMaWindow, resetMovingAverage, } = hooks.useMovingAverage(filenamesPerCategory, setError);
   const { isPopupOpen, selectedFiles, handleFileUpload, handlePopupComplete, handlePopupClose, resetFileUpload } = hooks.useFileUpload(handleFetchData, setError, setIsLoading);
   const { startDate, endDate, handleStartChange, handleEndChange, resetDates, defaultMinDate, defaultMaxDate,   ignoreTimeRange,setIgnoreTimeRange, } = hooks.useDateRange(Object.entries(chartData).map(([_, entries]) => ({ entries })));
@@ -222,16 +223,18 @@ function DashboardPage() {
 
                       </div>
                       <div className="d-flex ms-auto p-2">
-                        <Button
-                          variant="outline-primary"
-                          size="sm"
-                          onClick={() => setShowManualModal(true)}
-                          disabled={Object.keys(chartData).length === 0}
-                          className="mb-1 text-nowrap"
-                        >
-                          + Add Manual Point
-                        </Button>
+                        <div className="d-flex gap-2">
+                          <Button
+                            variant="outline-secondary"
+                            size="sm"
+                            onClick={() => setShowManualEdit(true)}
+                            className="ms-2 mb-1 text-nowrap"
+                          >
+                            Manual Measurments
+                          </Button>
+                        </div>
                       </div>
+                      
                     </div>
                   </div><div className="chart-wrapper " style={{ height: chartDynamicHeight }}>
 
@@ -572,8 +575,28 @@ function DashboardPage() {
           <components.ManualDataImport 
             show={showManualModal}
             onHide={() => setShowManualModal(false)}
+            onHideToEdit={() => {
+              setShowManualModal(false);
+              setShowManualEdit(true);
+            }}
             existingData={chartData}
             onAddData={addManualData} 
+          />
+
+          <components.ManualDataEdit
+            show={showManualEdit}
+            onHide={() => setShowManualEdit(false)}
+            manualData={manualData}
+            chartData={chartData}
+            onRemoveTimestamp={(fileId, ts, rowIdx) => removeTimestampFromGroup(fileId, ts, rowIdx)}
+            onRemoveGroup={(fileId) => removeByFileId(fileId)}
+            onUpdatePoint={(seriesKey, ts, val, idx) => updateManualPoint(seriesKey, ts, val, idx)}
+            onClearAll={() => clearManualData()}
+            onAddManualData={addManualData}
+            onOpenImport={() => {
+              setShowManualEdit(false);
+              setShowManualModal(true);
+            }}
           />
 
         </div>
