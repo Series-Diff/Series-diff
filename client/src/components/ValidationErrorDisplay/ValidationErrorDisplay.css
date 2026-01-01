@@ -1,0 +1,51 @@
+.validation-display {
+  margin: 1rem 0;
+}
+
+.validation-alert {
+  border-radius: 8px;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.validation-heading {
+  font-size: 1.1rem;
+  margin-bottom: 0.75rem;
+}
+
+.validation-content {
+  font-size: 0.95rem;
+}
+
+.validation-item {
+  margin-bottom: 0.5rem;
+  line-height: 1.5;
+}
+
+.validation-help {
+  margin-top: 1rem;
+  font-size: 0.9rem;
+}
+
+.validation-help ol {
+  padding-left: 1.5rem;
+}
+
+.validation-help ol li {
+  margin-bottom: 0.5rem;
+}
+
+.validation-example {
+  background-color: #f8f9fa;
+  border: 1px solid #dee2e6;
+  border-radius: 4px;
+  padding: 1rem;
+  margin-top: 0.5rem;
+  overflow-x: auto;
+  font-size: 0.85rem;
+  color: #212529;
+}
+
+.alert-danger .validation-example {
+  background-color: #fff5f5;
+  border-color: #f5c6cb;
+}

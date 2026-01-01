@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { exportToPDF } from '../utils';
+import { exportToPDF } from '../utils/pdfExport';
 
 export const useExport = (chartData: Record<string, any>) => {
   const [showTitleModal, setShowTitleModal] = useState(false);
