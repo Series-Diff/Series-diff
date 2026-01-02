@@ -38,6 +38,7 @@ class SandboxedExecutor:
         """Initialize Lambda client for AWS execution."""
         try:
             import boto3
+
             self.lambda_client = boto3.client("lambda")
             self.docker_available = False
             logger.info(f"Using Lambda executor: {self.lambda_function_name}")
