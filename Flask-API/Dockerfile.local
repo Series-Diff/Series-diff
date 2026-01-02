@@ -1,12 +1,14 @@
-# Use an official Python runtime as a parent image
+# Local development Dockerfile with Docker-in-Docker support
+# Use this for local development where plugins run in Docker containers
+
 FROM python:3.11-slim
 
 # Set the working directory in the container
 WORKDIR /app
 
-# Install curl for health checks (Docker not needed on AWS - using Lambda)
+# App needs Docker to run plugin containers locally
 RUN apt-get update && \
-    apt-get install -y --no-install-recommends curl && \
+    apt-get install -y --no-install-recommends docker.io curl && \
     rm -rf /var/lib/apt/lists/*
 
 # Setup environment

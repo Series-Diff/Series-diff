@@ -8,7 +8,9 @@ services:
     volumes:
       - redis-data:/data
   backend:
-    build: ./Flask-API
+    build:
+      context: ./Flask-API
+      dockerfile: Dockerfile.local
     ports:
      - "5000:5000"
     environment:

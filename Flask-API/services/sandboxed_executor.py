@@ -1,3 +1,9 @@
+"""
+Adaptive sandboxed executor for plugin code.
+Uses Docker locally (development) and AWS Lambda on AWS (production).
+"""
+
+import os
 import subprocess
 import json
 import logging
@@ -7,6 +13,12 @@ logger = logging.getLogger(__name__)
 
 
 class SandboxedExecutor:
+    """
+    Adaptive executor for plugin code.
+
+    - Local (Docker available): Uses Docker containers for isolation
+    - AWS (PLUGIN_EXECUTOR_LAMBDA set): Uses Lambda for execution
+    """
 
     EXECUTOR_IMAGE = "sandboxed-plugin-executor:latest"
     CPU_LIMIT = "0.5"
@@ -14,17 +26,36 @@ class SandboxedExecutor:
     PLUGIN_MEMORY_LIMIT = "256m"
 
     def __init__(self):
-        self._check_docker_available()
+        self.lambda_function_name = os.environ.get("PLUGIN_EXECUTOR_LAMBDA")
+        self.use_lambda = bool(self.lambda_function_name)
+
+        if self.use_lambda:
+            self._init_lambda()
+        else:
+            self._check_docker_available()
+
+    def _init_lambda(self):
+        """Initialize Lambda client for AWS execution."""
+        try:
+            import boto3
+            self.lambda_client = boto3.client("lambda")
+            self.docker_available = False
+            logger.info(f"Using Lambda executor: {self.lambda_function_name}")
+        except ImportError:
+            logger.error("boto3 not installed - Lambda execution unavailable")
+            self.use_lambda = False
+            self._check_docker_available()
 
     def _check_docker_available(self):
+        """Check if Docker is available for local execution."""
         try:
             subprocess.run(["docker", "version"], capture_output=True, check=True)
             self.docker_available = True
+            logger.info("Using Docker executor (local mode)")
         except (subprocess.CalledProcessError, FileNotFoundError):
             logger.critical("DOCKER IS NOT AVAILABLE. Plugin execution disabled.")
             self.docker_available = False
 
-    # Execution template - processes multiple pairs in one container
     EXECUTOR_TEMPLATE = textwrap.dedent(
         """
         import sys
@@ -117,21 +148,43 @@ class SandboxedExecutor:
     )
 
     def execute(self, code: str, pairs: list) -> dict:
-        """
-        Execute plugin code on multiple pairs in a single Docker container.
-
-        Args:
-            code: Python plugin code
-            pairs: List of dicts with 'series1', 'series2', and optional 'key'
-
-        Returns:
-            dict with 'results' list or 'error'
-        """
-        if not self.docker_available:
-            return {"error": "Secure execution environment unavailable"}
-
+        """Execute plugin code on multiple pairs."""
         if not pairs:
             return {"results": []}
+
+        if self.use_lambda:
+            return self._execute_lambda(code, pairs)
+        else:
+            return self._execute_docker(code, pairs)
+
+    def _execute_lambda(self, code: str, pairs: list) -> dict:
+        """Execute plugin code via AWS Lambda."""
+        try:
+            payload = json.dumps({"code": code, "pairs": pairs})
+
+            response = self.lambda_client.invoke(
+                FunctionName=self.lambda_function_name,
+                InvocationType="RequestResponse",
+                Payload=payload.encode("utf-8"),
+            )
+
+            response_payload = response["Payload"].read().decode("utf-8")
+            result = json.loads(response_payload)
+
+            if "FunctionError" in response:
+                logger.error(f"Lambda execution error: {result}")
+                return {"error": "Lambda execution failed"}
+
+            return result
+
+        except Exception as e:
+            logger.exception("Error invoking Lambda")
+            return {"error": f"Lambda invocation error: {str(e)}"}
+
+    def _execute_docker(self, code: str, pairs: list) -> dict:
+        """Execute plugin code via Docker container."""
+        if not self.docker_available:
+            return {"error": "Secure execution environment unavailable"}
 
         input_data = json.dumps({"pairs": pairs, "code": code})
 
@@ -181,7 +234,6 @@ class SandboxedExecutor:
             return {"error": "Internal execution error"}
 
 
-# Singleton setup
 _executor = None
 
 
