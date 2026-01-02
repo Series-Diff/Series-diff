@@ -56,7 +56,6 @@ export const DataImportPopup = forwardRef<DataImportPopupHandle, Props>(
   const [renameError, setRenameError] = useState<string | null>(null);
   const [editingGroupName, setEditingGroupName] = useState<string | null>(null);
   const [tempGroupName, setTempGroupName] = useState<string>('');
-  const [groupCounter, setGroupCounter] = useState(2);
   const [groupNameError, setGroupNameError] = useState<string | null>(null);
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
   const [manuallyEditedGroups, setManuallyEditedGroups] = useState<Set<string>>(new Set());
@@ -138,7 +137,6 @@ export const DataImportPopup = forwardRef<DataImportPopupHandle, Props>(
 
     setEditingGroupName(null);
     setTempGroupName('');
-    if (committedGroups.length === 0) setGroupCounter(2);
     setGroupNameError(null);
     setManuallyEditedGroups(new Set());
 
@@ -283,13 +281,25 @@ export const DataImportPopup = forwardRef<DataImportPopupHandle, Props>(
         setFileConfigs(prev => ({ ...prev, [fileKey]: newConfig }));
         setGroups(prevGroups => {
             if (prevGroups.length === 0) return prevGroups;
-            return prevGroups.map(group => ({
-                ...group,
-                fileMappings: {
-                ...group.fileMappings,
-                [fileKey]: group.id === 'date' ? detectedDateColumn : (group.id === 'value' ? detectedValueColumn : 'none')
-                }
-            }));
+return prevGroups.map(group => {
+  const existing = group.fileMappings?.[fileKey];
+
+  if (existing && existing !== 'none') {
+    return group;
+  }
+
+  const autoDetected = group.id === 'date' ? detectedDateColumn : (group.id === 'value' ? detectedValueColumn : 'none')
+                
+
+  return {
+    ...group,
+    fileMappings: {
+      ...group.fileMappings,
+      [fileKey]: autoDetected,
+    },
+  };
+});
+
         });
 
       } else {
@@ -318,7 +328,8 @@ export const DataImportPopup = forwardRef<DataImportPopupHandle, Props>(
       setCommittedFileConfigs({});
       setCommittedRenamedFiles({});
       setFileConfigs({});
-      setOriginalData({});    },
+      setOriginalData({});
+    },
   }), []);
 
 useEffect(() => {
@@ -522,8 +533,16 @@ useEffect(() => {
 
   // --- LOGIC: Group Management ---
   const addNewGroup = () => {
-    const newGroupName = `Value Group ${groupCounter}`;
-    setGroupCounter(prev => prev + 1);
+    const existingNumbers = [...groups, ...committedGroups]
+      .map(g => {
+        const match = g.name.match(/Value Group (\d+)/);
+        return match ? parseInt(match[1], 10) : 0;
+      })
+      .filter(num => num > 0);
+    
+    const nextNumber = existingNumbers.length > 0 ? Math.max(...existingNumbers) + 1 : 2;
+    const newGroupName = `Value Group ${nextNumber}`;
+    
     setMissingValueGroupError(false);
     setGroups(prev => [
       ...prev,
