@@ -83,7 +83,9 @@ def health_check():
 
 @app.route("/", methods=["GET"])
 def index():
-    return _create_response({"status": "API is working", "service": "SeriesDiff Backend"}, 200)
+    return _create_response(
+        {"status": "API is working", "service": "SeriesDiff Backend"}, 200
+    )
 
 
 @app.route("/api/timeseries", methods=["GET"])
