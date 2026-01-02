@@ -50,20 +50,52 @@ const baseSchema = {
  */
 const isValidDateString = (value: any): boolean => {
   if (typeof value !== 'string') return false;
+  if (value.trim() === '') return false;  // Empty strings are not valid dates
   
   // Check various date formats
-  const datePatterns = [
-    /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(\.\d{3})?Z?$/,  // ISO 8601
-    /^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}(.\d{1,5})$/,    // YYYY-MM-DD HH:mm:ss(.sss)  optional miliseconds
-    /^\d{4}-\d{2}-\d{2}$/,                                // YYYY-MM-DD
-    /^\d{2}\/\d{2}\/\d{4}$/,                              // MM/DD/YYYY
-  ];
+ const datePatterns = [
+  //  format ISO (YYYY-MM-DD lub YY-MM-DD)
+  /^(\d{4}|\d{2})[-./](\d{1,2})[-./](\d{2}|\d{4})(?:[T\s](\d{2}):(\d{2})(?::(\d{2})(\.\d{1,5})?)?Z?)?$/,
+
+  //  format europejski (DD-MM-YYYY)
+  /^(\d{1,2})[-./](\d{1,2})[-./](\d{4}|\d{2})(?:[T\s](\d{2}):(\d{2})(?::(\d{2})(\.\d{1,5})?)?)?$/,
+];
   
   const matchesPattern = datePatterns.some(pattern => pattern.test(value));
   if (!matchesPattern) return false;
   
+  // Try to parse the date - handle different formats
+  let dateString = value;
+  
+  // Handle YY-MM-DD format (e.g., "24-04-24 00:00:00")
+  const yyMmDdMatch = value.match(/^(\d{2})[-./](\d{2})[-./](\d{2})(\s+.+)?$/);
+  if (yyMmDdMatch) {
+    // Convert YY to YYYY (assume 2000+ for years 00-99)
+    const year = parseInt(yyMmDdMatch[1]) + 2000;
+    const month = yyMmDdMatch[2];
+    const day = yyMmDdMatch[3];
+    const timePart = yyMmDdMatch[4] || '';
+    dateString = `${year}-${month}-${day}${timePart}`;
+  }
+  
+  // Handle DD-MM-YYYY or DD-MM-YY format (European)
+  const ddMmYyyyMatch = value.match(/^(\d{1,2})[-./](\d{1,2})[-./](\d{2,4})(\s+.+)?$/);
+  if (ddMmYyyyMatch && !yyMmDdMatch) {  // Only if not already matched as YY-MM-DD
+    const day = ddMmYyyyMatch[1];
+    const month = ddMmYyyyMatch[2];
+    let year = ddMmYyyyMatch[3];
+    const timePart = ddMmYyyyMatch[4] || '';
+    
+    // Convert YY to YYYY if needed
+    if (year.length === 2) {
+      year = String(parseInt(year) + 2000);
+    }
+    
+    dateString = `${year}-${month}-${day}${timePart}`;
+  }
+  
   // Verify it's a parseable date
-  const date = new Date(value);
+  const date = new Date(dateString);
   return !isNaN(date.getTime());
 };
 
@@ -95,14 +127,19 @@ const detectDateColumns = (data: TimeSeriesDataPoint[]): string[] => {
     
     // Check if values look like dates
     let validDateCount = 0;
+    let emptyOrNullCount = 0;
     for (let i = 0; i < sampleSize; i++) {
-      if (isValidDateString(data[i]?.[column])) {
+      const value = data[i]?.[column];
+      if (value === '' || value === null || value === undefined) {
+        emptyOrNullCount++;
+      } else if (isValidDateString(value)) {
         validDateCount++;
       }
     }
     
-    // If most sampled values are dates, or name indicates date, add to list
-    if (validDateCount >= sampleSize * 0.8 || (nameIndicatesDate && validDateCount > 0)) {
+    // If most sampled values are dates, or name indicates date with significant valid dates, add to list
+    // For name-based detection, require at least 20% valid values (not just 1)
+    if (validDateCount >= sampleSize * 0.8 || (nameIndicatesDate && validDateCount >= sampleSize * 0.2)) {
       dateColumns.push(column);
     }
   }
@@ -135,54 +172,6 @@ const detectNumericColumns = (data: TimeSeriesDataPoint[]): string[] => {
   }
   
   return numericColumns;
-};
-
-/**
- * Detects if data is in pivoted format
- * Pivoted format characteristics:
- * - Has a column indicating category/type/metric (e.g., data_type, sensor_id)
- * - Has a single value column
- * - Multiple rows can have the same timestamp but different categories
- */
-const detectPivotedFormat = (data: TimeSeriesDataPoint[]): boolean => {
-  if (data.length < 2) return false;
-  
-  const sampleSize = Math.min(50, data.length);
-  const sample = data.slice(0, sampleSize);
-  const columns = Object.keys(sample[0]);
-  
-  // Look for category/type columns
-  const categoryColumns = columns.filter(col => 
-    /type|category|metric|sensor|name|kind|class/i.test(col)
-  );
-  
-  // Look for value columns
-  const valueColumns = columns.filter(col => 
-    /^value$/i.test(col) || /^val$/i.test(col)
-  );
-  
-  if (categoryColumns.length === 0 || valueColumns.length === 0) {
-    return false;
-  }
-  
-  // Check if multiple rows share the same timestamp but have different category values
-  const dateColumns = detectDateColumns(sample);
-  if (dateColumns.length === 0) return false;
-  
-  const dateCol = dateColumns[0];
-  const categoryCol = categoryColumns[0];
-  
-  const dateMap = new Map<string, Set<any>>();
-  for (const row of sample) {
-    const dateValue = String(row[dateCol]);
-    if (!dateMap.has(dateValue)) {
-      dateMap.set(dateValue, new Set());
-    }
-    dateMap.get(dateValue)!.add(row[categoryCol]);
-  }
-  
-  // If any timestamp has multiple different categories, it's likely pivoted
-  return Array.from(dateMap.values()).some(categories => categories.size > 1);
 };
 
 /**
@@ -255,54 +244,20 @@ export const validateTimeSeriesJSON = (data: any): ValidationResult => {
   if (dateColumns.length === 0) {
     errors.push(
       'No date/time field detected. Each object MUST have at least one field whose VALUE is a date/timestamp. ' +
-      'Accepted formats: ISO 8601 (e.g., "2025-11-27T23:02:59.000Z"), "YYYY-MM-DD HH:mm:ss", "YYYY-MM-DD". ' +
-      'Common field names: "log_date", "time", "created", "timestamp", but any name is acceptable as long as the value is a date.'
+      'Accepted formats: ISO Standard (e.g., "2025-11-27T23:02:59.000Z"), "YYYY-MM-DD HH:mm:ss", and european formats (e.g., "27-11-2025 23:02:59").' 
     );
   }
   
   if (numericColumns.length === 0) {
     errors.push(
       'No numeric value field detected. Each object MUST have at least one field whose VALUE is a number (integer or float). ' +
-      'Examples: "value": 4.94, "temperature": 19.0, "ec_low": 4. ' +
-      'The field name can be anything, but the value must be numeric.'
+      'Examples: "value": 4.94, "temperature": 19.0, "ec_low": 4. '
     );
   }
   
   // If basic requirements aren't met, return early
   if (errors.length > 0) {
     return { isValid: false, errors, warnings, dateColumns, numericColumns };
-  }
-  
-  // Step 5: Detect format (pivoted vs non-pivoted)
-  const isPivoted = detectPivotedFormat(data);
-  const detectedFormat = isPivoted ? 'pivoted' : 'non-pivoted';
-  
-  // Step 6: Format-specific validation and warnings
-  if (isPivoted) {
-    // Pivoted format should have category, date, and value columns
-    const categoryColumns = Object.keys(data[0]).filter(col => 
-      /type|category|metric|sensor|name|kind|class/i.test(col)
-    );
-    
-    if (categoryColumns.length === 0) {
-      warnings.push(
-        'Pivoted format detected but no clear category column found. ' +
-        'Expected columns like "data_type", "sensor_id", "metric_name" to distinguish different measurement types.'
-      );
-    } else {
-      warnings.push(
-        `Detected pivoted format (long format). Category column: "${categoryColumns[0]}". ` +
-        'You may want to enable "Pivot Data" option during import to transform this data into wide format.'
-      );
-    }
-  } else {
-    // Non-pivoted format should have multiple numeric columns
-    if (numericColumns.length === 1) {
-      warnings.push(
-        'Only one numeric column detected. This might be pivoted (long) format. ' +
-        'If multiple measurements share the same timestamp, consider enabling "Pivot Data" option.'
-      );
-    }
   }
   
   // Step 7: Check for common issues
@@ -342,7 +297,13 @@ export const validateTimeSeriesJSON = (data: any): ValidationResult => {
     let rowHasIssue = false;
     
     // Check if row has at least one valid date VALUE (not key)
-    const hasValidDate = dateColumns.some(col => isValidDateString(row[col]));
+    // Allow empty/null values in date fields - just need ONE valid date field
+    const hasValidDate = dateColumns.some(col => {
+      const value = row[col];
+      // Skip empty/null values - they don't count as invalid
+      if (value === '' || value === null || value === undefined) return false;
+      return isValidDateString(value);
+    });
     if (!hasValidDate) {
       rowsWithInvalidDates++;
       rowHasIssue = true;
@@ -389,6 +350,32 @@ export const validateTimeSeriesJSON = (data: any): ValidationResult => {
     );
   }
   
+  // Step 9: Check for empty/null values in date fields (informational warning)
+  if (dateColumns.length > 1) {
+    // Check each date column for empty values
+    const dateColumnsWithEmptyValues: string[] = [];
+    for (const col of dateColumns) {
+      let emptyCount = 0;
+      for (let i = 0; i < sampleSize; i++) {
+        const value = data[i]?.[col];
+        if (value === '' || value === null || value === undefined) {
+          emptyCount++;
+        }
+      }
+      if (emptyCount > 0) {
+        const percentage = Math.round((emptyCount / sampleSize) * 100);
+        dateColumnsWithEmptyValues.push(`${col} (${percentage}% empty)`);
+      }
+    }
+    
+    if (dateColumnsWithEmptyValues.length > 0) {
+      warnings.push(
+        `Some date fields contain empty or null values: ${dateColumnsWithEmptyValues.join(', ')}. ` +
+        'This is acceptable as long as at least one date field per row has valid values.'
+      );
+    }
+  }
+  
   // Final validation result
   const isValid = errors.length === 0;
   
@@ -396,7 +383,6 @@ export const validateTimeSeriesJSON = (data: any): ValidationResult => {
     isValid,
     errors,
     warnings,
-    detectedFormat,
     dateColumns,
     numericColumns,
   };
