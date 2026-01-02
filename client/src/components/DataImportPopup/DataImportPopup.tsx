@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import React, { useState, useEffect, useCallback, useMemo, forwardRef, useImperativeHandle } from 'react';
 import { Modal, Button, Form, Spinner, Alert } from 'react-bootstrap';
 import { DataTable } from '../DataTable/DataTable';
 import Papa from 'papaparse';
@@ -30,12 +30,19 @@ interface Props {
   onComplete: (groupedData: Record<string, any>) => void;
 }
 
-export const DataImportPopup: React.FC<Props> = ({ show, files, onHide, onComplete }) => {
+export interface DataImportPopupHandle {
+  resetAllData: () => void;
+}
+export const DataImportPopup = forwardRef<DataImportPopupHandle, Props>(
+  ({ show, files, onHide, onComplete }, ref) => {
   // --- STATE: Navigation & Data ---
   const [currentStep, setCurrentStep] = useState<'file-preview' | 'column-config'>('file-preview');
   const [currentFileIndex, setCurrentFileIndex] = useState(0);
   const [fileConfigs, setFileConfigs] = useState<Record<string, FileConfig>>({});
   const [columnOptions, setColumnOptions] = useState<string[]>([]); // Available columns in the current file
+  const [committedGroups, setCommittedGroups] = useState<Group[]>([]);
+  const [committedFileConfigs, setCommittedFileConfigs] = useState<Record<string, FileConfig>>({});
+  const [committedRenamedFiles, setCommittedRenamedFiles] = useState<Record<string, string>>({});
 
   // --- STATE: Loading & Errors ---
   const [isLoadingFile, setIsLoadingFile] = useState(false);
@@ -65,6 +72,18 @@ export const DataImportPopup: React.FC<Props> = ({ show, files, onHide, onComple
   const [originalData, setOriginalData] = useState<Record<string, any[]>>({});
   const [pivotWarnings, setPivotWarnings] = useState<Record<string, string>>({});
   const [pivotApplied, setPivotApplied] = useState<Record<string, boolean>>({});
+
+  useEffect(() => {
+    try {
+      const saved = localStorage.getItem('dataImportPopup_committedGroups');
+      if (saved) {
+        const groups = JSON.parse(saved) as Group[];
+        setCommittedGroups(groups);
+      }
+    } catch (e) {
+      console.error("Error loading from localStorage:", e);
+    }
+  }, []);
 
   // --- HELPER: Flatten Object ---
   const flattenObject = (obj: any, prefix = ''): Record<string, any> => {
@@ -99,27 +118,27 @@ export const DataImportPopup: React.FC<Props> = ({ show, files, onHide, onComple
   const currentFile = files[currentFileIndex];
   const currentFileKey = getFileKey(currentFile);
   const currentConfig = currentFileKey ? fileConfigs[currentFileKey] : null;
-
-  // --- EFFECT: Reset State on Open ---
-  useEffect(() => {
-    if (show && files.length > 0) {
-      resetState();
-      loadFileForConfiguration(0);
-    }
-  }, [show, files]);
-
-
   const resetState = () => {
     setCurrentStep('file-preview');
     setCurrentFileIndex(0);
-    setFileConfigs({});
     setColumnOptions([]);
     setErrorParsingFile(null);
-    setGroups([]);
-    setRenamedFiles({});
+    if (Object.keys(committedFileConfigs).length > 0) {
+      setFileConfigs(committedFileConfigs);
+      setRenamedFiles(committedRenamedFiles);
+    } else {
+      setFileConfigs({}); 
+      setRenamedFiles({});
+    }
+    if (committedGroups.length > 0) {
+      setGroups(committedGroups);
+    } else {
+      setGroups([]); 
+    }
+
     setEditingGroupName(null);
     setTempGroupName('');
-    setGroupCounter(2);
+    if (committedGroups.length === 0) setGroupCounter(2);
     setGroupNameError(null);
     setManuallyEditedGroups(new Set());
 
@@ -132,7 +151,15 @@ export const DataImportPopup: React.FC<Props> = ({ show, files, onHide, onComple
     setOriginalData({});
     setPivotWarnings({});
     setPivotApplied({});
+    setFieldErrors({});
   };
+
+  useEffect(() => {
+    if (show && files.length > 0) {
+      resetState();
+      loadFileForConfiguration(0);
+    }
+  }, [show, files]); 
 
   // --- EFFECT: Auto-detect Pivot Columns ---
   // When columns are loaded (columnOptions), we try to guess default pivot settings
@@ -245,13 +272,26 @@ export const DataImportPopup: React.FC<Props> = ({ show, files, onHide, onComple
             return newWarnings;
           });
         }
+        const detectedDateColumn = columns.find(c => c.toLowerCase().includes('date') || c.toLowerCase().includes('time')) || columns[0] || '';
+        const detectedValueColumn = columns.find(c => c.toLowerCase().includes('value') || c.toLowerCase().includes('metric')) || (columns.length > 1 ? columns[1] : columns[0]) || '';
 
         const newConfig: FileConfig = {
-          logDateColumn: columns.find(c => c.toLowerCase().includes('date') || c.toLowerCase().includes('time')) || columns[0] || '',
-          valueColumn: columns.find(c => c.toLowerCase().includes('value') || c.toLowerCase().includes('metric')) || (columns.length > 1 ? columns[1] : columns[0]) || '',
+          logDateColumn: detectedDateColumn,
+          valueColumn: detectedValueColumn,
           rawData: flattenedDataArray,
         };
         setFileConfigs(prev => ({ ...prev, [fileKey]: newConfig }));
+        setGroups(prevGroups => {
+            if (prevGroups.length === 0) return prevGroups;
+            return prevGroups.map(group => ({
+                ...group,
+                fileMappings: {
+                ...group.fileMappings,
+                [fileKey]: group.id === 'date' ? detectedDateColumn : (group.id === 'value' ? detectedValueColumn : 'none')
+                }
+            }));
+        });
+
       } else {
         throw new Error(`File ${file.name} is empty or not an array of objects.`);
       }
@@ -267,7 +307,27 @@ export const DataImportPopup: React.FC<Props> = ({ show, files, onHide, onComple
     }
   }, [files, fileConfigs, renamedFiles]);
 
-  // --- LOGIC: Apply Pivot (Backend Call) ---
+  useImperativeHandle(ref, () => ({
+    resetAllData: () => {
+      try {
+        localStorage.removeItem('dataImportPopup_committedGroups');
+      } catch (e) {
+        console.error("Error clearing localStorage:", e);
+      }
+      setCommittedGroups([]);
+      setCommittedFileConfigs({});
+      setCommittedRenamedFiles({});
+      setFileConfigs({});
+      setOriginalData({});    },
+  }), []);
+
+useEffect(() => {
+  if (show && files.length > 0 && currentStep === 'file-preview') {
+    loadFileForConfiguration(currentFileIndex);
+  }
+}, [currentFileIndex, show, files, currentStep, loadFileForConfiguration]);
+
+  // --- APPLY PIVOT ---
   const handleApplyPivot = async () => {
     if (!currentFile || !pivotIndex || !pivotColumn || !pivotValue) return;
 
@@ -382,6 +442,7 @@ export const DataImportPopup: React.FC<Props> = ({ show, files, onHide, onComple
   };
 
   const initializeGroups = () => {
+    if (groups.length > 0) return;
     const fileKeys = Object.keys(fileConfigs);
     if (fileKeys.length > 0) {
       // Find first COMMON numeric column (exists in all files and is numeric)
@@ -725,20 +786,21 @@ export const DataImportPopup: React.FC<Props> = ({ show, files, onHide, onComple
 
     const isValid = validateDataMappings();
     if (!isValid) {
-      return;
+        return;
     }
+    try {
+      localStorage.setItem('dataImportPopup_committedGroups', JSON.stringify(groups));
+    } catch (e) {
+      console.error("Błąd zapisu do localStorage:", e);
+    }
+    setCommittedGroups(groups);
+    setCommittedFileConfigs(fileConfigs);
+    setCommittedRenamedFiles(renamedFiles);
+
     const groupedData = groupAndTransformData();
     onComplete(groupedData);
     onHide();
   };
-
-  useEffect(() => {
-    if (show && files.length > 0 && currentStep === 'file-preview') {
-      setRenameError(null);
-      setEditingFileName(false);
-      loadFileForConfiguration(currentFileIndex);
-    }
-  }, [show, files.length, currentFileIndex, currentStep, loadFileForConfiguration]);
 
   const getUsedColumnsForFile = (fileKey: string) => {
     const usedColumns = new Set<string>();
@@ -1099,7 +1161,7 @@ export const DataImportPopup: React.FC<Props> = ({ show, files, onHide, onComple
                     )}
                   </div>
 
-                  {Object.keys(fileConfigs).map((fileKey) => {
+                                    {Object.keys(fileConfigs).map((fileKey) => {
                     const fileColumns = fileConfigs[fileKey].rawData.length > 0 ? Object.keys(fileConfigs[fileKey].rawData[0]) : [];
                     const usedColumns = getUsedColumnsForFile(fileKey);
                     const currentSelection = group.fileMappings[fileKey] || 'none';
@@ -1219,6 +1281,6 @@ export const DataImportPopup: React.FC<Props> = ({ show, files, onHide, onComple
       </Modal.Footer>
     </Modal>
   );
-};
+});
 
 export default DataImportPopup;

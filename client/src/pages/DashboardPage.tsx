@@ -21,6 +21,7 @@ function DashboardPage() {
   const { scatterPoints, isScatterLoading, isScatterOpen, selectedPair, handleCloseScatter, handleCellClick } = hooks.useScatterPlot();
   const { showTitleModal, setShowTitleModal, reportTitle, setReportTitle, isExporting, handleExportClick, handleExportToPDF } = hooks.useExport(chartData);
   const { isPopupOpen, selectedFiles, handleFileUpload, handlePopupComplete, handlePopupClose, resetFileUpload } = hooks.useFileUpload(handleFetchData, setError, setIsLoading);
+  const { dataImportPopupRef, resetAllData } = hooks.useDataImportPopup();
 
   const { plugins } = hooks.useLocalPlugins();
 
@@ -67,6 +68,7 @@ function DashboardPage() {
     resetFileUpload();
     resetPluginResults();
     resetDifferenceChart();
+    resetAllData();
   };
 
   const hasDifferenceData = Object.keys(differenceChartData).length > 0;
@@ -467,7 +469,7 @@ function DashboardPage() {
             isLoading={isScatterLoading}
           />
 
-          <components.DataImportPopup show={isPopupOpen} onHide={handlePopupClose} files={selectedFiles} onComplete={handlePopupComplete} />
+          <components.DataImportPopup ref={dataImportPopupRef} show={isPopupOpen} onHide={handlePopupClose} files={selectedFiles} onComplete={handlePopupComplete} />
         </div>
       </div>
 
