@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
-import { Modal, Button, Form, Tabs, Tab } from 'react-bootstrap';
+import { Modal, Button } from 'react-bootstrap';
 import { METRIC_CATEGORIES, PREDEFINED_METRICS, Metric } from '../../constants/metricsConfig';
+import { MetricsListPanel } from '../MetricsListPanel/MetricsListPanel';
 
 interface MetricsSelectionModalProps {
     show: boolean;
@@ -108,117 +109,27 @@ const MetricsSelectionModal: React.FC<MetricsSelectionModalProps> = ({
             <Modal.Header closeButton>
                 <Modal.Title>Select Metrics to Display</Modal.Title>
             </Modal.Header>
-            <Modal.Body style={{ maxHeight: '60vh', overflowY: 'hidden' }}>
-                <div className="mb-3">
-                    <Form.Control
-                        type="text"
-                        placeholder="Search metrics..."
-                        value={searchQuery}
-                        onChange={(e) => setSearchQuery(e.target.value)}
-                    />
-                </div>
-
-                <div className="mb-3">
-                    <Form.Select
-                        value={selectedCategory}
-                        onChange={(e) => setSelectedCategory(e.target.value)}
-                    >
-                        {categories.map(cat => (
-                            <option key={cat} value={cat}>{cat}</option>
-                        ))}
-                    </Form.Select>
-                </div>
-
-                <Tabs activeKey={activeTab} onSelect={(k) => setActiveTab(k || 'predefined')} className="mb-3">
-                    <Tab eventKey="predefined" title="Available Metrics">
-                        <div className="d-flex gap-2 mb-3 mt-3">
-                            <Button
-                                size="sm"
-                                variant="outline-secondary"
-                                onClick={handleSelectAll}
-                            >
-                                Select All
-                            </Button>
-                            <Button
-                                size="sm"
-                                variant="outline-secondary"
-                                onClick={handleDeselectAll}
-                            >
-                                Deselect All
-                            </Button>
-                        </div>
-                        <div style={{ maxHeight: '300px', overflowY: 'auto' }}>
-                            {predefinedFiltered.length > 0 ? (
-                                predefinedFiltered.map(metric => (
-                                    <div key={metric.value} className="metric-checkbox-item p-2 border-bottom">
-                                        <div className="d-flex align-items-start">
-                                            <Form.Check
-                                                type="checkbox"
-                                                id={`metric-${metric.value}`}
-                                                checked={localSelectedMetrics.has(metric.value)}
-                                                onChange={() => handleMetricToggle(metric.value)}
-                                                className="mt-1"
-                                            />
-                                            <div className="flex-grow-1 ms-2">
-                                                <div className="fw-bold">{metric.label}</div>
-                                                <div className="small text-muted">{metric.description}</div>
-                                                <div className="small">
-                                                    <span className="badge bg-secondary">{metric.category}</span>
-                                                </div>
-                                            </div>
-                                        </div>
-                                    </div>
-                                ))
-                            ) : (
-                                <p className="text-muted text-center mt-3">No metrics found</p>
-                            )}
-                        </div>
-                    </Tab>
-                    <Tab eventKey="user" title="Custom Metrics">
-                        <div className="d-flex gap-2 mb-3 mt-3">
-                            <Button
-                                size="sm"
-                                variant="outline-secondary"
-                                onClick={handleSelectAll}
-                            >
-                                Select All
-                            </Button>
-                            <Button
-                                size="sm"
-                                variant="outline-secondary"
-                                onClick={handleDeselectAll}
-                            >
-                                Deselect All
-                            </Button>
-                        </div>
-                        <div style={{ maxHeight: '400px', overflowY: 'auto' }}>
-                            {userFiltered.length > 0 ? (
-                                userFiltered.map(metric => (
-                                    <div key={metric.value} className="metric-checkbox-item p-2 border-bottom">
-                                        <div className="d-flex align-items-start">
-                                            <Form.Check
-                                                type="checkbox"
-                                                id={`metric-${metric.value}`}
-                                                checked={localSelectedMetrics.has(metric.value)}
-                                                onChange={() => handleMetricToggle(metric.value)}
-                                                className="mt-1"
-                                            />
-                                            <div className="flex-grow-1 ms-2">
-                                                <div className="fw-bold">{metric.label}</div>
-                                                <div className="small text-muted">{metric.description}</div>
-                                                <div className="small">
-                                                    <span className="badge bg-secondary">{metric.category}</span>
-                                                </div>
-                                            </div>
-                                        </div>
-                                    </div>
-                                ))
-                            ) : (
-                                <p className="text-muted text-center mt-3">No custom metrics found</p>
-                            )}
-                        </div>
-                    </Tab>
-                </Tabs>
+            <Modal.Body style={{ maxHeight: '70vh', overflowY: 'hidden', display: 'flex', flexDirection: 'column' }}>
+                <MetricsListPanel
+                    activeTab={activeTab}
+                    onTabChange={setActiveTab}
+                    searchQuery={searchQuery}
+                    onSearchChange={setSearchQuery}
+                    selectedCategory={selectedCategory}
+                    onCategoryChange={(e) => setSelectedCategory(e.target.value)}
+                    categories={categories}
+                    predefinedMetrics={predefinedFiltered}
+                    userMetrics={userFiltered}
+                    showSelectButtons={true}
+                    onSelectAll={handleSelectAll}
+                    onDeselectAll={handleDeselectAll}
+                    showCheckbox={true}
+                    selectedMetricValues={localSelectedMetrics}
+                    onMetricToggle={handleMetricToggle}
+                    emptyStatePredefined="No metrics found"
+                    emptyStateUser="No custom metrics found"
+                    maxHeight="400px"
+                />
             </Modal.Body>
             <Modal.Footer>
                 <Button variant="secondary" onClick={handleClose}>

@@ -15,3 +15,4 @@ export { default as MetricModal } from './MetricModal/MetricModal';
 export { MetricRow } from './MetricRow/MetricRow';
 export { Header } from './Header';
 export { default as MetricsSelectionModal } from './MetricsSelectionModal/MetricsSelectionModal';
+export { MetricsListPanel } from './MetricsListPanel/MetricsListPanel';
