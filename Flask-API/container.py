@@ -13,14 +13,20 @@ class Container:
         self._time_series_manager = None
         self._limiter = None
         self._redis_host = os.environ.get("REDIS_HOST", "redis")
-        self._redis_pool = redis.ConnectionPool(
-            host=self._redis_host,
-            port=6379,
-            decode_responses=True,
-            db=0,
-            max_connections=20,
-            socket_connect_timeout=2,
-        )
+        self_use_ssl = self._redis_host not in ["localhost", "127.0.0.1", "redis"]
+        connection_kwargs = {
+            "host": self._redis_host,
+            "port": 6379,
+            "decode_responses": True,
+            "db": 0,
+            "max_connections": 20,
+            "socket_connect_timeout": 2,
+        }
+        if self._use_ssl:
+            connection_kwargs["ssl"] = True
+            connection_kwargs["ssl_cert_reqs"] = None 
+
+        self._redis_pool = redis.ConnectionPool(**connection_kwargs)
 
     @property
     def redis_url(self):
@@ -39,8 +45,6 @@ class Container:
     @property
     def limiter(self):
         if not self._limiter:
-            # ZMIANA: Nie przekazujemy 'app' tutaj!
-            # Przekazujemy tylko konfigurację (storage_uri).
             self._limiter = Limiter(
                 key_func=get_remote_address,
                 storage_uri=self.redis_url,  # Pobiera adres z kontenera (DRY)
@@ -49,6 +53,12 @@ class Container:
             )
         return self._limiter
 
+    @property
+    def redis_url(self):
+        if self._use_ssl:
+            return f"rediss://{self._redis_host}:6379/0"
+        return f"redis://{self._redis_host}:6379/0"
+    
     @property
     def redis_client(self):
         if not self._redis_client:
