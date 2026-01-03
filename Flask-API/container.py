@@ -13,7 +13,7 @@ class Container:
         self._time_series_manager = None
         self._limiter = None
         self._redis_host = os.environ.get("REDIS_HOST", "redis")
-        self_use_ssl = self._redis_host not in ["localhost", "127.0.0.1", "redis"]
+        self.use_ssl = self._redis_host not in ["localhost", "127.0.0.1", "redis"]
         connection_kwargs = {
             "host": self._redis_host,
             "port": 6379,
@@ -24,13 +24,9 @@ class Container:
         }
         if self._use_ssl:
             connection_kwargs["ssl"] = True
-            connection_kwargs["ssl_cert_reqs"] = None 
+            connection_kwargs["ssl_cert_reqs"] = None
 
         self._redis_pool = redis.ConnectionPool(**connection_kwargs)
-
-    @property
-    def redis_url(self):
-        return f"redis://{self._redis_host}:6379"
 
     @property
     def logger(self):
@@ -55,10 +51,10 @@ class Container:
 
     @property
     def redis_url(self):
-        if self._use_ssl:
+        if self.use_ssl:
             return f"rediss://{self._redis_host}:6379/0"
         return f"redis://{self._redis_host}:6379/0"
-    
+
     @property
     def redis_client(self):
         if not self._redis_client:
