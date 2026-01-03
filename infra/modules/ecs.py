@@ -31,7 +31,9 @@ def create_ecs_cluster() -> aws.ecs.Cluster:
 
 
 def create_ecs_task_definition(
-    image_ref: pulumi.Output[str], region: str
+    image_ref: pulumi.Output[str], 
+    region: str,
+    redis_endpoint: pulumi.Output[str]
 ) -> aws.ecs.TaskDefinition:
     """
     Create an ECS task definition for the Flask API.
@@ -39,6 +41,7 @@ def create_ecs_task_definition(
     Args:
         image_ref: Docker image reference
         region: AWS region
+        redis_endpoint: Redis endpoint for environment variable
 
     Returns:
         ECS Task Definition resource
@@ -90,7 +93,7 @@ def create_ecs_task_definition(
         requires_compatibilities=["FARGATE"],
         execution_role_arn=task_exec_role.arn,
         container_definitions=pulumi.Output.all(
-            image_ref, region, log_group.name
+            image_ref, region, log_group.name, redis_endpoint
         ).apply(
             lambda args: f"""
             [{{
@@ -111,7 +114,8 @@ def create_ecs_task_definition(
                 "environment": [
                     {{"name": "FLASK_APP", "value": "main.py"}},
                     {{"name": "FLASK_ENV", "value": "{config.environment}"}},
-                    {{"name": "ENVIRONMENT", "value": "{config.environment}"}}
+                    {{"name": "ENVIRONMENT", "value": "{config.environment}"}},
+                    {{"name": "REDIS_ENDPOINT", "value": "{args[3]}"}}
                 ],
                 "healthCheck": {{
                     "command": ["CMD-SHELL", "curl -f http://localhost:5000/health || exit 1"],
