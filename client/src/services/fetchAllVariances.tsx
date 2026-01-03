@@ -12,7 +12,7 @@ const handleSessionToken = (response: Response) => {
   }
 };
 
-async function fetchVariance(
+async function fetchallVariances(
   category: string,
   filename: string,
   start?: string,
@@ -21,15 +21,24 @@ async function fetchVariance(
   const params = new URLSearchParams({
     category: category.trim(),
     filename: filename.trim(),
-    ...(start && { start }),
-    ...(end && { end }),
   });
 
-  const resp = await fetch(`${API_URL}/api/timeseries/variance?${params.toString()}`, {
-    headers: {
-      ...getAuthHeaders(),
-    },
-  });
+  if (start != null) {
+    params.append('start', start);
+  }
+
+  if (end != null) {
+    params.append('end', end);
+  }
+
+  const resp = await fetch(
+    `${API_URL}/api/timeseries/variance?${params.toString()}`,
+    {
+      headers: {
+        ...getAuthHeaders(),
+      },
+    }
+  );
 
   handleSessionToken(resp);
 
@@ -42,6 +51,7 @@ async function fetchVariance(
   return data.variance ?? null;
 }
 
+
 export async function fetchAllVariances(
   filenamesPerCategory: Record<string, string[]>,
   start?: string,
@@ -52,7 +62,7 @@ export async function fetchAllVariances(
   for (const category of Object.keys(filenamesPerCategory)) {
     for (const filename of filenamesPerCategory[category]) {
       try {
-        const variance = await fetchVariance(category, filename, start, end);
+        const variance = await fetchallVariances(category, filename, start, end);
         if (!varianceValues[category]) {
           varianceValues[category] = {};
         }

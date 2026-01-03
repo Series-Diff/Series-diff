@@ -56,7 +56,7 @@ const MyChart: React.FC<MyChartProps> = ({
                             fixedrange: false,
                             showspikes: true,
                             spikemode: 'across',
-                                                        spikesnap: "cursor",
+                            spikesnap: "cursor",
                             spikedash: "solid",
                             spikethickness: 1,
                             rangeselector: {

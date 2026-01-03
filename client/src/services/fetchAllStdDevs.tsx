@@ -18,12 +18,15 @@ async function fetchStdDev(
   start?: string,
   end?: string
 ): Promise<number | null> {
-  const params = new URLSearchParams({
-    category,
-    filename,
-    ...(start && { start }),
-    ...(end && { end }),
-  });
+  const params = new URLSearchParams();
+  params.append('category', category);
+  params.append('filename', filename);
+  if (start !== undefined && start !== null) {
+    params.append('start', start);
+  }
+  if (end !== undefined && end !== null) {
+    params.append('end', end);
+  }
 
   const resp = await fetch(`${API_URL}/api/timeseries/standard_deviation?${params.toString()}`, {
     headers: {

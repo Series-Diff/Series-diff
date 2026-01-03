@@ -23,14 +23,19 @@ export async function fetchEuclidean(
 ): Promise<number | null> {
   const toleranceParam = tolerance !== undefined ? String(tolerance) : undefined;
 
-  const params = new URLSearchParams({
-    category: category.trim(),
-    filename1: filename1.trim(),
-    filename2: filename2.trim(),
-    ...(toleranceParam && { tolerance: toleranceParam }),
-    ...(start && { start }),
-    ...(end && { end })
-  });
+  const params = new URLSearchParams();
+  params.set('category', category.trim());
+  params.set('filename1', filename1.trim());
+  params.set('filename2', filename2.trim());
+  if (toleranceParam !== undefined) {
+    params.set('tolerance', toleranceParam);
+  }
+  if (start !== undefined) {
+    params.set('start', start);
+  }
+  if (end !== undefined) {
+    params.set('end', end);
+  }
 
   const resp = await fetch(`${API_URL}/api/timeseries/euclidean_distance?${params.toString()}`, {
     headers: {

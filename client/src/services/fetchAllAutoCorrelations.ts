@@ -20,11 +20,19 @@ async function fetchAutocorrelation(
   start?: string,
   end?: string
 ): Promise<number | null> {
-  let url = `${API_URL}/api/timeseries/autocorrelation?category=${encodeURIComponent(category)}&filename=${encodeURIComponent(filename)}`;
-  if (start) url += `&start=${encodeURIComponent(start)}`;
-  if (end) url += `&end=${encodeURIComponent(end)}`;
-
-  const resp = await fetch(url, {
+ const url = new URL(`${API_URL}/api/timeseries/autocorrelation`);
+  const params = new URLSearchParams({
+    category,
+    filename,
+  });
+  if (start) {
+    params.append('start', start);
+  }
+  if (end) {
+    params.append('end', end);
+  }
+  url.search = params.toString();
+  const resp = await fetch(url.toString(), {
     headers: {
       ...getAuthHeaders(),
     },

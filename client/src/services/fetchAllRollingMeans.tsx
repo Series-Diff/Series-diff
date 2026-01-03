@@ -25,9 +25,14 @@ export async function fetchRollingMean(
     category,
     filename,
     window_size,
-    ...(start && { start }),
-    ...(end && { end }),
   });
+  if (start !== undefined) {
+    params.append('start', start);
+  }
+  if (end !== undefined) {
+    params.append('end', end);
+  }
+  
 
   const resp = await fetch(`${API_URL}/api/timeseries/rolling_mean?${params.toString()}`, {
     headers: {

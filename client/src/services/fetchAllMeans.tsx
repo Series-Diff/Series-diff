@@ -20,9 +20,17 @@ async function fetchMean(
   start?: string,
   end?: string
 ): Promise<number | null> {
-  let url = `${API_URL}/api/timeseries/mean?category=${encodeURIComponent(category)}&filename=${encodeURIComponent(filename)}`;
-  if (start) url += `&start=${encodeURIComponent(start)}`;
-  if (end) url += `&end=${encodeURIComponent(end)}`;
+  const params = new URLSearchParams({
+    category,
+    filename,
+  });
+  if (start) {
+    params.append('start', start);
+  }
+  if (end) {
+    params.append('end', end);
+  }
+  const url = `${API_URL}/api/timeseries/mean?${params.toString()}`;
 
   const resp = await fetch(url, {
     headers: {

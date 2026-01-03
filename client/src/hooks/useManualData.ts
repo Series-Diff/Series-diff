@@ -9,7 +9,7 @@ export const useManualData = () => {
       const saved = localStorage.getItem(STORAGE_KEY);
       return saved ? JSON.parse(saved) : {};
     } catch (error) {
-      console.error("Błąd ładowania danych ręcznych:", error);
+      console.error("Error loading manual data:", error);
       return {};
     }
   });
@@ -86,17 +86,26 @@ export const useManualData = () => {
     });
   };
 
-  const updateManualPoint = (seriesKey: string, timestamp: string, newValue: number, idx: number) => {
-    setManualData(prev => {
-      const updated: Record<string, TimeSeriesEntry[]> = { ...prev };
-      const series = updated[seriesKey];
-      if (!series) return prev;
-      const newSeries = [...series];
-      newSeries[idx] = { ...newSeries[idx], y: newValue };
-      updated[seriesKey] = newSeries;
-      return updated;
-    });
-  };
+const updateManualPoint = (
+  seriesKey: string,
+  timestamp: string,
+  newValue: number,
+  idx: number
+) => {
+  setManualData(prev => {
+    const series = prev[seriesKey];
+    if (!series) return prev;
+    if (idx < 0 || idx >= series.length) return prev;
+
+    return {
+      ...prev,
+      [seriesKey]: series.map((point, i) =>
+        i === idx ? { ...point, y: newValue } : point
+      ),
+    };
+  });
+};
+
 
   return {
     manualData,

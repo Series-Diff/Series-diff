@@ -22,16 +22,16 @@ async function fetchRmse(
   end?: string,
   tolerance?: string
 ): Promise<number | null> {
-  const params = new URLSearchParams({
-    category: category.trim(),
-    filename1: filename1.trim(),
-    filename2: filename2.trim(),
-    ...(start && { start }),
-    ...(end && { end }),
-    ...(tolerance && { tolerance }),
-  });
+  const params = new URLSearchParams();
+  params.set('category', category.trim());
+  params.set('filename1', filename1.trim());
+  params.set('filename2', filename2.trim());
+  if (start) params.set('start', start);
+  if (end) params.set('end', end);
+  if (tolerance) params.set('tolerance', tolerance);
+  const url = `${API_URL}/api/timeseries/rmse?${params.toString()}`;
 
-  const resp = await fetch(`${API_URL}/api/timeseries/rmse?${params.toString()}`, {
+  const resp = await fetch(url, {
     headers: {
       ...getAuthHeaders(),
     },
@@ -50,9 +50,9 @@ async function fetchRmse(
 
 export async function fetchAllRmse(
   filenamesPerCategory: Record<string, string[]>,
-  tolerance?: string,
   start?: string,
-  end?: string
+  end?: string,
+  tolerance?: string
 ): Promise<Record<string, Record<string, Record<string, number>>>> {
   const rmseValues: Record<string, Record<string, Record<string, number>>> = {};
 

@@ -21,11 +21,14 @@ async function fetchDifference(
   end?: string,
   tolerance?: string
 ): Promise<TimeSeriesEntry[] | null> {
-  let url = `${API_URL}/api/timeseries/difference?category=${encodeURIComponent(category.trim())}&filename1=${encodeURIComponent(filename1.trim())}&filename2=${encodeURIComponent(filename2.trim())}`;
-
-  if (tolerance) url += `&tolerance=${encodeURIComponent(tolerance)}`;
-  if (start) url += `&start=${encodeURIComponent(start)}`;
-  if (end) url += `&end=${encodeURIComponent(end)}`;
+  const params = new URLSearchParams();
+  params.set('category', category.trim());
+  params.set('filename1', filename1.trim());
+  params.set('filename2', filename2.trim());
+  if (tolerance) params.set('tolerance', tolerance);
+  if (start) params.set('start', start);
+  if (end) params.set('end', end);
+  const url = `${API_URL}/api/timeseries/difference?${params.toString()}`;
 
   const resp = await fetch(url, {
     headers: {

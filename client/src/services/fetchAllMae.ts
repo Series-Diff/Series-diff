@@ -22,11 +22,14 @@ async function fetchMae(
   end?: string,
   tolerance?: string
 ): Promise<number | null> {
-  let url = `${API_URL}/api/timeseries/mae?category=${encodeURIComponent(category.trim())}&filename1=${encodeURIComponent(filename1.trim())}&filename2=${encodeURIComponent(filename2.trim())}`;
-  
-  if (start) url += `&start=${encodeURIComponent(start)}`;
-  if (end) url += `&end=${encodeURIComponent(end)}`;
-  if (tolerance) url += `&tolerance=${encodeURIComponent(tolerance)}`;
+  const params = new URLSearchParams();
+  params.set('category', category.trim());
+  params.set('filename1', filename1.trim());
+  params.set('filename2', filename2.trim());
+  if (start) params.set('start', start);
+  if (end) params.set('end', end);
+  if (tolerance) params.set('tolerance', tolerance);
+  const url = `${API_URL}/api/timeseries/mae?${params.toString()}`;
 
   const resp = await fetch(url, {
     headers: {

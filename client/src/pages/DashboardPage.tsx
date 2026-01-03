@@ -180,7 +180,6 @@ function DashboardPage() {
             style={chartDynamicHeight ? { minHeight: chartDynamicHeight } : undefined}
           >
             {/* Standard Chart Mode */}
- {/* Standard Chart Mode */}
             {!isInDifferenceMode && (
               <>
                 {isLoading && !hasData &&
@@ -216,7 +215,7 @@ function DashboardPage() {
                         <Form.Check
                           type="switch"
                           id="date-filter-toggle"
-                          label={<span className="text-nowrap small text-muted">Ignore time range</span>}
+                          label={<span className="text-nowrap small text-muted">Calculate metrics on full date range</span>}
                           checked={ignoreTimeRange}
                           onChange={(e) => setIgnoreTimeRange(e.target.checked)}
                           className="mb-0" />
