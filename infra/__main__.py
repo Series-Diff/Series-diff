@@ -14,6 +14,7 @@ from modules.ecs import (
     create_ecs_task_definition,
     create_ecs_service,
 )
+from modules.redis import create_redis
 from modules.alb import create_alb, create_target_group
 from modules.dns import create_dns_record
 from modules.lambda_scaling import create_scaling_lambda
@@ -43,6 +44,9 @@ pulumi.export("image_url", api_image.ref)
 
 # Networking
 networking = create_networking(config.environment)
+valkey_resource = create_redis(networking, config.environment)
+valkey_endpoint = valkey_resource.endpoints.apply(lambda eps: eps[0].address)
+pulumi.export("redis_endpoint", valkey_endpoint)
 pulumi.export("vpc_id", networking["vpc_id"])
 pulumi.export("subnet_ids", networking["subnet_ids"])
 
@@ -77,6 +81,7 @@ task_definition = create_ecs_task_definition(
     image_ref=api_image.ref,
     region=config.aws_region,
     plugin_executor_function_name=plugin_executor["function_name"],
+    redis_endpoint=valkey_endpoint
 )
 service = create_ecs_service(
     cluster=cluster,

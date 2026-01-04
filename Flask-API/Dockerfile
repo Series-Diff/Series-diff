@@ -1,7 +1,6 @@
-# Use an official Python runtime as a parent image
-FROM python:3.11-slim
+# Build stage - with compilers for building Python packages with C extensions
+FROM python:3.11-slim AS builder
 
-# Set the working directory in the container
 WORKDIR /app
 
 # Install curl for health checks (Docker not needed on AWS - using Lambda)
@@ -12,21 +11,43 @@ RUN apt-get update && \
 # Setup environment
 ENV POETRY_VERSION=2.2.1
 ENV PIP_BREAK_SYSTEM_PACKAGES=1
+ENV PYTHONUNBUFFERED=1
+ENV PYTHONDONTWRITEBYTECODE=1
 
-# Install package manager
+# Install build dependencies (gcc/g++ needed for orjson, numpy, scipy, etc.)
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    gcc \
+    g++ \
+    && rm -rf /var/lib/apt/lists/*
+
+# Install Poetry
 RUN pip install poetry==$POETRY_VERSION
 
-# Create .venv
+# Configure Poetry to create virtualenv in project
 RUN poetry config virtualenvs.in-project true
 
-# Copy the requirements file into the container
+# Copy dependency files
 COPY pyproject.toml poetry.lock ./
 
-# Install any dependencies
-RUN poetry install --no-root
+# Install dependencies (Poetry 2.x syntax)
+RUN poetry install --no-root --without dev
 
-# Copy the current directory contents into the container
+# Runtime stage - minimal image without build tools
+FROM python:3.11-slim
+
+WORKDIR /app
+
+ENV PYTHONUNBUFFERED=1
+ENV PYTHONDONTWRITEBYTECODE=1
+
+# Copy virtual environment from builder
+COPY --from=builder /app/.venv /app/.venv
+
+# Copy application code
 COPY . .
 
-# Run app.py when the container launches
-CMD ["poetry", "run", "gunicorn", "--workers=2", "--threads=4", "--worker-class=gthread", "--bind=0.0.0.0:5000", "main:app"]
+# Use the virtual environment
+ENV PATH="/app/.venv/bin:$PATH"
+
+# Run gunicorn directly (no need for poetry run since we have .venv in PATH)
+CMD ["gunicorn", "-c", "gunicorn_config.py", "main:app"]

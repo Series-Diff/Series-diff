@@ -1,5 +1,6 @@
 import os
 import logging
+import socket
 import redis
 from flask_limiter import Limiter
 from flask_limiter.util import get_remote_address
@@ -13,18 +14,33 @@ class Container:
         self._time_series_manager = None
         self._limiter = None
         self._redis_host = os.environ.get("REDIS_HOST", "redis")
-        self._redis_pool = redis.ConnectionPool(
-            host=self._redis_host,
-            port=6379,
-            decode_responses=True,
-            db=0,
-            max_connections=20,
-            socket_connect_timeout=2,
-        )
+        self._use_ssl = self._redis_host not in ["localhost", "127.0.0.1", "redis"]
+        connection_kwargs = {
+            "host": self._redis_host,
+            "port": 6379,
+            "decode_responses": True,
+            "db": 0,
+            "max_connections": 50,
+            "socket_connect_timeout": 5,
+            "socket_timeout": 5,
+            "socket_keepalive": True,
+            "retry_on_timeout": True,
+            "health_check_interval": 30,
+            "connection_class": (
+                redis.SSLConnection if self._use_ssl else redis.Connection
+            ),
+        }
 
-    @property
-    def redis_url(self):
-        return f"redis://{self._redis_host}:6379"
+        # Add TCP keepalive options only for AWS Elasticache (production)
+        if self._use_ssl:
+            connection_kwargs["ssl_cert_reqs"] = None
+            connection_kwargs["socket_keepalive_options"] = {
+                socket.TCP_KEEPIDLE: 60,
+                socket.TCP_KEEPINTVL: 10,
+                socket.TCP_KEEPCNT: 3,
+            }
+
+        self._redis_pool = redis.ConnectionPool(**connection_kwargs)
 
     @property
     def logger(self):
@@ -39,8 +55,6 @@ class Container:
     @property
     def limiter(self):
         if not self._limiter:
-            # ZMIANA: Nie przekazujemy 'app' tutaj!
-            # Przekazujemy tylko konfigurację (storage_uri).
             self._limiter = Limiter(
                 key_func=get_remote_address,
                 storage_uri=self.redis_url,  # Pobiera adres z kontenera (DRY)
@@ -48,6 +62,12 @@ class Container:
                 strategy="fixed-window",
             )
         return self._limiter
+
+    @property
+    def redis_url(self):
+        if self._use_ssl:
+            return f"rediss://{self._redis_host}:6379/0"
+        return f"redis://{self._redis_host}:6379/0"
 
     @property
     def redis_client(self):

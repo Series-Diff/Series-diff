@@ -34,6 +34,9 @@ def create_ecs_task_definition(
     image_ref: pulumi.Output[str],
     region: str,
     plugin_executor_function_name: pulumi.Output[str] = None,
+    image_ref: pulumi.Output[str], 
+    region: str,
+    redis_endpoint: pulumi.Output[str]
 ) -> aws.ecs.TaskDefinition:
     """
     Create an ECS task definition for the Flask API.
@@ -42,6 +45,7 @@ def create_ecs_task_definition(
         image_ref: Docker image reference
         region: AWS region
         plugin_executor_function_name: Optional Lambda function name for plugin execution
+        redis_endpoint: Redis endpoint for environment variable
 
     Returns:
         ECS Task Definition resource
@@ -176,6 +180,44 @@ def create_ecs_task_definition(
         execution_role_arn=task_exec_role.arn,
         task_role_arn=task_role.arn,
         container_definitions=container_defs,
+        container_definitions=pulumi.Output.all(
+            image_ref, region, log_group.name, redis_endpoint
+        ).apply(
+            lambda args: f"""
+            [{{
+                "name": "flask-api",
+                "image": "{args[0]}",
+                "portMappings": [{{
+                    "containerPort": 5000,
+                    "protocol": "tcp"
+                }}],
+                "logConfiguration": {{
+                    "logDriver": "awslogs",
+                    "options": {{
+                        "awslogs-group": "{args[2]}",
+                        "awslogs-region": "{args[1]}",
+                        "awslogs-stream-prefix": "app"
+                    }}
+                }},
+                "environment": [
+                    {{"name": "FLASK_APP", "value": "main.py"}},
+                    {{"name": "FLASK_ENV", "value": "{config.environment}"}},
+                    {{"name": "ENVIRONMENT", "value": "{config.environment}"}},
+                    {{"name": "REDIS_HOST", "value": "{args[3]}"}},
+                    {{"name": "GUNICORN_WORKERS", "value": "3"}},
+                    {{"name": "GUNICORN_THREADS", "value": "4"}},
+                    {{"name": "GUNICORN_LOG_LEVEL", "value": "warning"}}
+                ],
+                "healthCheck": {{
+                    "command": ["CMD-SHELL", "curl -f http://localhost:5000/health || exit 1"],
+                    "interval": 30,
+                    "timeout": 5,
+                    "retries": 3,
+                    "startPeriod": 60
+                }}
+            }}]
+            """
+        ),
         tags={
             "Name": f"flask-api-{config.environment}-task-definition",
             "Environment": config.environment,
