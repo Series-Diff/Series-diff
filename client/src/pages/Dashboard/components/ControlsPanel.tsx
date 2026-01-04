@@ -17,7 +17,6 @@ interface StandardControlsProps {
     handleApplyMaWindow: () => void;
     syncColorsByFile: boolean;
     setSyncColorsByFile: React.Dispatch<React.SetStateAction<boolean>>;
-
 }
 
 interface DifferenceControlsProps {
@@ -36,7 +35,6 @@ interface CommonProps {
     isLoading: boolean;
     handleFileUpload: (event: React.ChangeEvent<HTMLInputElement>) => void;
     handleReset: () => void;
-
 }
 
 type ControlsPanelProps = CommonProps & (StandardControlsProps | DifferenceControlsProps);
@@ -50,31 +48,26 @@ const ControlsPanel: React.FC<ControlsPanelProps> = (props) => {
             <div className="d-flex align-items-end gap-3">
                 {hasCategories && mode === 'standard' && (
                     <>
-                        <div className="d-flex flex-column gap-2">
-                            
-                            <div className="d-flex gap-3">
-                                <components.Select
-                                    id="category-select"
-                                    label="Main Y-Axis"
-                                    selected={(props as StandardControlsProps).selectedCategory || Object.keys(filenamesPerCategory)[0]}
-                                    categories={Object.keys(filenamesPerCategory)}
-                                    onChange={(props as StandardControlsProps).handleDropdownChange}
-                                    disabledCategory={(props as StandardControlsProps).secondaryCategory ?? undefined}
-                                />
-                                <components.Select
-                                    id="secondary-category-select"
-                                    label="Second Y-Axis"
-                                    selected={(props as StandardControlsProps).secondaryCategory || ""}
-                                    categories={Object.keys(filenamesPerCategory)}
-                                    onChange={(props as StandardControlsProps).handleSecondaryDropdownChange}
-                                    disabledCategory={(props as StandardControlsProps).selectedCategory ?? undefined}
-                                    allowNoneOption
-                                />
-                            </div>
+                        <components.Select
+                            id="category-select"
+                            label="Main Y-Axis"
+                            selected={(props as StandardControlsProps).selectedCategory || Object.keys(filenamesPerCategory)[0]}
+                            categories={Object.keys(filenamesPerCategory)}
+                            onChange={(props as StandardControlsProps).handleDropdownChange}
+                            disabledCategory={(props as StandardControlsProps).secondaryCategory ?? undefined}
+                        />
+                        <components.Select
+                            id="secondary-category-select"
+                            label="Second Y-Axis"
+                            selected={(props as StandardControlsProps).secondaryCategory || ""}
+                            categories={Object.keys(filenamesPerCategory)}
+                            onChange={(props as StandardControlsProps).handleSecondaryDropdownChange}
+                            disabledCategory={(props as StandardControlsProps).selectedCategory ?? undefined}
+                            allowNoneOption
+                        />
 
-
-                        </div>
-                        <div className="d-flex align-items-center gap-2, ms-3">
+                        {(props as StandardControlsProps).showMovingAverage !== undefined && (props as StandardControlsProps).handleToggleMovingAverage && (
+                            <div className="d-flex align-items-center gap-2 ms-3">
                                 <Form.Check
                                     type="switch"
                                     id="ma-toggle"
@@ -101,8 +94,8 @@ const ControlsPanel: React.FC<ControlsPanelProps> = (props) => {
                                     Apply
                                 </Button>
                             </div>
-                        )
-                        
+                        )}
+
                         <div className="d-flex align-items-center ms-3">
                             <Form.Check
                                 type="switch"

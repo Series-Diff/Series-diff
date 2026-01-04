@@ -2,44 +2,86 @@ import React from "react";
 import Plot from "react-plotly.js";
 import { useChartState } from "./useChartState";
 import { useChartInteractions } from "./useChartInteractions";
-import { buildTraces } from "./tracesBuilder";
+import { buildTraces, getColorMap } from "./tracesBuilder";
 import ChartControls from "./ChartControls";
 import { TimeSeriesEntry } from "@/services/fetchTimeSeries";
 
 interface MyChartProps {
     primaryData: Record<string, TimeSeriesEntry[]>;
     secondaryData?: Record<string, TimeSeriesEntry[]>;
-    manualData?: Record<string, TimeSeriesEntry[]>; 
+    tertiaryData?: Record<string, TimeSeriesEntry[]>;
+    manualData?: Record<string, TimeSeriesEntry[]>;
     title?: string;
     syncColorsByFile?: boolean;
+    syncColorsByGroup?: boolean;
 }
 
-const MyChart: React.FC<MyChartProps> = ({ 
-    primaryData, 
-    secondaryData, 
-    manualData = {}, 
-    title, 
-    syncColorsByFile = true
-}) => {
-    
-   const {
-        xaxisRange, tickFormat, showMarkers,
-        customRange, setCustomRange, customYMin, setCustomYMin, customYMax, setCustomYMax,
-        customRange2, setCustomRange2, customY2Min, setCustomY2Min, customY2Max, setCustomY2Max,
-        visibleMap, setVisibleMap, handleRelayout,
+const MyChart: React.FC<MyChartProps> = ({
+                                             primaryData,
+                                             secondaryData,
+                                             tertiaryData,
+                                             manualData = {},
+                                             title,
+                                             syncColorsByFile = true,
+                                             syncColorsByGroup = false
+                                         }) => {
+    // Extract state and setters from hook
+    const {
+        xaxisRange,
+        tickFormat,
+        showMarkers,
+        customRange, setCustomRange,
+        customYMin, setCustomYMin,
+        customYMax, setCustomYMax,
+        customRange2, setCustomRange2,
+        customY2Min, setCustomY2Min,
+        customY2Max, setCustomY2Max,
+        customRange3, setCustomRange3,
+        customY3Min, setCustomY3Min,
+        customY3Max, setCustomY3Max,
+        visibleMap, setVisibleMap,
+        handleRelayout,
         primaryDataBounds,
         secondaryDataBounds,
-    } = useChartState(primaryData, secondaryData, manualData); 
+        tertiaryDataBounds
+    } = useChartState(primaryData, secondaryData, tertiaryData, manualData);
 
+    // Extract interaction handlers from hook
     const { handleLegendClick, containerRef } = useChartInteractions(setVisibleMap);
 
+    const allKeys = React.useMemo(() => [
+        ...Object.keys(primaryData),
+        ...(secondaryData ? Object.keys(secondaryData) : []),
+        ...(tertiaryData ? Object.keys(tertiaryData) : []),
+        ...Object.keys(manualData)
+    ], [primaryData, secondaryData, tertiaryData, manualData]);
+
+    const colorMap = React.useMemo(() =>
+            getColorMap(allKeys, syncColorsByFile, syncColorsByGroup),
+        [allKeys, syncColorsByFile, syncColorsByGroup]
+    );
+
+    const getAxisColor = (dataRecord?: Record<string, any>) => {
+        if (!syncColorsByGroup || !dataRecord) return undefined;
+        const firstKey = Object.keys(dataRecord)[0];
+        if (!firstKey) return undefined;
+
+        // Kluczem w mapie przy syncColorsByGroup jest pierwszy człon nazwy (część przed kropką)
+        const groupKey = firstKey.split('.')[0];
+        return colorMap.get(groupKey);
+    };
+
+    // Build traces using utility function
     const traces = buildTraces(
-        primaryData, 
-        secondaryData, 
-        manualData, 
-        visibleMap, 
-        showMarkers, 
-        syncColorsByFile
+        primaryData,
+        secondaryData,
+        tertiaryData,
+        manualData,
+        visibleMap,
+        showMarkers,
+        syncColorsByFile,
+        syncColorsByGroup,
+        colorMap
     );
 
     return (
@@ -48,11 +90,17 @@ const MyChart: React.FC<MyChartProps> = ({
                 <Plot
                     data={traces}
                     layout={{
+                        hovermode: "x unified",
+                        hoverlabel: {
+                            bgcolor: "rgba(255, 255, 255, 0.9)",
+                            font: { size: 12 },
+                            align: "left"
+                        },
                         title: { text: title },
                         xaxis: {
                             title: { text: 'Time' },
                             type: 'date',
-                            tickformat: tickFormat,
+                            tickformat: tickFormat, // Displaying date and time
                             fixedrange: false,
                             showspikes: true,
                             spikemode: 'across',
@@ -74,33 +122,69 @@ const MyChart: React.FC<MyChartProps> = ({
                                 bgcolor: '#f8f9fa',
                                 bordercolor: '#ced4da',
                                 borderwidth: 1
-                            },                        },
+                            },
+                            domain: tertiaryData ? [0.05, 1] : [0, 1]
+                        },
                         yaxis: {
-                            title: { text: Object.keys(primaryData)[0]?.split('.')[0] || 'Y-Axis' },
+                            automargin: true,
+                            zeroline: false,
+                            title: {
+                                text: Object.keys(primaryData)[0]?.split('.')[0] || 'Y-Axis',
+                                font: { color: getAxisColor(primaryData) }
+                            },
+                            tickfont: { color: getAxisColor(primaryData) },
                             side: 'left',
                             // Only disable autorange when BOTH min and max are provided
                             autorange: !(customRange && customYMin !== '' && customYMax !== ''),
-                            range: customRange && customYMin !== '' && customYMax !== '' 
-                                ? [parseFloat(customYMin), parseFloat(customYMax)] 
+                            range: customRange && customYMin !== '' && customYMax !== ''
+                                ? [parseFloat(customYMin), parseFloat(customYMax)]
                                 : undefined,
                             showspikes: true,
                             spikemode: 'across',
                             spikedash: "solid",
-                            spikethickness: 1
+                            spikethickness: 1,
                         },
                         yaxis2: {
-                            title: { text: secondaryData ? Object.keys(secondaryData)[0]?.split('.')[0] || 'Second Y-Axis' : '' },
+                            automargin: true,
+                            showgrid: false,
+                            title: {
+                                text: secondaryData ? Object.keys(secondaryData)[0]?.split('.')[0] || 'Second Y-Axis' : '',
+                                font: { color: getAxisColor(secondaryData) }
+                            },
+                            tickfont: { color: getAxisColor(secondaryData) },
                             overlaying: 'y',
                             // Only disable autorange when BOTH min and max are provided
                             autorange: !(customRange2 && customY2Min !== '' && customY2Max !== ''),
-                            range: customRange2 && customY2Min !== '' && customY2Max !== '' 
-                                ? [parseFloat(customY2Min), parseFloat(customY2Max)] 
+                            range: customRange2 && customY2Min !== '' && customY2Max !== ''
+                                ? [parseFloat(customY2Min), parseFloat(customY2Max)]
                                 : undefined,
                             showspikes: true,
                             spikemode: 'across',
                             spikedash: "solid",
                             side: 'right',
-                            spikethickness: 1
+                            spikethickness: 1,
+                        },
+                        yaxis3: {
+                            title: {
+                                text: tertiaryData ? Object.keys(tertiaryData)[0]?.split('.')[0] || 'Third Y-Axis' : '',
+                                font: { color: getAxisColor(tertiaryData) }
+                            },
+                            tickfont: { color: getAxisColor(tertiaryData) },
+                            overlaying: 'y',
+                            // Only disable autorange when BOTH min and max are provided
+                            autorange: !(customRange3 && customY3Min !== '' && customY3Max !== ''),
+                            range: customRange3 && customY3Min !== '' && customY3Max !== ''
+                                ? [parseFloat(customY3Min), parseFloat(customY3Max)]
+                                : undefined,
+                            showspikes: true,
+                            spikemode: 'across',
+                            spikedash: "solid",
+                            side: 'left',
+                            anchor: 'free',
+                            position: 0,
+                            spikethickness: 1,
+                            showgrid: false,
+                            automargin: true,
                         },
                         height: undefined,
                         autosize: true,
@@ -130,9 +214,16 @@ const MyChart: React.FC<MyChartProps> = ({
                 customY2Max={customY2Max}
                 setCustomY2Max={setCustomY2Max}
                 setCustomRange2={setCustomRange2}
+                customY3Min={customY3Min}
+                setCustomY3Min={setCustomY3Min}
+                customY3Max={customY3Max}
+                setCustomY3Max={setCustomY3Max}
+                setCustomRange3={setCustomRange3}
                 hasSecondary={!!secondaryData}
+                hasTertiary={!!tertiaryData}
                 primaryDataBounds={primaryDataBounds}
                 secondaryDataBounds={secondaryDataBounds}
+                tertiaryDataBounds={tertiaryDataBounds}
             />
         </div>
     );

@@ -17,15 +17,22 @@ interface ChartControlsProps {
     customY2Max: string;
     setCustomY2Max: React.Dispatch<React.SetStateAction<string>>;
     setCustomRange2: React.Dispatch<React.SetStateAction<boolean>>;
+    customY3Min: string;
+    setCustomY3Min: React.Dispatch<React.SetStateAction<string>>;
+    customY3Max: string;
+    setCustomY3Max: React.Dispatch<React.SetStateAction<string>>;
+    setCustomRange3: React.Dispatch<React.SetStateAction<boolean>>;
     hasSecondary: boolean;
+    hasTertiary: boolean;
     // Data bounds for filling in missing values
     primaryDataBounds: { min: number; max: number };
     secondaryDataBounds: { min: number; max: number };
+    tertiaryDataBounds: { min: number; max: number }
 }
 
 const ChartControls: React.FC<ChartControlsProps> = ({
     customYMin, setCustomYMin, customYMax, setCustomYMax, setCustomRange, customY2Min, setCustomY2Min,
-    customY2Max, setCustomY2Max, setCustomRange2, hasSecondary, primaryDataBounds, secondaryDataBounds,
+    customY2Max, setCustomY2Max, setCustomRange2, customY3Min, setCustomY3Min, customY3Max, setCustomY3Max, setCustomRange3, hasSecondary, hasTertiary, primaryDataBounds, secondaryDataBounds, tertiaryDataBounds
 }) => {
     // Apply range - if only one value provided, use data bounds for the other
     // If max < min, swap the values
@@ -63,9 +70,27 @@ const ChartControls: React.FC<ChartControlsProps> = ({
         }
     };
 
+    const handleApplyTertiary = () => {
+        if (customY3Min !== '' || customY3Max !== '') {
+            // Fill in missing value from data bounds
+            let minVal = customY3Min !== '' ? parseFloat(customY3Min) : tertiaryDataBounds.min;
+            let maxVal = customY3Max !== '' ? parseFloat(customY3Max) : tertiaryDataBounds.max;
+
+            // Swap if max < min
+            if (maxVal < minVal) {
+                [minVal, maxVal] = [maxVal, minVal];
+            }
+
+            setCustomY3Min(minVal.toString());
+            setCustomY3Max(maxVal.toString());
+            setCustomRange3(true);
+        }
+    };
+
     // Enable Apply if at least one value is provided
     const canApplyPrimary = customYMin !== '' || customYMax !== '';
     const canApplySecondary = customY2Min !== '' || customY2Max !== '';
+    const canApplyTertiary = customY3Min !== '' || customY3Max !== '';
 
     return (
         <div className="d-flex justify-content-center align-items-center flex-wrap gap-5">
@@ -139,6 +164,44 @@ const ChartControls: React.FC<ChartControlsProps> = ({
                         variant="outline-secondary"
                         size="sm"
                         onClick={() => { setCustomY2Min(''); setCustomY2Max(''); setCustomRange2(false); }}
+                    >
+                        Reset
+                    </Button>
+                </div>
+            )}
+            {/* Secondary Y-axis controls */}
+            {hasTertiary && (
+                <div className="d-flex align-items-center gap-2">
+                    <Form.Label className="mb-0 text-nowrap fw-medium">Tertiary Y:</Form.Label>
+                    <Form.Control
+                        type="number"
+                        value={customY3Min}
+                        onChange={(e) => setCustomY3Min(e.target.value)}
+                        style={{ width: '70px' }}
+                        size="sm"
+                        placeholder="min"
+                    />
+                    <Form.Control
+                        type="number"
+                        value={customY3Max}
+                        onChange={(e) => setCustomY3Max(e.target.value)}
+                        style={{ width: '70px' }}
+                        size="sm"
+                        placeholder="max"
+                    />
+                    <Button
+                        variant="secondary"
+                        size="sm"
+                        onClick={handleApplyTertiary}
+                        disabled={!canApplyTertiary}
+                        title="Apply Y3-axis range (missing value will use data bounds)"
+                    >
+                        Apply
+                    </Button>
+                    <Button
+                        variant="outline-secondary"
+                        size="sm"
+                        onClick={() => { setCustomY3Min(''); setCustomY3Max(''); setCustomRange3(false); }}
                     >
                         Reset
                     </Button>

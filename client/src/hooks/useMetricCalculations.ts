@@ -9,13 +9,13 @@ type CorrelationMetricType = Record<string, Record<string, Record<string, number
 type SingleMetricEntry = {
     key: string;
     setter: React.Dispatch<React.SetStateAction<SingleMetricType>>;
-    fetch: (filenamesPerCategory: Record<string, string[]>, start?: string, end?: string) => Promise<SingleMetricType>;
+    fetch: (filenamesPerCategory: Record<string, string[]>) => Promise<SingleMetricType>;
 };
 
 type AllCorrelationMetricEntry = {
     key: string;
     setter: React.Dispatch<React.SetStateAction<CorrelationMetricType>>;
-    fetch: (filenamesPerCategory: Record<string, string[]>, start?: string, end?: string) => Promise<CorrelationMetricType>;
+    fetch: (filenamesPerCategory: Record<string, string[]>) => Promise<CorrelationMetricType>;
 };
 
 type PerCategoryCorrelationMetricEntry = {
@@ -25,7 +25,13 @@ type PerCategoryCorrelationMetricEntry = {
 };
 
 export const useMetricCalculations = (
-filenamesPerCategory: Record<string, string[]>, selectedCategory: string | null, secondaryCategory: string | null, startDate: Date | null, endDate: Date | null) => {
+    filenamesPerCategory: Record<string, string[]>,
+    selectedCategory: string | null,
+    secondaryCategory: string | null,
+    tertiaryCategory: string | null,
+    startDate: Date | null,
+    endDate: Date | null
+) => {
     const [meanValues, setMeanValues] = useState<SingleMetricType>({});
     const [medianValues, setMedianValues] = useState<SingleMetricType>({});
     const [varianceValues, setVarianceValues] = useState<SingleMetricType>({});
@@ -85,17 +91,15 @@ filenamesPerCategory: Record<string, string[]>, selectedCategory: string | null,
         perCategoryCorrelationMetrics.forEach(({ key, setter }) => loadMetricFromStorage(key, setter));
     }, [singleMetrics, allCorrelationMetrics, perCategoryCorrelationMetrics]);
 
-   useEffect(() => {
+    useEffect(() => {
         if (Object.keys(filenamesPerCategory).length === 0) return;
 
         const fetchMetrics = async () => {
             try {
-                const start = startDate ? startDate.toISOString() : undefined;
-                const end = endDate ? endDate.toISOString() : undefined;
-
+                // Fetch single metrics in parallel
                 await Promise.all(
                     singleMetrics.map(async ({ fetch, setter }) => {
-                        const data = await fetch(filenamesPerCategory, start, end);
+                        const data = await fetch(filenamesPerCategory);
                         setter(data);
                     })
                 );
@@ -103,7 +107,7 @@ filenamesPerCategory: Record<string, string[]>, selectedCategory: string | null,
                 // Fetch all-correlation metrics in parallel
                 await Promise.all(
                     allCorrelationMetrics.map(async ({ fetch, setter }) => {
-                        const data = await fetch(filenamesPerCategory, start, end);
+                        const data = await fetch(filenamesPerCategory);
                         setter(data);
                     })
                 );
@@ -113,11 +117,12 @@ filenamesPerCategory: Record<string, string[]>, selectedCategory: string | null,
                     const data: CorrelationMetricType = {};
                     for (const category of Object.keys(filenamesPerCategory)) {
                         const files = filenamesPerCategory[category];
+                        // For Euclidean, it might need special params
                         let result;
                         if (key === 'EuclideanValues') {
-                            result = await fetch(files, null, category, start, end);
+                            result = await fetch(files, null, category);
                         } else {
-                            result = await fetch(files, category, start, end);
+                            result = await fetch(files, category);
                         }
                         data[category] = result;
                     }
@@ -129,7 +134,8 @@ filenamesPerCategory: Record<string, string[]>, selectedCategory: string | null,
         };
 
         fetchMetrics();
-    }, [filenamesPerCategory, singleMetrics, allCorrelationMetrics, perCategoryCorrelationMetrics, startDate, endDate]);
+    }, [filenamesPerCategory, singleMetrics, allCorrelationMetrics, perCategoryCorrelationMetrics]);
+
     useEffect(() => {
         const updatedGroupedMetrics: Record<string, CombinedMetric[]> = {};
 
