@@ -121,9 +121,5 @@ def execute_plugin_code(code: str, series1, series2) -> dict:
 
     executor = get_executor()
 
-    pairs = [{
-        "series1": series1_dict,
-        "series2": series2_dict,
-        "key": "single_run"
-    }]
+    pairs = [{"series1": series1_dict, "series2": series2_dict, "key": "single_run"}]
     return executor.execute(code, pairs)

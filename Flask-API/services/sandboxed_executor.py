@@ -4,15 +4,14 @@ import json
 import logging
 import textwrap
 import atexit
-import signal
-import sys
 
 logger = logging.getLogger(__name__)
+
 
 class SandboxedExecutor:
     """
     Adaptive executor for plugin code with lifecycle management.
-    
+
     - Local (Docker available): Uses Docker containers for isolation
     - AWS (PLUGIN_EXECUTOR_LAMBDA set): Uses Lambda for execution
     """
@@ -44,6 +43,7 @@ class SandboxedExecutor:
         """Initialize Lambda client for AWS execution."""
         try:
             import boto3
+
             self.lambda_client = boto3.client("lambda")
             self.docker_available = False
             logger.info(f"Using Lambda executor: {self.lambda_function_name}")
@@ -64,7 +64,7 @@ class SandboxedExecutor:
 
     def _cleanup_stale_containers(self):
         """
-        Force kill and remove any containers created by this executor 
+        Force kill and remove any containers created by this executor
         that might have been left running (e.g., after a hard crash).
         """
         if not self.docker_available:
@@ -72,19 +72,23 @@ class SandboxedExecutor:
 
         try:
             # Find container IDs with our label
-            label_filter = f"label={self.CONTAINER_LABEL_KEY}={self.CONTAINER_LABEL_VAL}"
+            label_filter = (
+                f"label={self.CONTAINER_LABEL_KEY}={self.CONTAINER_LABEL_VAL}"
+            )
             cmd = ["docker", "ps", "-q", "--filter", label_filter]
 
             result = subprocess.run(cmd, capture_output=True, text=True)
             container_ids = result.stdout.strip().split()
 
             if container_ids:
-                logger.warning(f"Found {len(container_ids)} orphaned containers. Cleaning up...")
+                logger.warning(
+                    f"Found {len(container_ids)} orphaned containers. Cleaning up..."
+                )
                 # Force remove them
                 subprocess.run(
                     ["docker", "rm", "-f"] + container_ids,
                     capture_output=True,
-                    check=False
+                    check=False,
                 )
         except Exception as e:
             logger.error(f"Failed to cleanup stale containers: {e}")
@@ -264,7 +268,9 @@ class SandboxedExecutor:
             logger.exception("Unexpected error in docker execution")
             return {"error": "Internal execution error"}
 
+
 _executor = None
+
 
 def get_executor():
     global _executor
