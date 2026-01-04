@@ -1,9 +1,8 @@
-import json
 import unittest
 import uuid
 from unittest.mock import MagicMock
 from logging import Logger
-from services.time_series_manager import TimeSeriesManager
+from services.time_series_manager import TimeSeriesManager, _json_dumps
 
 
 class TestTimeSeriesManagerAddMethod(unittest.TestCase):
@@ -32,7 +31,7 @@ class TestTimeSeriesManagerAddMethod(unittest.TestCase):
         # Assert
         self.assertTrue(result)
         mock_pipeline.hset.assert_called_once_with(
-            f"session:{self.token}", time, json.dumps(data)
+            f"session:{self.token}", time, _json_dumps(data)
         )
         mock_pipeline.expire.assert_called_once_with(
             f"session:{self.token}", self.manager._ttl_seconds
@@ -103,20 +102,22 @@ class TestTimeSeriesManagerGetMethod(unittest.TestCase):
 
         # Prepare test data
         self.test_data = {
-            "2023-01-01T00:00:00": json.dumps(
+            "2023-01-01T00:00:00": _json_dumps(
                 {
                     "category1": {"file1": 1.0, "file2": 2.0, "file3": 3.0},
                     "category2": {"file1": 3.0, "file2": 4.0},
                 }
             ),
-            "2023-01-02T00:00:00": json.dumps(
+            "2023-01-02T00:00:00": _json_dumps(
                 {"category1": {"file2": 6.0, "file3": 7.0}}
             ),
         }
 
     def test_get_all_timeseries(self):
         # Arrange
-        self.mock_redis.hgetall.return_value = self.test_data
+        mock_pipeline = MagicMock()
+        mock_pipeline.execute.return_value = [self.test_data, True]
+        self.mock_redis.pipeline.return_value = mock_pipeline
 
         # Act
         result = self.manager.get_timeseries(self.token)
@@ -131,13 +132,16 @@ class TestTimeSeriesManagerGetMethod(unittest.TestCase):
         }
 
         self.assertEqual(result, expected)
-        self.mock_redis.hgetall.assert_called_once_with(f"session:{self.token}")
+        mock_pipeline.hgetall.assert_called_once_with(f"session:{self.token}")
+        mock_pipeline.expire.assert_called_once()
 
     def test_get_timeseries_with_time(self):
         # Arrange
         timestamp = "2023-01-01T00:00:00"
+        mock_pipeline = MagicMock()
+        mock_pipeline.execute.return_value = [[self.test_data[timestamp]], True]
+        self.mock_redis.pipeline.return_value = mock_pipeline
         self.mock_redis.hkeys.return_value = list(self.test_data.keys())
-        self.mock_redis.hmget.return_value = [self.test_data[timestamp]]
 
         # Act
         result = self.manager.get_timeseries(self.token, timestamp=timestamp)
@@ -151,11 +155,14 @@ class TestTimeSeriesManagerGetMethod(unittest.TestCase):
         }
         self.assertEqual(result, expected)
         self.mock_redis.hkeys.assert_called_once()
-        self.mock_redis.hmget.assert_called_once()
+        mock_pipeline.hmget.assert_called_once()
+        mock_pipeline.expire.assert_called_once()
 
     def test_get_timeseries_with_category(self):
         # Arrange
-        self.mock_redis.hgetall.return_value = self.test_data
+        mock_pipeline = MagicMock()
+        mock_pipeline.execute.return_value = [self.test_data, True]
+        self.mock_redis.pipeline.return_value = mock_pipeline
 
         # Act
         result = self.manager.get_timeseries(self.token, category="category1")
@@ -171,7 +178,9 @@ class TestTimeSeriesManagerGetMethod(unittest.TestCase):
 
     def test_get_timeseries_with_filename(self):
         # Arrange
-        self.mock_redis.hgetall.return_value = self.test_data
+        mock_pipeline = MagicMock()
+        mock_pipeline.execute.return_value = [self.test_data, True]
+        self.mock_redis.pipeline.return_value = mock_pipeline
 
         # Act
         result = self.manager.get_timeseries(self.token, filename="file1")
@@ -188,8 +197,10 @@ class TestTimeSeriesManagerGetMethod(unittest.TestCase):
     def test_get_timeseries_with_time_and_category(self):
         # Arrange
         timestamp = "2023-01-01T00:00:00"
+        mock_pipeline = MagicMock()
+        mock_pipeline.execute.return_value = [[self.test_data[timestamp]], True]
+        self.mock_redis.pipeline.return_value = mock_pipeline
         self.mock_redis.hkeys.return_value = list(self.test_data.keys())
-        self.mock_redis.hmget.return_value = [self.test_data[timestamp]]
 
         # Act
         result = self.manager.get_timeseries(
@@ -207,8 +218,10 @@ class TestTimeSeriesManagerGetMethod(unittest.TestCase):
     def test_get_timeseries_with_time_and_filename(self):
         # Arrange
         timestamp = "2023-01-01T00:00:00"
+        mock_pipeline = MagicMock()
+        mock_pipeline.execute.return_value = [[self.test_data[timestamp]], True]
+        self.mock_redis.pipeline.return_value = mock_pipeline
         self.mock_redis.hkeys.return_value = list(self.test_data.keys())
-        self.mock_redis.hmget.return_value = [self.test_data[timestamp]]
 
         # Act
         result = self.manager.get_timeseries(
@@ -226,7 +239,9 @@ class TestTimeSeriesManagerGetMethod(unittest.TestCase):
 
     def test_get_timeseries_with_category_and_filename(self):
         # Arrange
-        self.mock_redis.hgetall.return_value = self.test_data
+        mock_pipeline = MagicMock()
+        mock_pipeline.execute.return_value = [self.test_data, True]
+        self.mock_redis.pipeline.return_value = mock_pipeline
 
         # Act
         result = self.manager.get_timeseries(
@@ -240,8 +255,10 @@ class TestTimeSeriesManagerGetMethod(unittest.TestCase):
     def test_get_timeseries_with_time_category_and_filename(self):
         # Arrange
         timestamp = "2023-01-01T00:00:00"
+        mock_pipeline = MagicMock()
+        mock_pipeline.execute.return_value = [[self.test_data[timestamp]], True]
+        self.mock_redis.pipeline.return_value = mock_pipeline
         self.mock_redis.hkeys.return_value = list(self.test_data.keys())
-        self.mock_redis.hmget.return_value = [self.test_data[timestamp]]
 
         # Act
         result = self.manager.get_timeseries(
@@ -254,7 +271,9 @@ class TestTimeSeriesManagerGetMethod(unittest.TestCase):
 
     def test_get_timeseries_no_data(self):
         # Arrange
-        self.mock_redis.hgetall.return_value = {}
+        mock_pipeline = MagicMock()
+        mock_pipeline.execute.return_value = [{}, True]
+        self.mock_redis.pipeline.return_value = mock_pipeline
 
         # Act & Assert
         result = self.manager.get_timeseries(self.token)
@@ -262,8 +281,10 @@ class TestTimeSeriesManagerGetMethod(unittest.TestCase):
 
     def test_get_timeseries_invalid_time(self):
         # Arrange
+        mock_pipeline = MagicMock()
+        mock_pipeline.execute.return_value = [[], True]
+        self.mock_redis.pipeline.return_value = mock_pipeline
         self.mock_redis.hkeys.return_value = list(self.test_data.keys())
-        self.mock_redis.hmget.return_value = []
 
         # Act
         result = self.manager.get_timeseries(self.token, timestamp="invalid_time")
@@ -278,7 +299,9 @@ class TestTimeSeriesManagerGetMethod(unittest.TestCase):
 
     def test_get_timeseries_invalid_category(self):
         # Arrange
-        self.mock_redis.hgetall.return_value = self.test_data
+        mock_pipeline = MagicMock()
+        mock_pipeline.execute.return_value = [self.test_data, True]
+        self.mock_redis.pipeline.return_value = mock_pipeline
 
         # Act
         result = self.manager.get_timeseries(self.token, category="invalid_category")
@@ -288,7 +311,9 @@ class TestTimeSeriesManagerGetMethod(unittest.TestCase):
 
     def test_get_timeseries_invalid_filename(self):
         # Arrange
-        self.mock_redis.hgetall.return_value = self.test_data
+        mock_pipeline = MagicMock()
+        mock_pipeline.execute.return_value = [self.test_data, True]
+        self.mock_redis.pipeline.return_value = mock_pipeline
 
         # Act
         result = self.manager.get_timeseries(self.token, filename="invalid_file")
@@ -298,7 +323,9 @@ class TestTimeSeriesManagerGetMethod(unittest.TestCase):
 
     def test_get_timeseries_with_categories_list(self):
         # Arrange
-        self.mock_redis.hgetall.return_value = self.test_data
+        mock_pipeline = MagicMock()
+        mock_pipeline.execute.return_value = [self.test_data, True]
+        self.mock_redis.pipeline.return_value = mock_pipeline
 
         # Act
         result = self.manager.get_timeseries(
@@ -317,7 +344,9 @@ class TestTimeSeriesManagerGetMethod(unittest.TestCase):
 
     def test_get_timeseries_with_filenames_list(self):
         # Arrange
-        self.mock_redis.hgetall.return_value = self.test_data
+        mock_pipeline = MagicMock()
+        mock_pipeline.execute.return_value = [self.test_data, True]
+        self.mock_redis.pipeline.return_value = mock_pipeline
 
         # Act
         result = self.manager.get_timeseries(self.token, filenames=["file1", "file2"])
@@ -334,8 +363,13 @@ class TestTimeSeriesManagerGetMethod(unittest.TestCase):
 
     def test_get_timeseries_with_date_range(self):
         # Arrange
+        mock_pipeline = MagicMock()
+        mock_pipeline.execute.return_value = [
+            [self.test_data["2023-01-01T00:00:00"]],
+            True,
+        ]
+        self.mock_redis.pipeline.return_value = mock_pipeline
         self.mock_redis.hkeys.return_value = list(self.test_data.keys())
-        self.mock_redis.hmget.return_value = [self.test_data["2023-01-01T00:00:00"]]
 
         # Act
         result = self.manager.get_timeseries(
