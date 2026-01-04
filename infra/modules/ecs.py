@@ -115,7 +115,10 @@ def create_ecs_task_definition(
                     {{"name": "FLASK_APP", "value": "main.py"}},
                     {{"name": "FLASK_ENV", "value": "{config.environment}"}},
                     {{"name": "ENVIRONMENT", "value": "{config.environment}"}},
-                    {{"name": "REDIS_ENDPOINT", "value": "{args[3]}"}}
+                    {{"name": "REDIS_HOST", "value": "{args[3]}"}},
+                    {{"name": "GUNICORN_WORKERS", "value": "3"}},
+                    {{"name": "GUNICORN_THREADS", "value": "4"}},
+                    {{"name": "GUNICORN_LOG_LEVEL", "value": "warning"}}
                 ],
                 "healthCheck": {{
                     "command": ["CMD-SHELL", "curl -f http://localhost:5000/health || exit 1"],

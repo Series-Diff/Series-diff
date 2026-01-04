@@ -19,7 +19,8 @@ dependencies = [
     "gunicorn (>=23.0.0,<24.0.0)",
     "coverage (>=7.6.0,<8.0.0)",
     "flask-limiter (>=4.1.1,<5.0.0)",
-    "redis[hiredis] (>=7.1.0,<8.0.0)"
+    "redis[hiredis] (>=7.1.0,<8.0.0)",
+    "orjson (>=3.10.13,<4.0.0)"
 ]
 
 [tool.poetry]

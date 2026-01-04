@@ -15,6 +15,9 @@ services:
       - FLASK_APP=main.py
       - FLASK_ENV=development
       - REDIS_HOST=redis
+      - GUNICORN_LOG_LEVEL=warning
+      - GUNICORN_PRELOAD=false
+      - PYTHONUNBUFFERED=1
     depends_on:
       - redis
     networks:

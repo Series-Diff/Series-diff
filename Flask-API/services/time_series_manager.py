@@ -1,5 +1,25 @@
 from datetime import datetime
-import json
+
+try:
+    import orjson as json
+
+    # orjson returns bytes, so we need wrapper functions
+    def _json_loads(x):
+        return json.loads(x)
+
+    def _json_dumps(x):
+        return json.dumps(x).decode("utf-8")
+
+except ImportError:
+    import json
+
+    def _json_loads(x):
+        return json.loads(x)
+
+    def _json_dumps(x):
+        return json.dumps(x)
+
+
 from typing import Any, Dict, List, Optional
 from logging import Logger
 from redis import Redis
@@ -33,7 +53,6 @@ class TimeSeriesManager:
         try:
             if self.redis.exists(key):
                 self.redis.expire(key, self._ttl_seconds)
-                self.logger.debug(f"Refreshed TTL for session {token}")
         except Exception as e:
             self.logger.warning(f"Failed to refresh TTL for token {token}: {e}")
 
@@ -72,10 +91,11 @@ class TimeSeriesManager:
         """Retrieve session data for a given token."""
         key = self._get_key(token)
         try:
-            data = self.redis.hgetall(key)
-            if data:
-                self._refresh_ttl(token)
-            return data
+            pipeline = self.redis.pipeline()
+            pipeline.hgetall(key)
+            pipeline.expire(key, self._ttl_seconds)
+            results = pipeline.execute()
+            return results[0] if results else {}
         except Exception as e:
             self.logger.error(f"Error retrieving session data for token {token}: {e}")
             raise e
@@ -99,23 +119,29 @@ class TimeSeriesManager:
         key = self._get_key(token)
         try:
             timestamps = self.redis.hkeys(key)
-            filtered_data = []
+            filtered_keys = []
             datetime_start, datetime_end = self._parse_dates(start, end)
 
             for ts_key in timestamps:
                 if self._matches_time_filter(
                     ts_key, timestamp, datetime_start, datetime_end
                 ):
-                    filtered_data.append(ts_key)
-            if not filtered_data:
-                self.logger.info(f"No data found for token {token} with given filters.")
-            values = self.redis.hmget(key, filtered_data)
-            filtered_data = {
-                ts: val for ts, val in zip(filtered_data, values) if val is not None
-            }
+                    filtered_keys.append(ts_key)
 
-            if filtered_data:
-                self._refresh_ttl(token)
+            if not filtered_keys:
+                self.logger.info(f"No data found for token {token} with given filters.")
+                return {}
+
+            # Use pipeline for batch operations
+            pipeline = self.redis.pipeline()
+            pipeline.hmget(key, filtered_keys)
+            pipeline.expire(key, self._ttl_seconds)
+            results = pipeline.execute()
+
+            values = results[0]
+            filtered_data = {
+                ts: val for ts, val in zip(filtered_keys, values) if val is not None
+            }
 
             return filtered_data
         except Exception as e:
@@ -156,13 +182,13 @@ class TimeSeriesManager:
                     self._add_matching_data(
                         result=processed_data,
                         timestamp=ts_key,
-                        values=json.loads(ts_value),
+                        values=_json_loads(ts_value),
                         category=None,
                         filename=None,
                         categories=categories,
                         filenames=filenames,
                     )
-                except json.JSONDecodeError as e:
+                except (json.JSONDecodeError, ValueError) as e:
                     self.logger.error(
                         f"Error decoding JSON for timestamp {ts_key}: {e}"
                     )
@@ -285,7 +311,7 @@ class TimeSeriesManager:
 
         try:
             pipeline = self.redis.pipeline()
-            json_value = json.dumps(data)
+            json_value = _json_dumps(data)
             pipeline.hset(key, time, json_value)
             pipeline.expire(key, self._ttl_seconds)
             pipeline.execute()
