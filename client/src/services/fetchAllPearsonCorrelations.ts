@@ -50,15 +50,31 @@ export async function fetchAllPearsonCorrelations(
   category: string
 ): Promise<Record<string, Record<string, number>>> {
   const correlations: Record<string, Record<string, number>> = {};
+  const numFiles = filenames.length;
 
-  // Dla każdej pary plików pobieramy korelację z API
+  // Inicjalizacja macierzy - przekątna = 1 (korelacja z samym sobą)
   for (const file1 of filenames) {
     correlations[file1] = {};
     for (const file2 of filenames) {
-      const value = await fetchPearsonCorrelation(file1, file2, category);
-      correlations[file1][file2] = value ?? 0;
+      correlations[file1][file2] = file1 === file2 ? 1 : 0;
     }
   }
-  // Zwracamy pełną macierz korelacji w formacie: file1 -> (file2 -> wartość)
+
+  // Oblicz tylko górny trójkąt macierzy (unikalne pary)
+  for (let i = 0; i < numFiles; i++) {
+    const file1 = filenames[i];
+
+    for (let j = i + 1; j < numFiles; j++) {
+      const file2 = filenames[j];
+
+      const value = await fetchPearsonCorrelation(file1, file2, category);
+      const correlation = value ?? 0;
+
+      // Ustawiamy wartość symetrycznie
+      correlations[file1][file2] = correlation;
+      correlations[file2][file1] = correlation;
+    }
+  }
+
   return correlations;
 }

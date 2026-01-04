@@ -13,7 +13,7 @@ import DifferenceSelectionPanel from './Dashboard/components/DifferenceSelection
 function DashboardPage() {
   const [chartMode, setChartMode] = useState<'standard' | 'difference'>('standard');
   const chartContainerRef = useRef<HTMLDivElement>(null);
-  
+
   const { chartData, error, setError, isLoading, setIsLoading, filenamesPerCategory, handleFetchData, handleReset: baseReset } = hooks.useDataFetching();
   const { showMovingAverage, maWindow, setMaWindow, isMaLoading, rollingMeanChartData, handleToggleMovingAverage, handleApplyMaWindow, resetMovingAverage, } = hooks.useMovingAverage(filenamesPerCategory, setError);
   const { selectedCategory, secondaryCategory, handleRangeChange, syncColorsByFile, setSyncColorsByFile, filteredData, handleDropdownChange, handleSecondaryDropdownChange, resetChartConfig } = hooks.useChartConfiguration(filenamesPerCategory, chartData, rollingMeanChartData, showMovingAverage, maWindow);
@@ -22,12 +22,21 @@ function DashboardPage() {
   const { showTitleModal, setShowTitleModal, reportTitle, setReportTitle, isExporting, handleExportClick, handleExportToPDF } = hooks.useExport(chartData);
   const { isPopupOpen, selectedFiles, handleFileUpload, handlePopupComplete, handlePopupClose, resetFileUpload } = hooks.useFileUpload(handleFetchData, setError, setIsLoading);
 
+  const { plugins } = hooks.useLocalPlugins();
+
   const hasData = Object.keys(chartData).length > 0;
-  
+  const enabledPlugins = plugins.filter(p => p.enabled);
+
   // Dynamic height calculation for chart container
-  // Recalculates when hasData or isLoading changes (to handle layout changes after data loads)
   const chartDynamicHeight = hooks.useDynamicHeight(chartContainerRef, [hasData, isLoading]);
-  
+
+  const {
+    pluginResults,
+    isLoadingPlugins,
+    refreshPluginResults,
+    resetPluginResults
+  } = hooks.usePluginResults(filenamesPerCategory, plugins);
+
   // Difference chart hook
   const {
     selectedDiffCategory,
@@ -55,23 +64,18 @@ function DashboardPage() {
     resetChartConfig();
     resetMovingAverage();
     resetFileUpload();
+    resetPluginResults();
     resetDifferenceChart();
   };
 
   const hasDifferenceData = Object.keys(differenceChartData).length > 0;
   const isInDifferenceMode = chartMode === 'difference';
-  
-  // Check if there are enough files for difference chart (need at least 2 files in any category)
+
   const hasEnoughFilesForDifference = Object.values(filenamesPerCategory).some(files => files.length >= 2);
   const totalFilesLoaded = Object.values(filenamesPerCategory).reduce((sum, files) => sum + files.length, 0);
 
-  // Determine if we need full height:
-  // - Standard mode without data: full height
-  // - Difference mode: always full height (no statistics below)
   const needsFullHeight = isInDifferenceMode || !hasData;
 
-  // Use height (not minHeight) for diff mode to prevent scroll
-  // overflow: hidden prevents scrollbar from appearing
   const mainStyle = needsFullHeight ? {
     gap: "16px",
     height: `calc(100vh - var(--nav-height) - 2 * var(--section-margin))`,
@@ -81,10 +85,7 @@ function DashboardPage() {
     minHeight: `calc(100vh - var(--nav-height) - 2 * var(--section-margin))`
   };
 
-  // Chart layout container: h-100 when we need full height
   const chartLayoutClass = `d-flex flex-column gap-3 w-100 flex-grow-1${needsFullHeight ? ' h-100' : ''}`;
-
-  // Chart container: flex-grow-1 to fill available space
   const chartContainerClass = `Chart-container section-container position-relative flex-grow-1`;
 
   const toggleChartMode = () => {
@@ -95,7 +96,7 @@ function DashboardPage() {
     <div className="d-flex" style={mainStyle}>
       <div className="App-main-content flex-grow-1 d-flex align-items-start w-100 rounded">
         <div className={chartLayoutClass}>
-          {/* Controls Panel - changes based on mode */}
+          {/* Controls Panel */}
           {isInDifferenceMode ? (
             <ControlsPanel
               mode="difference"
@@ -132,14 +133,14 @@ function DashboardPage() {
               handleReset={handleReset}
             />
           )}
-          
-          {/* Show general errors, but not tolerance/diff-related errors (those are shown in chart area) */}
+
+          {/* Error Display */}
           {error && !error.includes('No overlapping timestamps') && !error.includes('tolerance') && !error.includes('no units specified') && (
             <p className="text-danger text-center mb-0">Error: {error}</p>
           )}
-          
+
           {/* Chart Container */}
-          <div 
+          <div
             ref={chartContainerRef}
             className={chartContainerClass}
             style={chartDynamicHeight ? { minHeight: chartDynamicHeight } : undefined}
@@ -158,20 +159,19 @@ function DashboardPage() {
                   </div>}
                 {!isLoading && hasData && (
                   <div className="chart-wrapper" style={{ height: chartDynamicHeight }}>
-                    <components.MyChart 
+                    <components.MyChart
                       primaryData={filteredData.primary}
                       secondaryData={filteredData.secondary || undefined}
-                      syncColorsByFile={syncColorsByFile} 
+                      syncColorsByFile={syncColorsByFile}
                     />
                   </div>
                 )}
               </>
             )}
-            
+
             {/* Difference Chart Mode */}
             {isInDifferenceMode && (
               <>
-                {/* Not enough files loaded */}
                 {!hasData && !isLoading && !error && (
                   <div className="d-flex align-items-center justify-content-center text-muted flex-grow-1" style={{ minHeight: chartDynamicHeight }}>
                     Load data to visualize differences
@@ -185,7 +185,6 @@ function DashboardPage() {
                     </div>
                   </div>
                 )}
-                {/* Has enough files */}
                 {hasData && hasEnoughFilesForDifference && (
                   <>
                     {isDiffLoading && (
@@ -209,7 +208,7 @@ function DashboardPage() {
                     )}
                     {!isDiffLoading && !diffError && hasDifferenceData && (
                       <div className="chart-wrapper">
-                        <components.MyChart 
+                        <components.MyChart
                           primaryData={differenceChartData}
                         />
                       </div>
@@ -218,7 +217,7 @@ function DashboardPage() {
                 )}
               </>
             )}
-            
+
             {/* Switch Chart Mode Button */}
             {hasData && (
               <Button
@@ -231,8 +230,8 @@ function DashboardPage() {
               </Button>
             )}
           </div>
-          
-          {/* Standard mode specific sections - hidden in difference mode */}
+
+          {/* Standard mode specific sections */}
           {!isInDifferenceMode && (
             <>
               {Object.keys(groupedMetrics).length > 0 && (
@@ -250,6 +249,7 @@ function DashboardPage() {
                   <components.Metrics groupedMetrics={groupedMetrics} />
                 </div>
               )}
+
               {selectedCategory && PearsonCorrelationValues[selectedCategory] && (
                 <div className="section-container p-3">
                   <components.CorrelationTable
@@ -377,6 +377,57 @@ function DashboardPage() {
                   )}
                 </div>
               )}
+
+              {enabledPlugins.length > 0 && selectedCategory && (
+                <div className="section-container" style={{ padding: "16px" }}>
+                  <div className="d-flex justify-content-between align-items-center mb-3">
+                    <h3 style={{ margin: 0 }}>Plugins</h3>
+                    <div className="d-flex align-items-center gap-2">
+                       {isLoadingPlugins && <Spinner animation="border" size="sm" />}
+                       <Button
+                         variant="outline-secondary"
+                         size="sm"
+                         onClick={refreshPluginResults}
+                         disabled={isLoadingPlugins}
+                       >
+                         Refresh
+                       </Button>
+                    </div>
+                  </div>
+
+                  {enabledPlugins.map((plugin) => {
+                    const categoryData = pluginResults[plugin.id]?.[selectedCategory];
+                    if (!categoryData || Object.keys(categoryData).length === 0) {
+                      return null;
+                    }
+
+                    return (
+                      <components.StandardTable
+                        key={plugin.id}
+                        data={categoryData}
+                        category={selectedCategory}
+                        metric={plugin.name}
+                      />
+                    );
+                  })}
+
+                  {secondaryCategory && enabledPlugins.map((plugin) => {
+                    const categoryData = pluginResults[plugin.id]?.[secondaryCategory];
+                    if (!categoryData || Object.keys(categoryData).length === 0) {
+                      return null;
+                    }
+                    return (
+                      <div key={`${plugin.id}-${secondaryCategory}`} style={{ marginTop: "32px" }}>
+                        <components.StandardTable
+                          data={categoryData}
+                          category={secondaryCategory}
+                          metric={plugin.name}
+                        />
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
             </>
           )}
 
@@ -392,8 +443,8 @@ function DashboardPage() {
           <components.DataImportPopup show={isPopupOpen} onHide={handlePopupClose} files={selectedFiles} onComplete={handlePopupComplete} />
         </div>
       </div>
-      
-      {/* Sidebar - conditionally renders Groups or Difference Selection */}
+
+      {/* Sidebar */}
       {isInDifferenceMode ? (
         <DifferenceSelectionPanel
           differenceOptions={differenceOptions}
@@ -418,7 +469,7 @@ function DashboardPage() {
           ))}
         </div>
       )}
-      
+
       <Modal show={showTitleModal} onHide={() => setShowTitleModal(false)} centered>
         <Modal.Header closeButton>
           <Modal.Title>Enter report title</Modal.Title>

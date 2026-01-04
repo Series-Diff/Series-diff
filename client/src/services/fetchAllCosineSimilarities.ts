@@ -54,16 +54,31 @@ export async function fetchAllCosineSimilarities(
   category: string
 ): Promise<Record<string, Record<string, number>>> {
   const similarities: Record<string, Record<string, number>> = {};
+  const numFiles = filenames.length;
 
-  // Dla każdej pary plików pobieramy cosine similarity z API
+  // Inicjalizacja macierzy - przekątna = 1 (cosine similarity z samym sobą)
   for (const file1 of filenames) {
     similarities[file1] = {};
     for (const file2 of filenames) {
-      const value = await fetchCosineSimilarity(file1, file2, category);
-      similarities[file1][file2] = value ?? 0;
+      similarities[file1][file2] = file1 === file2 ? 1 : 0;
     }
   }
 
-  // Zwracamy pełną macierz cosine similarity w formacie: file1 -> (file2 -> wartość)
+  // Oblicz tylko górny trójkąt macierzy (unikalne pary)
+  for (let i = 0; i < numFiles; i++) {
+    const file1 = filenames[i];
+
+    for (let j = i + 1; j < numFiles; j++) {
+      const file2 = filenames[j];
+
+      const value = await fetchCosineSimilarity(file1, file2, category);
+      const similarity = value ?? 0;
+
+      // Ustawiamy wartość symetrycznie
+      similarities[file1][file2] = similarity;
+      similarities[file2][file1] = similarity;
+    }
+  }
+
   return similarities;
 }

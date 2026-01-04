@@ -18,6 +18,7 @@ from modules.redis import create_redis
 from modules.alb import create_alb, create_target_group
 from modules.dns import create_dns_record
 from modules.lambda_scaling import create_scaling_lambda
+from modules.lambda_executor import create_plugin_executor_lambda
 from modules.amplify import create_amplify_app
 from modules.cognito import create_cognito_resources
 
@@ -70,11 +71,16 @@ alb_resources = create_alb(
     cognito_config=cognito if config.cognito_enabled else None,
 )
 
+# Plugin Executor Lambda
+plugin_executor = create_plugin_executor_lambda(config.environment)
+pulumi.export("plugin_executor_function_name", plugin_executor["function_name"])
+
 # ECS Cluster and Service
 cluster = create_ecs_cluster()
 task_definition = create_ecs_task_definition(
     image_ref=api_image.ref,
     region=config.aws_region,
+    plugin_executor_function_name=plugin_executor["function_name"],
     redis_endpoint=valkey_endpoint
 )
 service = create_ecs_service(

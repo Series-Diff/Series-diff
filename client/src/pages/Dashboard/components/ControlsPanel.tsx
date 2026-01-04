@@ -116,8 +116,8 @@ const ControlsPanel: React.FC<ControlsPanelProps> = (props) => {
                         />
 
                         <div className="d-flex align-items-center gap-2 ms-3">
-                            <Form.Label 
-                                className="mb-0 text-nowrap" 
+                            <Form.Label
+                                className="mb-0 text-nowrap"
                                 title="Time tolerance for matching data points (in minutes). E.g., 5 = 5 minutes tolerance. Leave empty for auto."
                             >
                                 Tolerance

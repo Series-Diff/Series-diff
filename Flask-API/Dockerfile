@@ -3,6 +3,11 @@ FROM python:3.11-slim AS builder
 
 WORKDIR /app
 
+# Install curl for health checks (Docker not needed on AWS - using Lambda)
+RUN apt-get update && \
+    apt-get install -y --no-install-recommends curl && \
+    rm -rf /var/lib/apt/lists/*
+
 # Setup environment
 ENV POETRY_VERSION=2.2.1
 ENV PIP_BREAK_SYSTEM_PACKAGES=1

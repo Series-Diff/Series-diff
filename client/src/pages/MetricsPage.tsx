@@ -1,8 +1,9 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect } from 'react';
 import './MetricsPage.css';
 import { Form, Tabs, Tab, Col, Button, Modal } from "react-bootstrap";
 import { Select, MetricModal, MetricRow, Header } from '../components';
 import { Metric, METRIC_CATEGORIES, PREDEFINED_METRICS } from '../constants/metricsConfig';
+import { useLocalPlugins } from '../hooks/useLocalPlugins';
 
 function MetricsPage() {
     const [selectedCategory, setSelectedCategory] = useState<string>("All");
@@ -10,36 +11,19 @@ function MetricsPage() {
     const [activeTab, setActiveTab] = useState("predefined");
     const [searchQuery, setSearchQuery] = useState("");
     const [userSearchQuery, setUserSearchQuery] = useState("");
-    const isInitialMount = useRef(true);
-    const [userMetrics, setUserMetrics] = useState<Metric[]>(() => {
-        const storedMetrics = localStorage.getItem('userMetrics');
-        if (storedMetrics) {
-            try {
-                return JSON.parse(storedMetrics);
-            } catch (error) {
-                // Error parsing stored metrics - clearing corrupted data
-                // Future enhancement: Show user notification about data loss and offer backup/recovery
-                console.error('Failed to parse user metrics from localStorage:', error);
-                localStorage.removeItem('userMetrics');
-                return [];
-            }
-        }
-        return [];
-    });
+
+    const {
+        plugins,
+        createPlugin,
+        updatePlugin,
+        deletePlugin
+    } = useLocalPlugins();
+
     const [showModal, setShowModal] = useState(false);
     const [editingMetric, setEditingMetric] = useState<Metric | null>(null);
     const [metricToDelete, setMetricToDelete] = useState<Metric | null>(null);
 
     const categories: string[] = [...METRIC_CATEGORIES];
-
-    useEffect(() => {
-        // Skip saving on initial mount to prevent unnecessary write operation
-        if (isInitialMount.current) {
-            isInitialMount.current = false;
-            return;
-        }
-        localStorage.setItem('userMetrics', JSON.stringify(userMetrics));
-    }, [userMetrics]);
 
     // Sync selectedCategory if it becomes invalid when categories change
     useEffect(() => {
@@ -68,27 +52,35 @@ function MetricsPage() {
         setEditingMetric(null);
     };
 
-    const handleSaveMetric = (metricData: { label: string; description: string; category: string; file?: File }) => {
-        // Duplicate check is now done in MetricModal before calling onSave
-        const newMetric: Metric = {
-            value: editingMetric ? editingMetric.value : `custom_${Date.now()}`,
-            label: metricData.label,
-            description: metricData.description,
-            category: metricData.category,
-            fileName: editingMetric ? editingMetric.fileName : (metricData.file ? metricData.file.name : undefined),
-            // TODO: Implement file upload handling here.
-            // Currently, the file is not stored or uploaded; only the file name is saved.
-            // When implementing, ensure the file is uploaded to the server or appropriate storage,
-            // and update the metric object with the file's storage location or identifier.
-        };
-
-        if (editingMetric) {
-            setUserMetrics(prev => prev.map(m => m.value === editingMetric.value ? newMetric : m));
-        } else {
-            setUserMetrics(prev => [...prev, newMetric]);
+    const handleSaveMetric = (metricData: {
+        label: string;
+        description: string;
+        category: string;
+        code?: string;
+    }) => {
+        try {
+            if (editingMetric) {
+                // Editing an existing metric
+                updatePlugin(editingMetric.value, {
+                    name: metricData.label,
+                    description: metricData.description,
+                    category: metricData.category,
+                    code: metricData.code
+                });
+            } else {
+                // Creating a new metric
+                createPlugin(
+                    metricData.label,
+                    metricData.description,
+                    metricData.category,
+                    metricData.code || ''
+                );
+            }
+            handleCloseModal();
+        } catch (err: any) {
+            console.error(err);
+            alert(err.message || 'Failed to save metric locally');
         }
-
-        handleCloseModal();
     };
 
     const handleDeleteMetric = (metric: Metric) => {
@@ -97,7 +89,8 @@ function MetricsPage() {
 
     const confirmDeleteMetric = () => {
         if (metricToDelete) {
-            setUserMetrics(prev => prev.filter(m => m.value !== metricToDelete.value));
+            // metric.value is the plugin ID (from the mapping in getUserMetricsFiltered)
+            deletePlugin(metricToDelete.value);
             setMetricToDelete(null);
         }
     };
@@ -108,8 +101,17 @@ function MetricsPage() {
             .filter(metric => metric.label.toLowerCase().includes(searchQuery.toLowerCase()));
     };
 
+
     const getUserMetricsFiltered = (): Metric[] => {
-        return userMetrics
+        const metricsFromPlugins: Metric[] = plugins.map(p => ({
+            value: p.id,
+            label: p.name,
+            description: p.description,
+            category: p.category,
+            code: p.code // Przekazujemy kod, aby można go było edytować
+        }));
+
+        return metricsFromPlugins
             .filter(metric => (userSelectedCategory === 'All' || metric.category === userSelectedCategory))
             .filter(metric => metric.label.toLowerCase().includes(userSearchQuery.toLowerCase()));
     };
@@ -157,6 +159,7 @@ function MetricsPage() {
                                     <MetricRow
                                         key={opt.value}
                                         checkbox={false}
+                                        onShowChange={() => { }}
                                         currentlyActiveBadge={false}
                                         className="metric-row-instance w-100"
                                         text={opt.label}
@@ -195,7 +198,7 @@ function MetricsPage() {
                         <div className="container-installed d-flex flex-column gap-3 overflow-auto flex-grow-1">
                             {userMetricsList.length === 0 ? (
                                 <div className="empty-state-message">
-                                    {userMetrics.length === 0
+                                    {plugins.length === 0
                                         ? "No custom metrics yet. Click 'Add Your Custom Metric' to get started."
                                         : "No metrics found matching your search criteria."}
                                 </div>
@@ -204,6 +207,7 @@ function MetricsPage() {
                                     <MetricRow
                                         key={opt.value}
                                         checkbox={false}
+                                        onShowChange={() => { }}
                                         currentlyActiveBadge={false}
                                         className="metric-row-instance w-100"
                                         text={opt.label}
@@ -227,9 +231,9 @@ function MetricsPage() {
                 onSave={handleSaveMetric}
                 editingMetric={editingMetric}
                 categories={categories.filter(c => c !== 'All')}
-                existingLabels={userMetrics
-                    .filter(m => !editingMetric || m.value !== editingMetric.value)
-                    .map(m => m.label)
+                existingLabels={plugins
+                    .filter(p => !editingMetric || p.id !== editingMetric.value)
+                    .map(p => p.name)
                 }
             />
 

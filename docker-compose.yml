@@ -8,7 +8,9 @@ services:
     volumes:
       - redis-data:/data
   backend:
-    build: ./Flask-API
+    build:
+      context: ./Flask-API
+      dockerfile: Dockerfile.local
     ports:
      - "5000:5000"
     environment:
@@ -25,6 +27,7 @@ services:
     volumes:
       - ./Flask-API:/app
       - /app/.venv
+      - /var/run/docker.sock:/var/run/docker.sock
   frontend:
     build: ./client
     ports:
@@ -39,6 +42,11 @@ services:
     volumes:
       - ./client:/app
       - /app/node_modules
+  executor-builder:
+    build:
+      context: ./Flask-API
+      dockerfile: Dockerfile.executor
+    image: sandboxed-plugin-executor:latest
 networks:
   comparison-tool-network:
    driver: bridge
