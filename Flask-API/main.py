@@ -1014,6 +1014,7 @@ def api_validate_plugin_code():
 
     return _create_response(result, 200)
 
+
 @app.route("/api/plugins/execute", methods=["POST"])
 def api_execute_plugin():
     """
