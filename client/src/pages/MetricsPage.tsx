@@ -65,7 +65,7 @@ function MetricsPage() {
                     name: metricData.label,
                     description: metricData.description,
                     category: metricData.category,
-                    code: metricData.code || editingMetric.code // Keep the old code if no new code is provided (even though the form requires it)
+                    code: metricData.code
                 });
             } else {
                 // Creating a new metric

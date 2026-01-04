@@ -1005,6 +1005,8 @@ def api_validate_plugin_code():
     Returns:
         Validation result with valid (bool) and optionally error (str).
     """
+
+    token, _ = _get_session_token()
     data = request.get_json()
 
     if not data or "code" not in data:
@@ -1012,7 +1014,7 @@ def api_validate_plugin_code():
 
     result = validate_plugin_code(data["code"])
 
-    return _create_response(result, 200)
+    return _create_response(result, 200, token=token)
 
 
 @app.route("/api/plugins/execute", methods=["POST"])
@@ -1051,16 +1053,24 @@ def api_execute_plugin():
         # Fetch all series data first
         series_data = {}
         for filename in filenames:
-            raw_data = timeseries_manager.get_timeseries(
-                filename=filename,
-                category=data["category"],
-                start=data.get("start"),
-                end=data.get("end"),
-                token=token,
-            )
-            series_data[filename] = metric_service.extract_series_from_dict(
-                raw_data, data["category"], filename
-            )
+            try:
+                raw_data = timeseries_manager.get_timeseries(
+                    filename=filename,
+                    category=data["category"],
+                    start=data.get("start"),
+                    end=data.get("end"),
+                    token=token,
+                )
+                series_data[filename] = metric_service.extract_series_from_dict(
+                    raw_data, data["category"], filename
+                )
+            except Exception as e:
+                logger.error(
+                    "Error extracting series data for file '%s': %s", filename, e
+                )
+                raise RuntimeError(
+                    f"Error extracting series data for file '{filename}': {e}"
+                ) from e
 
         # Build pairs for execution
         pairs = []
