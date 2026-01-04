@@ -38,7 +38,16 @@ def create_redis(networking: dict, environment: str):
         description=f"Serverless Valkey for {environment}",
         subnet_ids=networking["subnet_ids"],
         security_group_ids=[valkey_sg.id],
-        major_engine_version="7", 
+        major_engine_version="7",
+        cache_usage_limits=aws.elasticache.ServerlessCacheCacheUsageLimitsArgs(
+            data_storage=aws.elasticache.ServerlessCacheCacheUsageLimitsDataStorageArgs(
+                maximum=10,  # Maximum storage in GB
+                unit="GB"
+            ),
+            ecpu_per_seconds=[aws.elasticache.ServerlessCacheCacheUsageLimitsEcpuPerSecondArgs(
+                maximum=5000,  # Maximum ECPUs per second
+            )],
+        ),
         tags={
             "Environment": environment,
         },

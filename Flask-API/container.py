@@ -1,5 +1,6 @@
 import os
 import logging
+import socket
 import redis
 from flask_limiter import Limiter
 from flask_limiter.util import get_remote_address
@@ -19,12 +20,25 @@ class Container:
             "port": 6379,
             "decode_responses": True,
             "db": 0,
-            "max_connections": 20,
-            "socket_connect_timeout": 2,
+            "max_connections": 50,
+            "socket_connect_timeout": 5,
+            "socket_timeout": 5,
+            "socket_keepalive": True,
+            "retry_on_timeout": True,
+            "health_check_interval": 30,
+            "connection_class": (
+                redis.SSLConnection if self._use_ssl else redis.Connection
+            ),
         }
+
+        # Add TCP keepalive options only for AWS Elasticache (production)
         if self._use_ssl:
-            connection_kwargs["ssl"] = True
             connection_kwargs["ssl_cert_reqs"] = None
+            connection_kwargs["socket_keepalive_options"] = {
+                socket.TCP_KEEPIDLE: 60,
+                socket.TCP_KEEPINTVL: 10,
+                socket.TCP_KEEPCNT: 3,
+            }
 
         self._redis_pool = redis.ConnectionPool(**connection_kwargs)
 
