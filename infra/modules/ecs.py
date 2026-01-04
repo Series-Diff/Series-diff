@@ -33,10 +33,8 @@ def create_ecs_cluster() -> aws.ecs.Cluster:
 def create_ecs_task_definition(
     image_ref: pulumi.Output[str],
     region: str,
+    redis_endpoint: pulumi.Output[str],
     plugin_executor_function_name: pulumi.Output[str] = None,
-    image_ref: pulumi.Output[str], 
-    region: str,
-    redis_endpoint: pulumi.Output[str]
 ) -> aws.ecs.TaskDefinition:
     """
     Create an ECS task definition for the Flask API.
@@ -179,7 +177,6 @@ def create_ecs_task_definition(
         requires_compatibilities=["FARGATE"],
         execution_role_arn=task_exec_role.arn,
         task_role_arn=task_role.arn,
-        container_definitions=container_defs,
         container_definitions=pulumi.Output.all(
             image_ref, region, log_group.name, redis_endpoint
         ).apply(
