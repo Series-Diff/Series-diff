@@ -13,7 +13,8 @@ export interface PluginValidationResult {
     error?: string;
 }
 
-const API_BASE = '/api/plugins';
+const API_URL = (process.env.REACT_APP_API_URL || '').replace(/\/$/, '');
+const API_BASE = `${API_URL}/api/plugins`;
 
 /**
  * Validate plugin code before saving.
