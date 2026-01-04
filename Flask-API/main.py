@@ -1008,12 +1008,11 @@ def api_validate_plugin_code():
     data = request.get_json()
 
     if not data or "code" not in data:
-        return jsonify({"error": "No code provided"}), 400
+        return _create_response({"error": "No code provided"}, 400)
 
     result = validate_plugin_code(data["code"])
 
-    return jsonify(result), 200
-
+    return _create_response(result, 200)
 
 @app.route("/api/plugins/execute", methods=["POST"])
 def api_execute_plugin():
@@ -1036,16 +1035,16 @@ def api_execute_plugin():
     data = request.get_json()
 
     if not data:
-        return jsonify({"error": "No data provided"}), 400
+        return _create_response({"error": "No data provided"}, 400)
 
     required_fields = ["code", "category", "filenames"]
     for field in required_fields:
         if field not in data:
-            return jsonify({"error": f"Missing required field: {field}"}), 400
+            return _create_response({"error": f"Missing required field: {field}"}, 400)
 
     filenames = data["filenames"]
     if not filenames or len(filenames) < 2:
-        return jsonify({"error": "At least 2 filenames required"}), 400
+        return _create_response({"error": "At least 2 filenames required"}, 400)
 
     try:
         # Fetch all series data first
@@ -1080,7 +1079,7 @@ def api_execute_plugin():
 
         if "error" in result:
             logger.error("Plugin execution error: %s", result["error"])
-            return jsonify(result), 400
+            return _create_response(result, 400)
 
         # Transform results to nested structure
         results_map = {}
@@ -1093,11 +1092,11 @@ def api_execute_plugin():
                 results_map[f1][f2] = item.get("result") if "result" in item else None
 
         logger.info("Plugin executed successfully for %d pairs", len(pairs))
-        return jsonify({"results": results_map}), 200
+        return _create_response({"results": results_map}, 200, token=token)
 
     except Exception as e:
         logger.error("Error executing plugin: %s", e)
-        return jsonify({"error": str(e)}), 400
+        return _create_response({"error": str(e)}, 400)
 
 
 if __name__ == "__main__":
