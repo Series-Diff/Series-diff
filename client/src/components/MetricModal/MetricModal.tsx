@@ -27,7 +27,7 @@ interface MetricModalProps {
     show: boolean;
     onHide: () => void;
     onSave: (data: MetricData) => void;
-    // Zmieniono typ editingMetric, aby wyraźnie uwzględniał kod (który jest opcjonalny w interfejsie Metric, ale potrzebny tutaj)
+    // Changed the type of editingMetric to explicitly include code (which is optional in the Metric interface but needed here)
     editingMetric: { label: string; description: string; category: string; code?: string; value?: string } | null;
     categories: string[];
     existingLabels: string[];
@@ -56,7 +56,7 @@ const MetricModal: React.FC<MetricModalProps> = ({
                 setLabel(editingMetric.label);
                 setDescription(editingMetric.description);
                 setCategory(editingMetric.category);
-                // Wypełniamy kod, jeśli istnieje
+                // Prefill code if it exists
                 setCode(editingMetric.code || '');
             } else {
                 setLabel('');
@@ -97,7 +97,7 @@ const MetricModal: React.FC<MetricModalProps> = ({
             }
         }
 
-        // Walidacja kodu - kod jest wymagany zawsze, nawet przy edycji, aby plugin działał
+        // Code validation - code is always required, even when editing, for the plugin to work
         if (!code.trim()) {
             setCodeError('Code is required.');
             hasError = true;
@@ -201,7 +201,6 @@ const MetricModal: React.FC<MetricModalProps> = ({
                                     fontFamily: 'monospace',
                                     fontSize: '0.85em',
                                     minHeight: '300px',
-                                    color: code === PLUGIN_TEMPLATE ? '#6c757d' : 'inherit'
                                 }}
                                 textareaClassName="focus-ring"
                             />
@@ -219,7 +218,7 @@ const MetricModal: React.FC<MetricModalProps> = ({
                         <Form.Text className="text-muted">
                             <br />Helper function:
                             <br /><code>get_aligned_data(series1, series2, tolerance=None)</code>
-                            <br /><small>Aligns two series by timestamp. Returns DataFrame with 'value1', 'value2' columns.</small>
+                            <br /><small>Aligns two series by timestamp. Returns a DataFrame with both time series aligned by timestamp with columns 'value1' and 'value2'.</small>
                         </Form.Text>
                         <Form.Text className="text-muted">
                             <br />Available libraries:

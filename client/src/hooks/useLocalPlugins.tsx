@@ -74,7 +74,7 @@ export function useLocalPlugins() {
 
     const updatePlugin = useCallback((
         pluginId: string,
-        updates: Partial<Omit<LocalPlugin, 'id' | 'created_at'>>
+        updates: Partial<Omit<LocalPlugin, 'id'>>
     ): LocalPlugin | null => {
         let updatedPlugin: LocalPlugin | null = null;
 

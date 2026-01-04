@@ -16,7 +16,6 @@ services:
     environment:
       - FLASK_APP=main.py
       - FLASK_ENV=development
-      - HOST_TEMP_PATH=./backend_temp
       - REDIS_HOST=redis
     depends_on:
       - redis
@@ -26,7 +25,6 @@ services:
       - ./Flask-API:/app
       - /app/.venv
       - /var/run/docker.sock:/var/run/docker.sock
-      - ./backend_temp:/app/backend_temp
   frontend:
     build: ./client
     ports:

@@ -1,21 +1,18 @@
-"""
-Adaptive sandboxed executor for plugin code.
-Uses Docker locally (development) and AWS Lambda on AWS (production).
-"""
-
 import os
 import subprocess
 import json
 import logging
 import textwrap
+import atexit
+import signal
+import sys
 
 logger = logging.getLogger(__name__)
 
-
 class SandboxedExecutor:
     """
-    Adaptive executor for plugin code.
-
+    Adaptive executor for plugin code with lifecycle management.
+    
     - Local (Docker available): Uses Docker containers for isolation
     - AWS (PLUGIN_EXECUTOR_LAMBDA set): Uses Lambda for execution
     """
@@ -25,6 +22,10 @@ class SandboxedExecutor:
     PLUGIN_TIMEOUT_SECONDS = 120
     PLUGIN_MEMORY_LIMIT = "256m"
 
+    # Label to identify containers managed by this specific system
+    CONTAINER_LABEL_KEY = "managed_by"
+    CONTAINER_LABEL_VAL = "sandboxed_plugin_executor"
+
     def __init__(self):
         self.lambda_function_name = os.environ.get("PLUGIN_EXECUTOR_LAMBDA")
         self.use_lambda = bool(self.lambda_function_name)
@@ -33,12 +34,16 @@ class SandboxedExecutor:
             self._init_lambda()
         else:
             self._check_docker_available()
+            if self.docker_available:
+                # 1. Clean up any mess left behind by previous crashes
+                self._cleanup_stale_containers()
+                # 2. Register cleanup on exit for the current session
+                atexit.register(self._cleanup_stale_containers)
 
     def _init_lambda(self):
         """Initialize Lambda client for AWS execution."""
         try:
             import boto3
-
             self.lambda_client = boto3.client("lambda")
             self.docker_available = False
             logger.info(f"Using Lambda executor: {self.lambda_function_name}")
@@ -56,6 +61,33 @@ class SandboxedExecutor:
         except (subprocess.CalledProcessError, FileNotFoundError):
             logger.critical("DOCKER IS NOT AVAILABLE. Plugin execution disabled.")
             self.docker_available = False
+
+    def _cleanup_stale_containers(self):
+        """
+        Force kill and remove any containers created by this executor 
+        that might have been left running (e.g., after a hard crash).
+        """
+        if not self.docker_available:
+            return
+
+        try:
+            # Find container IDs with our label
+            label_filter = f"label={self.CONTAINER_LABEL_KEY}={self.CONTAINER_LABEL_VAL}"
+            cmd = ["docker", "ps", "-q", "--filter", label_filter]
+
+            result = subprocess.run(cmd, capture_output=True, text=True)
+            container_ids = result.stdout.strip().split()
+
+            if container_ids:
+                logger.warning(f"Found {len(container_ids)} orphaned containers. Cleaning up...")
+                # Force remove them
+                subprocess.run(
+                    ["docker", "rm", "-f"] + container_ids,
+                    capture_output=True,
+                    check=False
+                )
+        except Exception as e:
+            logger.error(f"Failed to cleanup stale containers: {e}")
 
     EXECUTOR_TEMPLATE = textwrap.dedent(
         """
@@ -162,22 +194,18 @@ class SandboxedExecutor:
         """Execute plugin code via AWS Lambda."""
         try:
             payload = json.dumps({"code": code, "pairs": pairs})
-
             response = self.lambda_client.invoke(
                 FunctionName=self.lambda_function_name,
                 InvocationType="RequestResponse",
                 Payload=payload.encode("utf-8"),
             )
-
             response_payload = response["Payload"].read().decode("utf-8")
             result = json.loads(response_payload)
 
             if "FunctionError" in response:
                 logger.error(f"Lambda execution error: {result}")
                 return {"error": "Lambda execution failed"}
-
             return result
-
         except Exception as e:
             logger.exception("Error invoking Lambda")
             return {"error": f"Lambda invocation error: {str(e)}"}
@@ -202,6 +230,7 @@ class SandboxedExecutor:
                 "--security-opt=no-new-privileges",
                 "--cap-drop=ALL",
                 "--user=65534:65534",
+                f"--label={self.CONTAINER_LABEL_KEY}={self.CONTAINER_LABEL_VAL}",
                 "-i",
                 self.EXECUTOR_IMAGE,
                 "python",
@@ -229,14 +258,13 @@ class SandboxedExecutor:
                 return {"error": "Invalid output format from plugin"}
 
         except subprocess.TimeoutExpired:
+            logger.error("Plugin execution timed out")
             return {"error": "Execution timed out"}
         except Exception:
             logger.exception("Unexpected error in docker execution")
             return {"error": "Internal execution error"}
 
-
 _executor = None
-
 
 def get_executor():
     global _executor

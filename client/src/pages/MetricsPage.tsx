@@ -60,15 +60,15 @@ function MetricsPage() {
     }) => {
         try {
             if (editingMetric) {
-                // Edycja istniejącej metryki
+                // Editing an existing metric
                 updatePlugin(editingMetric.value, {
                     name: metricData.label,
                     description: metricData.description,
                     category: metricData.category,
-                    code: metricData.code || editingMetric.code // zachowaj stary kod jeśli nie podano nowego (choć formularz wymaga)
+                    code: metricData.code || editingMetric.code // Keep the old code if no new code is provided (even though the form requires it)
                 });
             } else {
-                // Tworzenie nowej metryki
+                // Creating a new metric
                 createPlugin(
                     metricData.label,
                     metricData.description,
@@ -89,7 +89,7 @@ function MetricsPage() {
 
     const confirmDeleteMetric = () => {
         if (metricToDelete) {
-            // metric.value to ID pluginu (z mapowania w getUserMetricsFiltered)
+            // metric.value is the plugin ID (from the mapping in getUserMetricsFiltered)
             deletePlugin(metricToDelete.value);
             setMetricToDelete(null);
         }

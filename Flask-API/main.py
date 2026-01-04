@@ -886,7 +886,6 @@ def get_dtw():
     category = request.args.get("category")
     start = request.args.get("start")
     end = request.args.get("end")
-    token, _ = _get_session_token()
 
     try:
         data1 = timeseries_manager.get_timeseries(
@@ -1102,4 +1101,4 @@ def api_execute_plugin():
 
 
 if __name__ == "__main__":
-    app.run(host="0.0.0.0", port=3000)
+    app.run(host="0.0.0.0", port=5000)

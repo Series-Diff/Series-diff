@@ -153,7 +153,7 @@ const ControlsPanel: React.FC<ControlsPanelProps> = (props) => {
                     </>
                 )}
             </div>
-            <div className="d-flex align-items-center gap-3">
+            <div className="d-flex align-items-end gap-3">
                 <label htmlFor="file-upload"
                     className={`custom-file-upload btn btn-primary rounded p-2 px-3 text-center ${isLoading ? "disabled" : ""}`}>
                     {isLoading ? "Loading..." : "Upload files"}

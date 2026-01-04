@@ -3,16 +3,17 @@ FROM python:3.11-slim
 
 ENV PYTHONDONTWRITEBYTECODE=1 PYTHONUNBUFFERED=1
 
+# Install system dependencies (OpenMP for numpy/scikit-learn)
 RUN apt-get update && apt-get install -y --no-install-recommends \
     libgomp1 \
     && rm -rf /var/lib/apt/lists/*
 
-# 1. Instalujemy biblioteki potrzebne pluginom
+# 1. Install libraries needed by plugins
 RUN pip install --no-cache-dir pandas numpy scipy scikit-learn statsmodels
 
-# 2. Tworzymy użytkownika bez uprawnień (Security)
-RUN useradd -m -u 1000 pluginuser
+# 2. Setup Workspace for UID 65534 (nobody)
+WORKDIR /app
+RUN chown 65534:65534 /app
 
-# 3. Ustawiamy go jako domyślnego
-USER pluginuser
-WORKDIR /home/pluginuser
+# 3. Switch to the secure user (Matches SandboxedExecutor code)
+USER 65534

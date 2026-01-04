@@ -6,40 +6,6 @@ NOTE: Plugins are stored on the frontend (localStorage) for privacy.
 This service only handles validation and sandboxed execution.
 """
 
-# Template for creating new plugins
-PLUGIN_TEMPLATE = '''
-# Plugin: {name}
-# Description: {description}
-# Author: {author}
-
-import pandas as pd
-import numpy as np
-
-def calculate(series1: pd.Series, series2: pd.Series) -> float:
-    """
-    Calculate custom metric between two time series.
-
-    Args:
-        series1: First time series as pandas Series with datetime index
-        series2: Second time series as pandas Series with datetime index
-
-    Returns:
-        float: The calculated metric value
-
-    Example:
-        # Simple difference-based metric
-        aligned = pd.merge(
-            series1.reset_index(),
-            series2.reset_index(),
-            on='index',
-            how='inner'
-        )
-        return (aligned['y_x'] - aligned['y_y']).abs().mean()
-    """
-    # TODO: Implement your metric logic here
-    raise NotImplementedError("Implement the calculate function")
-'''
-
 
 def validate_plugin_code(code: str) -> dict:
     """
@@ -73,6 +39,8 @@ def validate_plugin_code(code: str) -> dict:
         "from requests",
         "import urllib",
         "from urllib",
+        "import builtins",
+        "from builtins",
         # Code execution
         "exec(",
         "exec (",
@@ -153,14 +121,9 @@ def execute_plugin_code(code: str, series1, series2) -> dict:
 
     executor = get_executor()
 
-    pairs = [(series1_dict, series2_dict)]
+    pairs = [{
+        "series1": series1_dict,
+        "series2": series2_dict,
+        "key": "single_run"
+    }]
     return executor.execute(code, pairs)
-
-
-def get_template(name: str = "Custom Metric", description: str = "") -> str:
-    """Get a template for creating a new plugin."""
-    return PLUGIN_TEMPLATE.format(
-        name=name,
-        description=description or "A custom metric plugin",
-        author="Your Name",
-    )

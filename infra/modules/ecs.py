@@ -48,7 +48,6 @@ def create_ecs_task_definition(
     """
     config = InfraConfig()
 
-    # IAM role for ECS task execution (pulling images, logs)
     task_exec_role = aws.iam.Role(
         f"task-exec-role-{config.environment}",
         name=f"ecs-task-execution-{config.environment}",
