@@ -6,17 +6,15 @@
  */
 
 import Ajv from 'ajv';
-import addFormats from 'ajv-formats';
 
-// Initialize Ajv with strict mode and format validation
-const ajv = new Ajv({ allErrors: true, verbose: true });
-addFormats(ajv);
+// Initialize Ajv with strict mode
+const ajv = new Ajv({ allErrors: true });
 
 /**
  * Interface for a single time series data point (generic)
  */
 interface TimeSeriesDataPoint {
-  [key: string]: any;
+  [key: string]: unknown;
 }
 
 /**
@@ -46,25 +44,13 @@ const baseSchema = {
 };
 
 /**
- * Validates if a value is a valid date string
+ * Normalizes various date formats to ISO-compatible format
+ * Returns null if the value is not a valid date string
  */
-const isValidDateString = (value: any): boolean => {
-  if (typeof value !== 'string') return false;
-  if (value.trim() === '') return false;  // Empty strings are not valid dates
+export function normalizeToISODate(value: unknown): Date | null {
+  if (typeof value !== 'string') return null;
+  if (value.trim() === '') return null;
   
-  // Check various date formats
- const datePatterns = [
-  //  format ISO (YYYY-MM-DD lub YY-MM-DD)
-  /^(\d{4}|\d{2})[-./](\d{1,2})[-./](\d{2}|\d{4})(?:[T\s](\d{2}):(\d{2})(?::(\d{2})(\.\d{1,5})?)?Z?)?$/,
-
-  //  format europejski (DD-MM-YYYY)
-  /^(\d{1,2})[-./](\d{1,2})[-./](\d{4}|\d{2})(?:[T\s](\d{2}):(\d{2})(?::(\d{2})(\.\d{1,5})?)?)?$/,
-];
-  
-  const matchesPattern = datePatterns.some(pattern => pattern.test(value));
-  if (!matchesPattern) return false;
-  
-  // Try to parse the date - handle different formats
   let dateString = value;
   
   // Handle YY-MM-DD format (e.g., "24-04-24 00:00:00")
@@ -96,13 +82,36 @@ const isValidDateString = (value: any): boolean => {
   
   // Verify it's a parseable date
   const date = new Date(dateString);
-  return !isNaN(date.getTime());
-};
+  return !isNaN(date.getTime()) ? date : null;
+}
+
+/**
+ * Validates if a value is a valid date string
+ */
+export function isValidDateString(value: unknown): boolean {
+  if (typeof value !== 'string') return false;
+  if (value.trim() === '') return false;
+  
+  // Check various date formats
+  const datePatterns = [
+    //  format ISO (YYYY-MM-DD lub YY-MM-DD)
+    /^(\d{4}|\d{2})[-./](\d{1,2})[-./](\d{2}|\d{4})(?:[T\s](\d{2}):(\d{2})(?::(\d{2})(\.\d{1,5})?)?Z?)?$/,
+
+    //  format europejski (DD-MM-YYYY)
+    /^(\d{1,2})[-./](\d{1,2})[-./](\d{4}|\d{2})(?:[T\s](\d{2}):(\d{2})(?::(\d{2})(\.\d{1,5})?)?)?$/,
+  ];
+  
+  const matchesPattern = datePatterns.some(pattern => pattern.test(value));
+  if (!matchesPattern) return false;
+  
+  // Use normalizeToISODate to verify parseability
+  return normalizeToISODate(value) !== null;
+}
 
 /**
  * Validates if a value is numeric
  */
-const isNumeric = (value: any): boolean => {
+const isNumeric = (value: unknown): boolean => {
   if (typeof value === 'number' && !isNaN(value)) return true;
   if (typeof value === 'string') {
     const num = parseFloat(value);
@@ -127,12 +136,9 @@ const detectDateColumns = (data: TimeSeriesDataPoint[]): string[] => {
     
     // Check if values look like dates
     let validDateCount = 0;
-    let emptyOrNullCount = 0;
     for (let i = 0; i < sampleSize; i++) {
       const value = data[i]?.[column];
-      if (value === '' || value === null || value === undefined) {
-        emptyOrNullCount++;
-      } else if (isValidDateString(value)) {
+      if (value !== '' && value !== null && value !== undefined && isValidDateString(value)) {
         validDateCount++;
       }
     }
@@ -177,7 +183,7 @@ const detectNumericColumns = (data: TimeSeriesDataPoint[]): string[] => {
 /**
  * Validates time series JSON data
  */
-export const validateTimeSeriesJSON = (data: any): ValidationResult => {
+export function validateTimeSeriesJSON(data: unknown): ValidationResult {
   const errors: string[] = [];
   const warnings: string[] = [];
   
@@ -211,14 +217,15 @@ export const validateTimeSeriesJSON = (data: any): ValidationResult => {
   
   if (!isValidStructure) {
     if (validate.errors) {
-      validate.errors.forEach((error: any) => {
-        const path = error.instancePath || error.dataPath || '';
-        if (error.keyword === 'type' && path === '') {
+      validate.errors.forEach((error: unknown) => {
+        const err = error as Record<string, unknown>;
+        const path = (err.instancePath || err.dataPath || '') as string;
+        if (err.keyword === 'type' && path === '') {
           errors.push('Data must be a JSON array (enclosed in [ ])');
-        } else if (error.keyword === 'minItems') {
+        } else if (err.keyword === 'minItems') {
           errors.push('Data array cannot be empty');
         } else {
-          errors.push(`Schema error at ${path || 'root'}: ${error.message}`);
+          errors.push(`Schema error at ${path || 'root'}: ${err.message}`);
         }
       });
     }
@@ -386,12 +393,12 @@ export const validateTimeSeriesJSON = (data: any): ValidationResult => {
     dateColumns,
     numericColumns,
   };
-};
+}
 
 /**
  * Validates a JSON string
  */
-export const validateTimeSeriesJSONString = (jsonString: string): ValidationResult => {
+export function validateTimeSeriesJSONString(jsonString: string): ValidationResult {
   try {
     const data = JSON.parse(jsonString);
     return validateTimeSeriesJSON(data);
@@ -402,13 +409,13 @@ export const validateTimeSeriesJSONString = (jsonString: string): ValidationResu
       warnings: [],
     };
   }
-};
+}
 
 /**
  * Validates a file (JSON or CSV)
  * Returns a promise with validation result
  */
-export const validateTimeSeriesFile = async (file: File): Promise<ValidationResult> => {
+export async function validateTimeSeriesFile(file: File): Promise<ValidationResult> {
   try {
     const text = await file.text();
     
@@ -436,4 +443,4 @@ export const validateTimeSeriesFile = async (file: File): Promise<ValidationResu
       warnings: [],
     };
   }
-};
+}
