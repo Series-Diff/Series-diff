@@ -453,7 +453,8 @@ function DashboardPage() {
                               data={categoryData}
                               category={selectedCategory}
                               metric={plugin.name}
-                          />
+                            customInfo={{ name: plugin.name, description: plugin.description }}
+                      />
                       );
                     })}
 
@@ -481,7 +482,8 @@ function DashboardPage() {
                                 data={categoryData}
                                 category={secondaryCategory}
                                 metric={plugin.name}
-                            />
+                              customInfo={{ name: plugin.name, description: plugin.description }}
+                        />
                       </div>
                     );
                   })}

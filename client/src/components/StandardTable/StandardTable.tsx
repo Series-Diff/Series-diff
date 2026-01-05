@@ -11,13 +11,18 @@ interface StandardTableProps {
     metric: string; // Metric name
     metricKey?: string; // Metric key for description lookup
     showInfoIcon?: boolean; // Whether to show the info icon (default: true)
+    customInfo?: { name: string; description: string; }; // Custom info for plugins
 }
 
 
-const StandardTable: React.FC<StandardTableProps> = ({data, category, metric, metricKey, showInfoIcon = true}) => {
+const StandardTable: React.FC<StandardTableProps> = ({data, category, metric, metricKey, showInfoIcon = true, customInfo}) => {
     const filenames = Object.keys(data); // List of filenames in the category
     const [showModal, setShowModal] = useState(false);
     const metricDescription = metricKey ? getMetricDescription(metricKey) : undefined;
+    
+    // Use customInfo for plugins or metricDescription for standard metrics
+    const infoToShow = customInfo || metricDescription;
+    const hasInfo = customInfo || (metricKey && hasMetricDescription(metricKey));
 
     // If no data — show message
     if (filenames.length === 0) {
@@ -35,7 +40,7 @@ const StandardTable: React.FC<StandardTableProps> = ({data, category, metric, me
                     <h5 className="mb-0">
                         {metric} Matrix ({category})
                     </h5>
-                    {showInfoIcon && metricKey && hasMetricDescription(metricKey) && (
+                    {showInfoIcon && hasInfo && (
                         <Button
                             variant="link"
                             size="sm"
@@ -95,11 +100,11 @@ const StandardTable: React.FC<StandardTableProps> = ({data, category, metric, me
                 </div>
             </div>
             
-            {metricDescription && (
+            {infoToShow && (
                 <MetricInfoModal
                     show={showModal}
                     onHide={() => setShowModal(false)}
-                    metricInfo={metricDescription}
+                    metricInfo={infoToShow}
                 />
             )}
         </>
