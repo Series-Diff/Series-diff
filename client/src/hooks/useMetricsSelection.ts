@@ -29,17 +29,21 @@ export const useMetricsSelection = (
   });
 
   // Load selected metrics from localStorage
-  const [selectedMetricsForDisplay, setSelectedMetricsForDisplay] = useState<Set<string>>(() => {
+  // null = show all (no localStorage entry = first time user)
+  // empty Set = show none (user explicitly deselected all)
+  // Set with values = show only selected
+  const [selectedMetricsForDisplay, setSelectedMetricsForDisplay] = useState<Set<string> | null>(() => {
     const storedSelectedMetrics = localStorage.getItem('selectedMetricsForDisplay');
     if (storedSelectedMetrics) {
       try {
-        return new Set(JSON.parse(storedSelectedMetrics));
+        const parsed = JSON.parse(storedSelectedMetrics);
+        return new Set(parsed);
       } catch (error) {
         console.error('Failed to parse selected metrics from localStorage:', error);
-        return new Set();
+        return null; // On error, default to showing all
       }
     }
-    return new Set();
+    return null; // No localStorage = show all
   });
 
   // Modal visibility state
@@ -65,9 +69,12 @@ export const useMetricsSelection = (
   // Filter metrics based on selected metrics
   const filteredGroupedMetrics = useMemo(() => {
     return Object.entries(groupedMetrics).reduce((acc, [category, metrics]) => {
-      if (selectedMetricsForDisplay.size === 0) {
-        // If no metrics are selected, show all
+      if (selectedMetricsForDisplay === null) {
+        // null = no selection made yet, show all
         acc[category] = metrics;
+      } else if (selectedMetricsForDisplay.size === 0) {
+        // Empty Set = user explicitly deselected all, show nothing
+        // Don't add this category at all
       } else {
         // Filter metrics to show only selected statistic fields
         acc[category] = metrics.map(metric => {
@@ -112,9 +119,13 @@ export const useMetricsSelection = (
 
   // Helper function to check if a metric should be displayed
   const shouldShowMetric = (metricValue: string): boolean => {
-    if (selectedMetricsForDisplay.size === 0) {
-      // If no metrics are selected, show all
+    if (selectedMetricsForDisplay === null) {
+      // null = no selection made yet, show all
       return true;
+    }
+    if (selectedMetricsForDisplay.size === 0) {
+      // Empty Set = user explicitly deselected all, show nothing
+      return false;
     }
     return selectedMetricsForDisplay.has(metricValue);
   };

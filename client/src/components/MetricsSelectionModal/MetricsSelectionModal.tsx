@@ -7,18 +7,26 @@ interface MetricsSelectionModalProps {
     show: boolean;
     onHide: () => void;
     userMetrics: Metric[];
-    selectedMetrics?: Set<string>;
-    onApply?: React.Dispatch<React.SetStateAction<Set<string>>>;
+    selectedMetrics?: Set<string> | null;
+    onApply?: React.Dispatch<React.SetStateAction<Set<string> | null>>;
 }
 
 const MetricsSelectionModal: React.FC<MetricsSelectionModalProps> = ({
     show,
     onHide,
     userMetrics,
-    selectedMetrics = new Set(),
+    selectedMetrics = null,
     onApply,
 }) => {
-    const [localSelectedMetrics, setLocalSelectedMetrics] = useState<Set<string>>(selectedMetrics);
+    // When selectedMetrics is null (show all), initialize with all available metrics
+    const allAvailableMetrics = [...PREDEFINED_METRICS.filter(m => 
+        ['mean', 'median', 'variance', 'std_dev', 'autocorrelation', 
+         'mae', 'rmse', 'pearson_correlation', 'dtw', 'euclidean', 'cosine_similarity'].includes(m.value)
+    ), ...userMetrics].map(m => m.value);
+    
+    const [localSelectedMetrics, setLocalSelectedMetrics] = useState<Set<string>>(
+        selectedMetrics === null ? new Set(allAvailableMetrics) : selectedMetrics
+    );
     const [activeTab, setActiveTab] = useState('predefined');
     const [selectedCategory, setSelectedCategory] = useState('All');
     const [searchQuery, setSearchQuery] = useState('');
@@ -77,7 +85,9 @@ const MetricsSelectionModal: React.FC<MetricsSelectionModalProps> = ({
     };
 
     const handleClose = () => {
-        setLocalSelectedMetrics(selectedMetrics);
+        setLocalSelectedMetrics(
+            selectedMetrics === null ? new Set(allAvailableMetrics) : selectedMetrics
+        );
         setSelectedCategory('All');
         setSearchQuery('');
         setActiveTab('predefined');
@@ -100,7 +110,9 @@ const MetricsSelectionModal: React.FC<MetricsSelectionModalProps> = ({
     // Update localSelectedMetrics when selectedMetrics prop changes
     useEffect(() => {
         if (show) {
-            setLocalSelectedMetrics(new Set(selectedMetrics));
+            setLocalSelectedMetrics(
+                selectedMetrics === null ? new Set(allAvailableMetrics) : new Set(selectedMetrics)
+            );
         }
     }, [show, selectedMetrics]);
 
