@@ -3,7 +3,7 @@ import React from 'react';
 import { Dropdown } from 'react-bootstrap';
 
 export interface DataTableProps {
-  data: Record<string, any>[];
+  data: Array<Record<string, unknown>>;
   title: string;
   rowsOptions?: number[];
   showPagination?: boolean;
@@ -34,7 +34,7 @@ export const DataTable: React.FC<DataTableProps> = ({ data, title, rowsOptions =
     y: 'Value'
   };
 
-  const renderCellContent = (value: any): React.ReactNode => {
+  const renderCellContent = (value: unknown): React.ReactNode => {
     if (value === null || value === undefined) {
       return <span className="text-muted">null</span>;
     }
@@ -56,9 +56,9 @@ export const DataTable: React.FC<DataTableProps> = ({ data, title, rowsOptions =
     return String(value);
   };
 
-  const getRowKey = (entry: Record<string, any>, idx: number) => {
-    if (entry && (entry as any).id !== undefined) return String((entry as any).id);
-    if (entry && (entry as any).x !== undefined && (typeof (entry as any).x === 'string' || typeof (entry as any).x === 'number')) return String((entry as any).x) + '-' + idx;
+  const getRowKey = (entry: Record<string, unknown>, idx: number): string => {
+    if (entry && 'id' in entry && entry.id !== undefined) return String(entry.id);
+    if (entry && 'x' in entry && entry.x !== undefined && (typeof entry.x === 'string' || typeof entry.x === 'number')) return String(entry.x) + '-' + idx;
     return String(idx);
   };
 
@@ -84,7 +84,7 @@ export const DataTable: React.FC<DataTableProps> = ({ data, title, rowsOptions =
                 <tr key={getRowKey(entry, index)}>
                   {columns.map((col) => (
                     <td key={col} style={{ whiteSpace: 'nowrap', minWidth: '100px' }}>
-                      {renderCellContent((entry as any)[col])}
+                      {renderCellContent(entry[col])}
                     </td>
                   ))}
                 </tr>

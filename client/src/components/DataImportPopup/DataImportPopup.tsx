@@ -1,6 +1,8 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { Modal, Button, Form, Spinner, Alert } from 'react-bootstrap';
 import { DataTable } from '../DataTable/DataTable';
+import { ValidationErrorDisplay } from '../ValidationErrorDisplay/ValidationErrorDisplay';
+import { validateTimeSeriesJSON, ValidationResult, normalizeToISODate } from '../../utils/jsonValidation';
 import Papa from 'papaparse';
 
 const API_URL = (process.env.REACT_APP_API_URL || '').replace(/\/$/, '');
@@ -34,6 +36,8 @@ export const DataImportPopup: React.FC<Props> = ({ show, files, onHide, onComple
   // --- STATE: Loading & Errors ---
   const [isLoadingFile, setIsLoadingFile] = useState(false);
   const [errorParsingFile, setErrorParsingFile] = useState<string | null>(null);
+  const [validationResults, setValidationResults] = useState<Record<string, ValidationResult>>({});
+  const [filePreviewTexts, setFilePreviewTexts] = useState<Record<string, string>>({});
 
   // --- STATE: Grouping & Renaming ---
   const [groups, setGroups] = useState<Group[]>([]);
@@ -46,6 +50,7 @@ export const DataImportPopup: React.FC<Props> = ({ show, files, onHide, onComple
   const [groupCounter, setGroupCounter] = useState(2);
   const [groupNameError, setGroupNameError] = useState<string | null>(null);
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
+
   // --- STATE: Pivot ---
   const [isPivotMode, setIsPivotMode] = useState<Record<string, boolean>>({});
   const [pivotIndex, setPivotIndex] = useState('');   // np. log_date
@@ -57,7 +62,7 @@ export const DataImportPopup: React.FC<Props> = ({ show, files, onHide, onComple
   const [pivotApplied, setPivotApplied] = useState<Record<string, boolean>>({});
 
   // --- HELPER: Flatten Object ---
-  const flattenObject = (obj: any, prefix = ''): Record<string, any> => {
+  const flattenObject = useCallback((obj: any, prefix = ''): Record<string, any> => {
     let result: Record<string, any> = {};
     for (const key in obj) {
       if (!obj.hasOwnProperty(key)) continue;
@@ -71,7 +76,7 @@ export const DataImportPopup: React.FC<Props> = ({ show, files, onHide, onComple
       }
     }
     return result;
-  };
+  }, []);
 
   // --- HELPER: Get File ID (stable file identifier) ---
   const getFileId = (file?: File) => {
@@ -80,11 +85,11 @@ export const DataImportPopup: React.FC<Props> = ({ show, files, onHide, onComple
   };
 
   // --- HELPER: Get File Key (display name) ---
-  const getFileKey = (file?: File) => {
+  const getFileKey = useCallback((file?: File) => {
     if (!file) return '';
     const originalKey = file.name.replace(/\.(json|csv)$/i, '');
     return renamedFiles[originalKey] || originalKey;
-  };
+  }, [renamedFiles]);
 
   const currentFile = files[currentFileIndex];
   const currentFileKey = getFileKey(currentFile);
@@ -96,6 +101,7 @@ export const DataImportPopup: React.FC<Props> = ({ show, files, onHide, onComple
       resetState();
       loadFileForConfiguration(0);
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [show, files]);
 
 
@@ -121,6 +127,7 @@ export const DataImportPopup: React.FC<Props> = ({ show, files, onHide, onComple
     setOriginalData({});
     setPivotWarnings({});
     setPivotApplied({});
+    setValidationResults({});
   };
 
   // --- EFFECT: Auto-detect Pivot Columns ---
@@ -161,7 +168,13 @@ export const DataImportPopup: React.FC<Props> = ({ show, files, onHide, onComple
 
     try {
       const text = await file.text();
+      const lines = text.split('\n');
+      const maxLines = file.name.toLowerCase().endsWith('.json') ? 50 : 30;   // preview 50 lines for JSON, 30 for CSV
+      const previewText = lines.slice(0, maxLines).join('\n');
+      setFilePreviewTexts(prev => ({ ...prev, [fileKey]: previewText }));
+      
       let dataArray: any[] = [];
+      let validationResult: ValidationResult | null = null;
 
       if (file.name.toLowerCase().endsWith('.csv')) {
         const result = Papa.parse(text, {
@@ -170,17 +183,67 @@ export const DataImportPopup: React.FC<Props> = ({ show, files, onHide, onComple
           dynamicTyping: true,
         });
         if (result.errors.length > 0) {
-          throw new Error(`CSV Parsing Error: ${result.errors[0].message}`);
+          // Create validation result for CSV parsing error
+          validationResult = {
+            isValid: false,
+            errors: [`CSV Parsing Error: ${result.errors[0].message}`],
+            warnings: []
+          };
+          setValidationResults(prev => ({ ...prev, [fileKey]: validationResult! }));
+          setErrorParsingFile(`CSV parsing failed for ${file.name}. You can skip this file or fix the errors.`);
+          setIsLoadingFile(false);
+          return;
         }
         dataArray = result.data;
+
       } else if (file.name.toLowerCase().endsWith('.json')) {
-        const jsonData = JSON.parse(text);
+        let jsonData;
+        try {
+          jsonData = JSON.parse(text);
+        } catch (parseError: unknown) {
+          // Create validation result for JSON parsing error
+          const err = parseError instanceof Error ? parseError : new Error(String(parseError));
+          let errorMessage = err.message;
+          if (errorMessage.includes('Unexpected token') || errorMessage.includes('unexpected character')) {
+            errorMessage += ' - The file may not be valid JSON. Please check for common errors like missing commas, brackets, or invalid characters.';
+          }
+          validationResult = {
+            isValid: false,
+            errors: [`JSON Parsing Error: ${errorMessage}`],
+            warnings: []
+          };
+          setValidationResults(prev => ({ ...prev, [fileKey]: validationResult! }));
+          setErrorParsingFile(`JSON parsing failed for ${file.name}. You can skip this file or fix the errors.`);
+          setIsLoadingFile(false);
+          return;
+        }
+        
+        validationResult = validateTimeSeriesJSON(jsonData);
+        
         dataArray = Array.isArray(jsonData) ? jsonData : (typeof jsonData === 'object' && jsonData !== null ? [jsonData] : []);
       } else {
-        throw new Error(`Unsupported file type: ${file.name}. Please upload .json or .csv files.`);
+        validationResult = {
+          isValid: false,
+          errors: [`Unsupported file type: ${file.name}. Please upload .json or .csv files.`],
+          warnings: []
+        };
+        setValidationResults(prev => ({ ...prev, [fileKey]: validationResult! }));
+        setErrorParsingFile(`Unsupported file type for ${file.name}. You can skip this file.`);
+        setIsLoadingFile(false);
+        return;
+      }
+      
+      if (validationResult) {
+        setValidationResults(prev => ({ ...prev, [fileKey]: validationResult! }));
+        
+        if (!validationResult.isValid) {
+          setErrorParsingFile(`Validation failed for ${file.name}. You can skip this file or fix the errors.`);
+          setIsLoadingFile(false);
+          return;
+        }
       }
 
-      const flattenedDataArray = dataArray.map(entry => flattenObject(entry));
+      const flattenedDataArray = dataArray.map((entry: any) => flattenObject(entry));
 
       if (flattenedDataArray.length > 0) {
         const firstEntry = flattenedDataArray[0];
@@ -244,17 +307,21 @@ export const DataImportPopup: React.FC<Props> = ({ show, files, onHide, onComple
       } else {
         throw new Error(`File ${file.name} is empty or not an array of objects.`);
       }
-    } catch (e: any) {
-      console.error(`Error processing file ${file.name}:`, e);
-      let errorMessage = `Error parsing file ${file.name}: ${e.message}.`;
-      if (e.message.includes('Unexpected token')) {
-        errorMessage += ' Please check for common JSON errors like missing commas or brackets.';
-      }
-      setErrorParsingFile(errorMessage);
+    } catch (e: unknown) {
+      // Catch any unexpected errors that weren't handled above
+      console.error(`Unexpected error processing file ${file.name}:`, e);
+      const err = e instanceof Error ? e : new Error(String(e));
+      const validationResult: ValidationResult = {
+        isValid: false,
+        errors: [`Unexpected error: ${err.message}`],
+        warnings: []
+      };
+      setValidationResults(prev => ({ ...prev, [fileKey]: validationResult }));
+      setErrorParsingFile(`Unexpected error processing ${file.name}. You can skip this file.`);
     } finally {
       setIsLoadingFile(false);
     }
-  }, [files, fileConfigs, renamedFiles]);
+  }, [files, fileConfigs, flattenObject, getFileKey]);
 
   // --- LOGIC: Apply Pivot (Backend Call) ---
   const handleApplyPivot = async () => {
@@ -333,7 +400,7 @@ export const DataImportPopup: React.FC<Props> = ({ show, files, onHide, onComple
         throw new Error("Pivot resulted in empty data.");
       }
 
-    } catch (e: any) {
+    } catch (e: unknown) {
       const errorMsg = e instanceof Error ? e.message : String(e);
       setPivotError(errorMsg);
     } finally {
@@ -353,6 +420,12 @@ export const DataImportPopup: React.FC<Props> = ({ show, files, onHide, onComple
       setCurrentFileIndex(currentFileIndex + 1);
       setEditingFileName(false);
     } else {
+      // Check if there are any loaded files before going to column config
+      if (Object.keys(fileConfigs).length === 0) {
+        alert('No valid files were loaded. All files were either skipped or failed validation.');
+        onHide();
+        return;
+      }
       setCurrentStep('column-config');
       initializeGroups();
     }
@@ -369,6 +442,10 @@ export const DataImportPopup: React.FC<Props> = ({ show, files, onHide, onComple
 
   const initializeGroups = () => {
     const fileKeys = Object.keys(fileConfigs);
+    if (fileKeys.length === 0) {
+      console.warn('No files loaded - cannot initialize groups');
+      return;
+    }
     if (fileKeys.length > 0) {
       setGroups([
         {
@@ -499,8 +576,8 @@ export const DataImportPopup: React.FC<Props> = ({ show, files, onHide, onComple
 
         const errorKey = `${group.id}-${fileKey}`;
         if (group.id === 'date') {
-          const dateObj = new Date(value);
-          if (isNaN(dateObj.getTime())) {
+          const dateObj = normalizeToISODate(value);
+          if (!dateObj) {
             errors[errorKey] = `Column '${columnName}' appears to contain an invalid date format.`;
           }
         } else {
@@ -529,8 +606,8 @@ export const DataImportPopup: React.FC<Props> = ({ show, files, onHide, onComple
         const dateValue = row[dateColumn];
         if (dateValue === undefined) return;
 
-        const dateObj = new Date(dateValue);
-        if (isNaN(dateObj.getTime())) return;
+        const dateObj = normalizeToISODate(dateValue);
+        if (!dateObj) return;
         const isoDateString = dateObj.toISOString();
 
         if (!result[isoDateString]) {
@@ -731,7 +808,21 @@ export const DataImportPopup: React.FC<Props> = ({ show, files, onHide, onComple
             {/* --- SEKCJA PIVOT END --- */}
 
             {isLoadingFile && <p>Loading data...</p>}
-            {errorParsingFile && !isPivotMode[getFileId(currentFile)] && <p style={{ color: 'red' }}>Error: {errorParsingFile}</p>}
+            
+            {/* Validation Results Display */}
+            {validationResults[currentFileKey] && (
+              <ValidationErrorDisplay 
+                validationResult={validationResults[currentFileKey]} 
+                fileName={currentFile?.name}
+                filePreview={filePreviewTexts[currentFileKey]}
+              />
+            )}
+            
+            {errorParsingFile && !isPivotMode[getFileId(currentFile)] && !validationResults[currentFileKey] && (
+              <Alert variant="danger" className="mt-3">
+                <strong>Error:</strong> {errorParsingFile}
+              </Alert>
+            )}
 
             {!isLoadingFile && currentConfig?.rawData && (
               <div className="mt-4">
@@ -753,6 +844,13 @@ export const DataImportPopup: React.FC<Props> = ({ show, files, onHide, onComple
           </>
         ) : (
           <>
+            {Object.keys(fileConfigs).length === 0 ? (
+              <Alert variant="warning">
+                <strong>No files loaded</strong>
+                <p className="mb-0">There are no valid files to configure. Please go back and load valid files.</p>
+              </Alert>
+            ) : (
+              <>
             {groups.map((group) => {
               const isEditing = editingGroupName === group.id;
               return (
@@ -836,6 +934,8 @@ export const DataImportPopup: React.FC<Props> = ({ show, files, onHide, onComple
               );
             })}
             <Button variant="outline-primary" onClick={addNewGroup}>+ Add New Group</Button>
+              </>
+            )}
           </>
         )}
       </Modal.Body>
@@ -844,12 +944,13 @@ export const DataImportPopup: React.FC<Props> = ({ show, files, onHide, onComple
         {!(currentStep === 'file-preview' && currentFileIndex === 0) && (
           <Button variant="secondary" onClick={handleBack}>Back</Button>
         )}
+        
         <Button
           variant="primary"
           onClick={currentStep === 'file-preview' ? handleNextFilePreview : handleFinish}
           disabled={
             currentStep === 'file-preview'
-              ? isLoadingFile || !!errorParsingFile || !!renameError || (isPivotMode[getFileId(currentFile)] && !!pivotError)
+              ? isLoadingFile || (!!errorParsingFile && validationResults[currentFileKey]?.isValid !== false) || !!renameError || (isPivotMode[getFileId(currentFile)] && !!pivotError)
               : Object.keys(fieldErrors).length > 0
           }
         >
