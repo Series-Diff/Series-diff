@@ -169,7 +169,7 @@ class SandboxedExecutor:
                 try:
                     s1 = pd.Series(pair["series1"])
                     s2 = pd.Series(pair["series2"])
-                    
+
                     # 1. Execute User Code
                     result = calculate(s1, s2)
 
@@ -193,12 +193,12 @@ class SandboxedExecutor:
                     # 4. Final strict check
                     if not isinstance(result, (int, float)) and result is not None:
                          raise ValueError(f"Plugin returned invalid type: {type(result).__name__}. Expected float or int.")
-                    
+
                     # 5. Handle Infinity / NaN for JSON safety
                     if isinstance(result, float) and (np.isnan(result) or np.isinf(result)):
                         if np.isnan(result):
-                            result = None 
-                        
+                            result = None
+
                     results.append({"result": result, "key": pair.get("key")})
                 except Exception as e:
                     # Capture the specific error from the validation above
