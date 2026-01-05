@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { Modal, Button, Form, Spinner, Alert } from 'react-bootstrap';
 import { DataTable } from '../DataTable/DataTable';
 import Papa from 'papaparse';
@@ -7,6 +7,12 @@ const API_URL = (process.env.REACT_APP_API_URL || '').replace(/\/$/, '');
 
 // --- CONSTANTS ---
 const NUMERIC_PATTERN = /^-?\d+(\.\d+)?$/;
+
+// --- HELPER: Generate unique group IDs (outside component to persist across renders) ---
+const generateGroupId = (() => {
+  let counter = 0;
+  return () => `group-${++counter}`;
+})();
 
 interface FileConfig {
   logDateColumn: string;
@@ -383,7 +389,7 @@ export const DataImportPopup: React.FC<Props> = ({ show, files, onHide, onComple
     if (fileKeys.length > 0) {
       // Find first COMMON numeric column (exists in all files and is numeric)
       // This ensures consistency across all files, not per-file selection
-      const commonNumericColumns = findCommonColumns().filter(col => col.isNumeric);
+      const commonNumericColumns = proposedColumns.filter(col => col.isNumeric);
       const commonNumericColumn = commonNumericColumns.length > 0 ? commonNumericColumns[0].name : '';
 
       // Create mappings: use common numeric column if available, fallback to per-file numeric
@@ -445,7 +451,7 @@ export const DataImportPopup: React.FC<Props> = ({ show, files, onHide, onComple
     setGroups(prev => [
       ...prev,
       {
-        id: `group-${Date.now()}`,
+        id: generateGroupId(),
         name: newGroupName,
         fileMappings: Object.fromEntries(Object.keys(fileConfigs).map(key => [key, 'none']))
       }
@@ -487,7 +493,7 @@ export const DataImportPopup: React.FC<Props> = ({ show, files, onHide, onComple
     // Get all selected columns (excluding 'none')
     const selectedColumns = Object.values(updatedMappings).filter(col => col !== 'none');
 
-    // If no columns selected or only one, don't auto-rename
+    // If no columns selected, don't auto-rename
     if (selectedColumns.length === 0) {
       return null;
     }
@@ -765,8 +771,8 @@ export const DataImportPopup: React.FC<Props> = ({ show, files, onHide, onComple
     });
   };
 
-  // --- LOGIC: Find Common Columns Across All Files ---
-  const findCommonColumns = (): Array<{ name: string; isNumeric: boolean }> => {
+  // --- LOGIC: Find Common Columns Across All Files (Memoized) ---
+  const proposedColumns = useMemo((): Array<{ name: string; isNumeric: boolean }> => {
     const fileKeys = Object.keys(fileConfigs);
     if (fileKeys.length === 0) return [];
 
@@ -806,7 +812,7 @@ export const DataImportPopup: React.FC<Props> = ({ show, files, onHide, onComple
       if (a.isNumeric !== b.isNumeric) return a.isNumeric ? -1 : 1;
       return a.name.localeCompare(b.name);
     });
-  };
+  }, [fileConfigs, groups]);
 
   // --- HELPER: Check if there are any available columns in any file ---
   const hasAvailableColumnsInFiles = (): boolean => {
@@ -822,10 +828,14 @@ export const DataImportPopup: React.FC<Props> = ({ show, files, onHide, onComple
   const addProposedGroup = (columnName: string) => {
     const fileKeys = Object.keys(fileConfigs);
     setMissingValueGroupError(false);
+    // NOTE: Proposed groups are intentionally NOT added to manuallyEditedGroups.
+    // This allows auto-renaming to work when user modifies column mappings after adding a proposed group.
+    // The group name will automatically update to reflect the common column name across all files,
+    // which is the expected behavior for dynamically created groups based on column suggestions.
     setGroups(prev => [
       ...prev,
       {
-        id: `group-${Date.now()}`,
+        id: generateGroupId(),
         name: columnName,
         fileMappings: Object.fromEntries(fileKeys.map(key => [key, columnName]))
       }
@@ -1114,7 +1124,6 @@ export const DataImportPopup: React.FC<Props> = ({ show, files, onHide, onComple
 
                 {/* Proposed Groups Section - Below Add Button */}
                 {(() => {
-                  const proposedColumns = findCommonColumns();
                   const filteredColumns = showOnlyNumeric
                     ? proposedColumns.filter(col => col.isNumeric)
                     : proposedColumns;
