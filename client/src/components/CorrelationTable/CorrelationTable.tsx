@@ -43,6 +43,7 @@ const CorrelationTable: React.FC<CorrelationTableProps> = ({ data, category, onC
               onClick={() => setShowModal(true)}
               className="p-0 position-absolute top-50 end-0 translate-middle-y me-3"
               title="Metric information"
+              aria-label="Show metric information"
             >
               <InfoCircle size={20} />
             </Button>

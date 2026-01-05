@@ -63,12 +63,29 @@ export const useMetricsSelection = (
       if (storedPlugins) {
         try {
           const plugins: LocalPlugin[] = JSON.parse(storedPlugins);
-          setUserMetrics(plugins.map(p => ({
+          const newUserMetrics = plugins.map(p => ({
             value: p.id,
             label: p.name,
             description: p.description,
             category: p.category,
-          })));
+          }));
+          
+          // Auto-add new plugin IDs to selectedMetricsForDisplay
+          setUserMetrics(prevMetrics => {
+            const prevIds = new Set(prevMetrics.map(m => m.value));
+            const newIds = newUserMetrics.filter(m => !prevIds.has(m.value)).map(m => m.value);
+            
+            if (newIds.length > 0 && selectedMetricsForDisplay !== null) {
+              // Add new plugin IDs to selection
+              const updatedSelection = new Set([...Array.from(selectedMetricsForDisplay), ...newIds]);
+              setSelectedMetricsForDisplay(updatedSelection);
+              
+              // Save to localStorage
+              localStorage.setItem('selectedMetricsForDisplay', JSON.stringify(Array.from(updatedSelection)));
+            }
+            
+            return newUserMetrics;
+          });
         } catch (error) {
           console.error('Failed to parse plugins from localStorage:', error);
         }
@@ -80,12 +97,29 @@ export const useMetricsSelection = (
       const customEvent = event as CustomEvent;
       if (customEvent.detail?.key === 'user-custom-metrics') {
         const plugins = customEvent.detail.value as LocalPlugin[];
-        setUserMetrics(plugins.map(p => ({
+        const newUserMetrics = plugins.map(p => ({
           value: p.id,
           label: p.name,
           description: p.description,
           category: p.category,
-        })));
+        }));
+        
+        // Auto-add new plugin IDs to selectedMetricsForDisplay
+        setUserMetrics(prevMetrics => {
+          const prevIds = new Set(prevMetrics.map(m => m.value));
+          const newIds = newUserMetrics.filter(m => !prevIds.has(m.value)).map(m => m.value);
+          
+          if (newIds.length > 0 && selectedMetricsForDisplay !== null) {
+            // Add new plugin IDs to selection
+            const updatedSelection = new Set([...Array.from(selectedMetricsForDisplay), ...newIds]);
+            setSelectedMetricsForDisplay(updatedSelection);
+            
+            // Save to localStorage
+            localStorage.setItem('selectedMetricsForDisplay', JSON.stringify(Array.from(updatedSelection)));
+          }
+          
+          return newUserMetrics;
+        });
       } else if (customEvent.detail?.key === 'selectedMetricsForDisplay') {
         // Update selectedMetricsForDisplay when changed in modal
         const selectedArray = customEvent.detail.value as string[];
@@ -101,7 +135,7 @@ export const useMetricsSelection = (
       window.removeEventListener('storage', handleStorageChange);
       window.removeEventListener('localStorageChange', handleCustomStorageChange);
     };
-  }, []);
+  }, [selectedMetricsForDisplay]);
 
   // Filter metrics based on selected metrics
   const filteredGroupedMetrics = useMemo(() => {

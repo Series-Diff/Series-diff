@@ -72,7 +72,7 @@ const ControlsPanel: React.FC<ControlsPanelProps> = (props) => {
                                     type="switch"
                                     id="ma-toggle"
                                     label={(props as StandardControlsProps).isMaLoading ? "Loading MA..." : "Show Moving Avg"}
-                                    checked={(props as StandardControlsProps).showMovingAverage || false}
+                                    checked={(props as StandardControlsProps).showMovingAverage === true}
                                     onChange={(props as StandardControlsProps).handleToggleMovingAverage}
                                     disabled={(props as StandardControlsProps).isMaLoading}
                                 />
@@ -89,7 +89,7 @@ const ControlsPanel: React.FC<ControlsPanelProps> = (props) => {
                                     variant="secondary"
                                     size="sm"
                                     onClick={(props as StandardControlsProps).handleApplyMaWindow}
-                                    disabled={(props as StandardControlsProps).isMaLoading || !(props as StandardControlsProps).showMovingAverage}
+                                    disabled={(props as StandardControlsProps).isMaLoading || (props as StandardControlsProps).showMovingAverage !== true}
                                 >
                                     Apply
                                 </Button>

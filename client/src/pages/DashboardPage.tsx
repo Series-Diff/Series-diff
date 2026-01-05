@@ -110,7 +110,8 @@ function DashboardPage() {
     if (!shouldShowMetric('difference_chart') && isInDifferenceMode) {
       setChartMode('standard');
     }
-  }, [selectedMetricsForDisplay, shouldShowMetric, showMovingAverage, isInDifferenceMode, handleToggleMovingAverage]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedMetricsForDisplay, shouldShowMetric, showMovingAverage, isInDifferenceMode]);
 
   return (
     <div className="d-flex" style={mainStyle}>
@@ -254,7 +255,7 @@ function DashboardPage() {
           {/* Standard mode specific sections */}
           {!isInDifferenceMode && (
             <>
-              {hasData && (
+              {(hasData && Object.keys(groupedMetrics).length > 0) && (
                 <div className="section-container p-3">
                   <div className="d-flex justify-content-end align-items-center gap-2 mb-3">
                     <Button
@@ -272,9 +273,13 @@ function DashboardPage() {
                       {isExporting ? 'Exporting...' : 'Export to PDF'}
                     </Button>
                   </div>
-                  {Object.keys(filteredGroupedMetrics).length > 0 && (
+                  {Object.keys(filteredGroupedMetrics).length > 0 ? (
                 <components.Metrics groupedMetrics={filteredGroupedMetrics} />
-                  )}
+                  ) : (selectedMetricsForDisplay !== null && selectedMetricsForDisplay.size === 0) ? (
+                    <div className="text-muted fst-italic">
+                      No metrics selected. Use "Select Metrics" to choose which metrics to display.
+                    </div>
+                  ) : null}
             </div>
               )}
 

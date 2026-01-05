@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { Modal, Button } from 'react-bootstrap';
 import { METRIC_CATEGORIES, PREDEFINED_METRICS, Metric } from '../../constants/metricsConfig';
 import { MetricsListPanel } from '../MetricsListPanel/MetricsListPanel';
@@ -11,6 +11,13 @@ interface MetricsSelectionModalProps {
     onApply?: React.Dispatch<React.SetStateAction<Set<string> | null>>;
 }
 
+// Available metric values for display in the dashboard
+const AVAILABLE_METRIC_VALUES = [
+    'mean', 'median', 'variance', 'std_dev', 'autocorrelation',
+    'mae', 'rmse', 'pearson_correlation', 'dtw', 'euclidean', 'cosine_similarity',
+    'difference_chart', 'moving_average'
+] as const;
+
 const MetricsSelectionModal: React.FC<MetricsSelectionModalProps> = ({
     show,
     onHide,
@@ -19,11 +26,12 @@ const MetricsSelectionModal: React.FC<MetricsSelectionModalProps> = ({
     onApply,
 }) => {
     // When selectedMetrics is null (show all), initialize with all available metrics
-    const allAvailableMetrics = [...PREDEFINED_METRICS.filter(m => 
-        ['mean', 'median', 'variance', 'std_dev', 'autocorrelation', 
-         'mae', 'rmse', 'pearson_correlation', 'dtw', 'euclidean', 'cosine_similarity',
-         'difference_chart', 'moving_average'].includes(m.value)
-    ), ...userMetrics].map(m => m.value);
+    const allAvailableMetrics = useMemo(() => 
+        [...PREDEFINED_METRICS.filter(m => 
+            AVAILABLE_METRIC_VALUES.includes(m.value as any)
+        ), ...userMetrics].map(m => m.value),
+        [userMetrics]
+    );
     
     const [localSelectedMetrics, setLocalSelectedMetrics] = useState<Set<string>>(
         selectedMetrics === null ? new Set(allAvailableMetrics) : selectedMetrics
@@ -35,9 +43,7 @@ const MetricsSelectionModal: React.FC<MetricsSelectionModalProps> = ({
     const categories: string[] = [...METRIC_CATEGORIES];
     // Show statistical metrics (used in groupedMetrics) and correlation/distance metrics (used in tables)
     const relevantMetrics = PREDEFINED_METRICS.filter(m => 
-        ['mean', 'median', 'variance', 'std_dev', 'autocorrelation', 
-         'mae', 'rmse', 'pearson_correlation', 'dtw', 'euclidean', 'cosine_similarity',
-         'difference_chart', 'moving_average'].includes(m.value)
+        AVAILABLE_METRIC_VALUES.includes(m.value as any)
     );
     const allMetrics = [...relevantMetrics, ...userMetrics];
 
@@ -97,15 +103,23 @@ const MetricsSelectionModal: React.FC<MetricsSelectionModalProps> = ({
     };
 
     const handleApply = () => {
-        // Save to localStorage
-        localStorage.setItem('selectedMetricsForDisplay', JSON.stringify(Array.from(localSelectedMetrics)));
+        // Validate selected metrics against the currently available metrics
+        const availableMetricSet = new Set(allAvailableMetrics);
+        const validSelectedMetrics = Array.from(localSelectedMetrics).filter((metric) =>
+            availableMetricSet.has(metric)
+        );
+        
+        // Save validated metrics to localStorage
+        localStorage.setItem('selectedMetricsForDisplay', JSON.stringify(validSelectedMetrics));
         // Dispatch custom event to notify other components in the same tab
-        window.dispatchEvent(new CustomEvent('localStorageChange', { 
-            detail: { key: 'selectedMetricsForDisplay', value: Array.from(localSelectedMetrics) } 
-        }));
-        // Call the onApply callback to update parent state
+        window.dispatchEvent(
+            new CustomEvent('localStorageChange', {
+                detail: { key: 'selectedMetricsForDisplay', value: validSelectedMetrics }
+            })
+        );
+        // Call the onApply callback to update parent state with validated metrics
         if (onApply) {
-            onApply(localSelectedMetrics);
+            onApply(new Set(validSelectedMetrics));
         }
         setSelectedCategory('All');
         setSearchQuery('');
@@ -120,8 +134,7 @@ const MetricsSelectionModal: React.FC<MetricsSelectionModalProps> = ({
                 selectedMetrics === null ? new Set(allAvailableMetrics) : new Set(selectedMetrics)
             );
         }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [show, selectedMetrics, userMetrics]);
+    }, [show, selectedMetrics, allAvailableMetrics]);
 
     return (
         <Modal show={show} onHide={handleClose} size="lg" centered>

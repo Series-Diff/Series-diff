@@ -2,7 +2,7 @@ import React, { useState } from "react";
 import { Button } from 'react-bootstrap';
 import { InfoCircle } from 'react-bootstrap-icons';
 import MetricInfoModal from "../MetricInfoModal/MetricInfoModal";
-import { getMetricDescription, hasMetricDescription } from "../../constants/metricsDescriptions";
+import { getMetricDescription, hasMetricDescription, BasicMetricInfo } from "../../constants/metricsDescriptions";
 
 
 interface StandardTableProps {
@@ -11,7 +11,7 @@ interface StandardTableProps {
     metric: string; // Metric name
     metricKey?: string; // Metric key for description lookup
     showInfoIcon?: boolean; // Whether to show the info icon (default: true)
-    customInfo?: { name: string; description: string; }; // Custom info for plugins
+    customInfo?: BasicMetricInfo; // Custom info for plugins
 }
 
 
@@ -47,6 +47,7 @@ const StandardTable: React.FC<StandardTableProps> = ({data, category, metric, me
                             onClick={() => setShowModal(true)}
                             className="p-0 position-absolute top-50 end-0 translate-middle-y me-3"
                             title="Statistics information"
+                            aria-label="Show metric information"
                         >
                         <InfoCircle size={20} />
                         </Button>

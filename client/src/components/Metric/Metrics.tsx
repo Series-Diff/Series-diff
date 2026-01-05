@@ -40,6 +40,7 @@ export const Metrics: React.FC<MetricsProps> = ({ groupedMetrics }) => {
                   onClick={() => setShowModal(true)}
                   className="p-0 position-absolute top-50 end-0 translate-middle-y me-3"
                   title="Statistics information"
+                  aria-label="Show statistics information"
                 >
                   <InfoCircle size={20} />
                 </Button>

@@ -1,11 +1,11 @@
 import React from 'react';
 import { Modal, Button, Table } from 'react-bootstrap';
-import { MetricDescription } from '../../constants/metricsDescriptions';
+import { MetricDescription, BasicMetricInfo } from '../../constants/metricsDescriptions';
 
 interface MetricInfoModalProps {
     show: boolean;
     onHide: () => void;
-    metricInfo: MetricDescription | { name: string; description: string; };
+    metricInfo: MetricDescription | BasicMetricInfo;
 }
 
 const MetricInfoModal: React.FC<MetricInfoModalProps> = ({ show, onHide, metricInfo }) => {

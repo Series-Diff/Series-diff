@@ -10,9 +10,14 @@
  * - examples: Example interpretations of specific values
  */
 
-export interface MetricDescription {
+// Basic metric info shape used for custom/plugin metrics
+export interface BasicMetricInfo {
     name: string;
     description: string;
+}
+
+// Full metric description with interpretation and examples
+export interface MetricDescription extends BasicMetricInfo {
     interpretation: string;
     range: string;
     examples: { value: string; meaning: string }[];
