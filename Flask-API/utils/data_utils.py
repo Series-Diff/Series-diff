@@ -26,15 +26,6 @@ def pivot_file(file, index_col, columns_col, values_col):
         ]
         if missing_cols:
             raise ValueError(f"Missing columns in the data: {', '.join(missing_cols)}")
-
-        # Convert values column to numeric (handle Polish decimal format with comma)
-        # First replace commas with dots, then convert to numeric
-        if df[values_col].dtype == "object":
-            df[values_col] = (
-                df[values_col].astype(str).str.replace(",", ".", regex=False)
-            )
-        df[values_col] = pd.to_numeric(df[values_col], errors="coerce")
-
         # Pivot the Dataframe using pivot_table, using mean as aggregation function for duplicates
         pivot_df = df.pivot_table(
             index=index_col, columns=columns_col, values=values_col, aggfunc="mean"

@@ -20,8 +20,8 @@ export const useMovingAverage = (
         try {
             const rollingMeans = await services.fetchAllRollingMeans(filenamesPerCategory, window);
             setRollingMeanChartData(rollingMeans);
-        } catch (err: unknown) {
-            setError(`Failed to fetch moving average data: ${err instanceof Error ? err.message : 'Unknown error'}`);
+        } catch (err: any) {
+            setError(`Failed to fetch moving average data: ${err.message}`);
             setRollingMeanChartData({});
         } finally {
             setIsMaLoading(false);

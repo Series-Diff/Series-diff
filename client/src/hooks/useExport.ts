@@ -1,8 +1,7 @@
 import { useState } from 'react';
-import { exportToPDF } from '../utils/pdfExport';
-import { TimeSeriesEntry } from '../services/fetchTimeSeries';
+import { exportToPDF } from '../utils';
 
-export const useExport = (chartData: Record<string, TimeSeriesEntry[]>) => {
+export const useExport = (chartData: Record<string, any>) => {
   const [showTitleModal, setShowTitleModal] = useState(false);
   const [reportTitle, setReportTitle] = useState('Time Series Data Report');
   const [isExporting, setIsExporting] = useState(false);
