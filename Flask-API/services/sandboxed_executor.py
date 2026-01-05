@@ -169,11 +169,39 @@ class SandboxedExecutor:
                 try:
                     s1 = pd.Series(pair["series1"])
                     s2 = pd.Series(pair["series2"])
+                    
+                    # 1. Execute User Code
                     result = calculate(s1, s2)
+
+                    # 2. Validation Logic for Return Type
+                    # Check if result is a container (Series, DataFrame, Array, List)
+                    if isinstance(result, (pd.Series, pd.DataFrame, np.ndarray, list)):
+                        # Check if it happens to be a single-element array/series
+                        if hasattr(result, 'size') and getattr(result, 'size') == 1:
+                            result = result.item() # Extract scalar
+                        else:
+                            type_name = type(result).__name__
+                            raise ValueError(
+                                f"Plugin returned a collection ({type_name}) instead of a single number. "
+                                f"Did you forget to aggregate? (e.g. return np.mean(diff))"
+                            )
+
+                    # 3. Handle Numpy Scalars (np.float64, np.int32, etc.)
                     if isinstance(result, (np.integer, np.floating)):
                         result = float(result)
+
+                    # 4. Final strict check
+                    if not isinstance(result, (int, float)) and result is not None:
+                         raise ValueError(f"Plugin returned invalid type: {type(result).__name__}. Expected float or int.")
+                    
+                    # 5. Handle Infinity / NaN for JSON safety
+                    if isinstance(result, float) and (np.isnan(result) or np.isinf(result)):
+                        if np.isnan(result):
+                            result = None 
+                        
                     results.append({"result": result, "key": pair.get("key")})
                 except Exception as e:
+                    # Capture the specific error from the validation above
                     results.append({"error": str(e), "key": pair.get("key")})
 
             print(json.dumps({"results": results}))
