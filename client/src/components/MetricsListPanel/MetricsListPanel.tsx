@@ -16,6 +16,10 @@ interface MetricsListPanelProps {
     predefinedMetrics: Metric[];
     userMetrics: Metric[];
     
+    // Tab titles
+    predefinedTabTitle?: string;
+    userTabTitle?: string;
+    
     // Conditional features
     showAddMetricButton?: boolean;
     onAddMetric?: () => void;
@@ -77,6 +81,8 @@ export const MetricsListPanel: React.FC<MetricsListPanelProps> = ({
     emptyStateUser = "No custom metrics found",
     maxHeight = 'auto',
     containerClassName = '',
+    predefinedTabTitle = "Predefined Metrics",
+    userTabTitle = "User Metrics",
 }) => {
     const effectiveUserSearchQuery = userSearchQuery !== undefined ? userSearchQuery : searchQuery;
     const effectiveUserCategory = userSelectedCategory !== undefined ? userSelectedCategory : selectedCategory;
@@ -88,7 +94,7 @@ export const MetricsListPanel: React.FC<MetricsListPanelProps> = ({
             className="tabs-top nav nav-tabs"
             fill={true}
         >
-            <Tab eventKey="predefined" title="Available Metrics" className="tab-group d-flex flex-column flex-grow-1">
+            <Tab eventKey="predefined" title={predefinedTabTitle} className="tab-group d-flex flex-column flex-grow-1">
                 <div className={`metrics-content-container d-flex flex-column gap-3 flex-grow-1 ${containerClassName}`}>
                     <div className="header d-flex align-items-end justify-content-between p-1">
                         <Form.Control
@@ -152,7 +158,7 @@ export const MetricsListPanel: React.FC<MetricsListPanelProps> = ({
                     </div>
                 </div>
             </Tab>
-            <Tab eventKey="user" title="Custom Metrics" className="tab-group d-flex flex-column flex-grow-1">
+            <Tab eventKey="user" title={userTabTitle} className="tab-group d-flex flex-column flex-grow-1">
                 <div className={`metrics-content-container d-flex flex-column gap-3 flex-grow-1 ${containerClassName}`}>
                     <div className="header d-flex align-items-end justify-content-between p-1">
                         <Form.Control
