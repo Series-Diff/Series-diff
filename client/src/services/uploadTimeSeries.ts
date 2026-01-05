@@ -15,7 +15,7 @@ const handleSessionToken = (response: Response) => {
 };
 
 export const sendProcessedTimeSeriesData = async (
-  data: Record<string, unknown>, 
+  data: Record<string, any>, 
   callback?: (success: boolean) => void
 ) => {
   if (Object.keys(data).length === 0) {

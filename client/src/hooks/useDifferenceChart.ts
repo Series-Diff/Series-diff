@@ -115,8 +115,8 @@ export function useDifferenceChart(
                     filteredReversed[key] = existingReversed[key] || false;
                 });
                 setReversedForCategory(category, filteredReversed);
-            } catch (err: unknown) {
-                const errorMsg = (err instanceof Error ? err.message : 'Failed to fetch differences.');
+            } catch (err: any) {
+                const errorMsg = err.message || 'Failed to fetch differences.';
                 setDiffError(errorMsg);
                 setError?.(errorMsg);
             } finally {
@@ -188,8 +188,8 @@ export function useDifferenceChart(
                     filteredReversed[key] = storedReversed?.[key] || false;
                 });
                 setReversedForCategory(newCategory, filteredReversed);
-            } catch (err: unknown) {
-                const errorMsg = (err instanceof Error ? err.message : 'Failed to fetch differences.');
+            } catch (err: any) {
+                const errorMsg = err.message || 'Failed to fetch differences.';
                 setDiffError(errorMsg);
                 setError?.(errorMsg);
             } finally {
@@ -300,8 +300,8 @@ export function useDifferenceChart(
                     filteredReversed[key] = currentReversed[key] || false;
                 });
                 setReversedForCategory(selectedDiffCategory, filteredReversed);
-            } catch (err: unknown) {
-                const errorMsg = (err instanceof Error ? err.message : 'Failed to fetch differences.');
+            } catch (err: any) {
+                const errorMsg = err.message || 'Failed to fetch differences.';
                 setDiffError(errorMsg);
                 setError?.(errorMsg);
             } finally {
@@ -344,8 +344,8 @@ export function useDifferenceChart(
                     filteredReversed[key] = currentReversed[key] || false;
                 });
                 setReversedForCategory(selectedDiffCategory, filteredReversed);
-            } catch (err: unknown) {
-                const errorMsg = (err instanceof Error ? err.message : 'Failed to fetch differences.');
+            } catch (err: any) {
+                const errorMsg = err.message || 'Failed to fetch differences.';
                 setDiffError(errorMsg);
                 setError?.(errorMsg);
             } finally {
