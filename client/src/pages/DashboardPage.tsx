@@ -1,4 +1,4 @@
-import { useState, useRef } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import {Button, Modal, Form, Spinner, Alert} from 'react-bootstrap';
 import './DashboardPage.css';
 import '../components/Chart/Chart.css';
@@ -99,6 +99,19 @@ function DashboardPage() {
     setChartMode(prev => prev === 'standard' ? 'difference' : 'standard');
   };
 
+  // Auto-disable features when deselected in modal
+  useEffect(() => {
+    // If moving_average is deselected and currently active, turn it off
+    if (!shouldShowMetric('moving_average') && showMovingAverage) {
+      handleToggleMovingAverage();
+    }
+    
+    // If difference_chart is deselected and in difference mode, switch to standard
+    if (!shouldShowMetric('difference_chart') && isInDifferenceMode) {
+      setChartMode('standard');
+    }
+  }, [selectedMetricsForDisplay, shouldShowMetric, showMovingAverage, isInDifferenceMode, handleToggleMovingAverage]);
+
   return (
     <div className="d-flex" style={mainStyle}>
       <div className="App-main-content flex-grow-1 d-flex align-items-start w-100 rounded">
@@ -127,8 +140,8 @@ function DashboardPage() {
               filenamesPerCategory={filenamesPerCategory}
               handleDropdownChange={handleDropdownChange}
               handleSecondaryDropdownChange={handleSecondaryDropdownChange}
-              showMovingAverage={showMovingAverage}
-              handleToggleMovingAverage={handleToggleMovingAverage}
+              showMovingAverage={shouldShowMetric('moving_average') ? showMovingAverage : undefined}
+              handleToggleMovingAverage={shouldShowMetric('moving_average') ? handleToggleMovingAverage : undefined}
               isMaLoading={isMaLoading}
               maWindow={maWindow}
               setMaWindow={setMaWindow}
@@ -226,7 +239,7 @@ function DashboardPage() {
             )}
 
             {/* Switch Chart Mode Button */}
-            {hasData && (
+            {hasData && shouldShowMetric('difference_chart') && (
               <Button
                 variant="outline-secondary"
                 size="sm"

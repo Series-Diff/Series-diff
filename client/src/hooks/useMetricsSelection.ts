@@ -86,6 +86,10 @@ export const useMetricsSelection = (
           description: p.description,
           category: p.category,
         })));
+      } else if (customEvent.detail?.key === 'selectedMetricsForDisplay') {
+        // Update selectedMetricsForDisplay when changed in modal
+        const selectedArray = customEvent.detail.value as string[];
+        setSelectedMetricsForDisplay(new Set(selectedArray));
       }
     };
 

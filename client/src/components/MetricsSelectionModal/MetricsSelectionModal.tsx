@@ -21,7 +21,8 @@ const MetricsSelectionModal: React.FC<MetricsSelectionModalProps> = ({
     // When selectedMetrics is null (show all), initialize with all available metrics
     const allAvailableMetrics = [...PREDEFINED_METRICS.filter(m => 
         ['mean', 'median', 'variance', 'std_dev', 'autocorrelation', 
-         'mae', 'rmse', 'pearson_correlation', 'dtw', 'euclidean', 'cosine_similarity'].includes(m.value)
+         'mae', 'rmse', 'pearson_correlation', 'dtw', 'euclidean', 'cosine_similarity',
+         'difference_chart', 'moving_average'].includes(m.value)
     ), ...userMetrics].map(m => m.value);
     
     const [localSelectedMetrics, setLocalSelectedMetrics] = useState<Set<string>>(
@@ -35,7 +36,8 @@ const MetricsSelectionModal: React.FC<MetricsSelectionModalProps> = ({
     // Show statistical metrics (used in groupedMetrics) and correlation/distance metrics (used in tables)
     const relevantMetrics = PREDEFINED_METRICS.filter(m => 
         ['mean', 'median', 'variance', 'std_dev', 'autocorrelation', 
-         'mae', 'rmse', 'pearson_correlation', 'dtw', 'euclidean', 'cosine_similarity'].includes(m.value)
+         'mae', 'rmse', 'pearson_correlation', 'dtw', 'euclidean', 'cosine_similarity',
+         'difference_chart', 'moving_average'].includes(m.value)
     );
     const allMetrics = [...relevantMetrics, ...userMetrics];
 
@@ -97,6 +99,10 @@ const MetricsSelectionModal: React.FC<MetricsSelectionModalProps> = ({
     const handleApply = () => {
         // Save to localStorage
         localStorage.setItem('selectedMetricsForDisplay', JSON.stringify(Array.from(localSelectedMetrics)));
+        // Dispatch custom event to notify other components in the same tab
+        window.dispatchEvent(new CustomEvent('localStorageChange', { 
+            detail: { key: 'selectedMetricsForDisplay', value: Array.from(localSelectedMetrics) } 
+        }));
         // Call the onApply callback to update parent state
         if (onApply) {
             onApply(localSelectedMetrics);
