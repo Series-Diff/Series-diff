@@ -32,6 +32,7 @@ def build_plugin_executor_image(
     ecr_repo: aws.ecr.Repository, environment: str
 ) -> docker_build.Image:
     """Build and push plugin executor container image to ECR."""
+    os.environ["BUILDX_NO_DEFAULT_ATTESTATIONS"] = "1"
     current_file_dir = os.path.dirname(os.path.abspath(__file__))
     infra_dir = os.path.dirname(current_file_dir)
     lambda_path = os.path.join(infra_dir, "lambda", "plugin_executor")
@@ -111,7 +112,7 @@ def create_plugin_executor_lambda(environment: str) -> dict:
         f"plugin-executor-{environment}",
         name=f"plugin-executor-{environment}",
         package_type="Image",
-        image_uri=image.ref,
+        image_uri=ecr_repo.repository_url.apply(lambda url: f"{url}:latest"),
         role=lambda_role.arn,
         timeout=120,
         memory_size=512,

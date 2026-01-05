@@ -37,17 +37,22 @@ FROM python:3.11-slim
 
 WORKDIR /app
 
+# Install curl for container health checks (required by ECS)
+RUN apt-get update && \
+    apt-get install -y --no-install-recommends curl && \
+    rm -rf /var/lib/apt/lists/*
+
 ENV PYTHONUNBUFFERED=1
 ENV PYTHONDONTWRITEBYTECODE=1
 
 # Copy virtual environment from builder
-COPY --from=builder /app/.venv /app/.venv
+COPY --from=builder /app/venv /app/venv
 
 # Copy application code
 COPY . .
 
 # Use the virtual environment
-ENV PATH="/app/.venv/bin:$PATH"
+ENV PATH="/app/venv/bin:$PATH"
 
 # Run gunicorn directly (no need for poetry run since we have .venv in PATH)
 CMD ["gunicorn", "-c", "gunicorn_config.py", "main:app"]
