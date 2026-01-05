@@ -114,7 +114,8 @@ const MetricsSelectionModal: React.FC<MetricsSelectionModalProps> = ({
                 selectedMetrics === null ? new Set(allAvailableMetrics) : new Set(selectedMetrics)
             );
         }
-    }, [show, selectedMetrics]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [show, selectedMetrics, userMetrics]);
 
     return (
         <Modal show={show} onHide={handleClose} size="lg" centered>

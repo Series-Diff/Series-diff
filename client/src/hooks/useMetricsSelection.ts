@@ -1,5 +1,6 @@
 import { useState, useEffect, useMemo } from 'react';
 import { Metric } from '../constants/metricsConfig';
+import { LocalPlugin } from './useLocalPlugins';
 
 interface CombinedMetric {
   id: string;
@@ -14,14 +15,20 @@ interface CombinedMetric {
 export const useMetricsSelection = (
   groupedMetrics: Record<string, CombinedMetric[]>
 ) => {
-  // Load user metrics from localStorage
+  // Load plugins from localStorage and map to Metric format
   const [userMetrics, setUserMetrics] = useState<Metric[]>(() => {
-    const storedMetrics = localStorage.getItem('userMetrics');
-    if (storedMetrics) {
+    const storedPlugins = localStorage.getItem('user-custom-metrics');
+    if (storedPlugins) {
       try {
-        return JSON.parse(storedMetrics);
+        const plugins: LocalPlugin[] = JSON.parse(storedPlugins);
+        return plugins.map(p => ({
+          value: p.id,
+          label: p.name,
+          description: p.description,
+          category: p.category,
+        }));
       } catch (error) {
-        console.error('Failed to parse user metrics from localStorage:', error);
+        console.error('Failed to parse plugins from localStorage:', error);
         return [];
       }
     }
@@ -52,18 +59,44 @@ export const useMetricsSelection = (
   // Sync userMetrics whenever localStorage changes
   useEffect(() => {
     const handleStorageChange = () => {
-      const storedMetrics = localStorage.getItem('userMetrics');
-      if (storedMetrics) {
+      const storedPlugins = localStorage.getItem('user-custom-metrics');
+      if (storedPlugins) {
         try {
-          setUserMetrics(JSON.parse(storedMetrics));
+          const plugins: LocalPlugin[] = JSON.parse(storedPlugins);
+          setUserMetrics(plugins.map(p => ({
+            value: p.id,
+            label: p.name,
+            description: p.description,
+            category: p.category,
+          })));
         } catch (error) {
-          console.error('Failed to parse user metrics from localStorage:', error);
+          console.error('Failed to parse plugins from localStorage:', error);
         }
       }
     };
 
+    // Handle custom event for same-tab changes
+    const handleCustomStorageChange = (event: Event) => {
+      const customEvent = event as CustomEvent;
+      if (customEvent.detail?.key === 'user-custom-metrics') {
+        const plugins = customEvent.detail.value as LocalPlugin[];
+        setUserMetrics(plugins.map(p => ({
+          value: p.id,
+          label: p.name,
+          description: p.description,
+          category: p.category,
+        })));
+      }
+    };
+
+    // Listen to both cross-tab storage events and same-tab custom events
     window.addEventListener('storage', handleStorageChange);
-    return () => window.removeEventListener('storage', handleStorageChange);
+    window.addEventListener('localStorageChange', handleCustomStorageChange);
+    
+    return () => {
+      window.removeEventListener('storage', handleStorageChange);
+      window.removeEventListener('localStorageChange', handleCustomStorageChange);
+    };
   }, []);
 
   // Filter metrics based on selected metrics

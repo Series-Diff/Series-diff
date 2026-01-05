@@ -28,6 +28,9 @@ function DashboardPage() {
 
   const hasData = Object.keys(chartData).length > 0;
   const enabledPlugins = plugins.filter(p => p.enabled);
+  
+  // Filter enabled plugins by selection in modal
+  const visiblePlugins = enabledPlugins.filter(p => shouldShowMetric(p.id));
 
   // Dynamic height calculation for chart container
   const chartDynamicHeight = hooks.useDynamicHeight(chartContainerRef, [hasData, isLoading]);
@@ -408,7 +411,7 @@ function DashboardPage() {
                 </div>
               )}
 
-              {enabledPlugins.length > 0 && selectedCategory && (
+              {visiblePlugins.length > 0 && selectedCategory && (
                   <div className="section-container" style={{ padding: "16px" }}>
                     <div className="d-flex justify-content-between align-items-center mb-3">
                       <h3 style={{ margin: 0 }}>Plugins</h3>
@@ -425,7 +428,7 @@ function DashboardPage() {
                       </div>
                     </div>
 
-                    {enabledPlugins.map((plugin) => {
+                    {visiblePlugins.map((plugin) => {
                       const categoryData = pluginResults[plugin.id]?.[selectedCategory];
                       const categoryError = pluginErrors[plugin.id]?.[selectedCategory];
 
@@ -454,7 +457,7 @@ function DashboardPage() {
                       );
                     })}
 
-                    {secondaryCategory && enabledPlugins.map((plugin) => {
+                    {secondaryCategory && visiblePlugins.map((plugin) => {
                       const categoryData = pluginResults[plugin.id]?.[secondaryCategory];
                       const categoryError = pluginErrors[plugin.id]?.[secondaryCategory];
 
