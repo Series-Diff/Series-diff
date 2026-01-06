@@ -81,11 +81,11 @@ stack-init: login ## Initialize a new Pulumi stack
 
 preview: check-aws check-config ## Preview infrastructure changes
 	@echo "$(GREEN)Previewing changes for stack: $(STACK)...$(NC)"
-	@poetry run pulumi preview -s $(STACK)
+	@export BUILDX_NO_DEFAULT_ATTESTATIONS=1 && poetry run pulumi preview -s $(STACK)
 
 deploy: check-aws check-config ## Deploy infrastructure
 	@echo "$(GREEN)Deploying infrastructure for stack: $(STACK)...$(NC)"
-	@poetry run pulumi up -s $(STACK)
+	@export BUILDX_NO_DEFAULT_ATTESTATIONS=1 && poetry run pulumi up -s $(STACK)
 
 deploy-yes: check-aws check-config ## Deploy infrastructure without confirmation
 	@echo "$(GREEN)Deploying infrastructure for stack: $(STACK) (auto-approve)...$(NC)"

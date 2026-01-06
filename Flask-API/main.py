@@ -1021,16 +1021,6 @@ def api_validate_plugin_code():
 def api_execute_plugin():
     """
     Execute plugin code on multiple file pairs in a single Docker container.
-
-    Request body:
-        code: Python code implementing calculate(series1, series2) function
-        category: Category name
-        filenames: List of filenames to compare
-        start: Optional start time
-        end: Optional end time
-
-    Returns:
-        Results for all pairs or error.
     """
     from services.sandboxed_executor import get_executor
 
@@ -1088,18 +1078,32 @@ def api_execute_plugin():
         executor = get_executor()
         result = executor.execute(data["code"], pairs)
 
+        # 1. Check for Top-Level Execution Errors (e.g., SyntaxError, Timeout)
         if "error" in result:
             logger.error("Plugin execution error: %s", result["error"])
             return _create_response(result, 400)
 
-        # Transform results to nested structure
+        # 2. Check for Item-Level Errors (e.g., Runtime errors inside the loop)
+        # If the user code fails for one pair, it likely fails for all.
+        # We extract the first error found to show to the user.
+        execution_results = result.get("results", [])
+        errors = [item["error"] for item in execution_results if "error" in item]
+
+        if errors:
+            # Return the first error found as a request failure
+            first_error = errors[0]
+            logger.warning("Plugin code execution failed: %s", first_error)
+            return _create_response({"error": first_error}, 400)
+
+        # 3. Transform results to nested structure
         results_map = {}
-        for item in result.get("results", []):
+        for item in execution_results:
             key = item.get("key", "")
             if "|" in key:
                 f1, f2 = key.split("|", 1)
                 if f1 not in results_map:
                     results_map[f1] = {}
+                # Only map if 'result' exists (it should, since we checked for errors above)
                 results_map[f1][f2] = item.get("result") if "result" in item else None
 
         logger.info("Plugin executed successfully for %d pairs", len(pairs))

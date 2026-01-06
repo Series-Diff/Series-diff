@@ -54,14 +54,14 @@ const StandardTable: React.FC<StandardTableProps> = ({data, category, metric}) =
                                     return (
                                         <td
                                             key={`${f1}-${f2}`}
-                                            title={value.toFixed(3)} // Show exact value on hover
+                                            title={typeof value === 'number' ? value.toFixed(3) : String(value)}// Show exact value on hover
                                             style={{
                                                 backgroundColor,
                                                 color: "#000",
                                                 fontWeight: f1 === f2 ? "bold" : "normal", // Wyróżnij przekątną
                                             }}
                                         >
-                                            {value.toFixed(3)}
+                                            {typeof value === 'number' ? value.toFixed(3) : String(value)}
                                         </td>
                                     );
                                 })}

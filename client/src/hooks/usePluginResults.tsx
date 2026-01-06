@@ -12,10 +12,16 @@ export interface PluginResultsMap {
     }
 }
 
+export interface PluginErrorsMap {
+    [pluginId: string]: {
+        [category: string]: string | null
+    }
+}
+
 export interface UsePluginResultsReturn {
     pluginResults: PluginResultsMap;
     isLoadingPlugins: boolean;
-    pluginError: string | null;
+    pluginErrors: PluginErrorsMap;
     refreshPluginResults: () => Promise<void>;
     resetPluginResults: () => void;
 }
@@ -26,7 +32,7 @@ export const usePluginResults = (
 ): UsePluginResultsReturn => {
     const [pluginResults, setPluginResults] = useState<PluginResultsMap>({});
     const [isLoadingPlugins, setIsLoadingPlugins] = useState(false);
-    const [pluginError, setPluginError] = useState<string | null>(null);
+    const [pluginErrors, setPluginErrors] = useState<PluginErrorsMap>({});
 
     const refreshPluginResults = useCallback(async () => {
         const enabledPlugins = plugins.filter(p => p.enabled);
@@ -36,14 +42,16 @@ export const usePluginResults = (
         }
 
         setIsLoadingPlugins(true);
-        setPluginError(null);
+        setPluginErrors({});
 
         try {
             const newResults: PluginResultsMap = {};
+            const newErrors: PluginErrorsMap = {};
 
             // For each plugin, execute per category
             for (const plugin of enabledPlugins) {
                 newResults[plugin.id] = {};
+                newErrors[plugin.id] = {};
 
                 for (const category of Object.keys(filenamesPerCategory)) {
                     const files = filenamesPerCategory[category];
@@ -61,22 +69,24 @@ export const usePluginResults = (
                         );
 
                         if (pluginResult.error) {
+                            // Store the specific error for this plugin/category
+                            newErrors[plugin.id][category] = pluginResult.error;
                             console.warn(`Plugin error for ${plugin.name}/${category}:`, pluginResult.error);
-                            newResults[plugin.id][category] = {};
                         } else if (pluginResult.results) {
                             // Results already in correct nested format
                             newResults[plugin.id][category] = pluginResult.results as any;
                         }
-                    } catch (e) {
+                    } catch (e: any) {
+                        const errorMessage = e.message || 'Unknown execution error';
+                        newErrors[plugin.id][category] = errorMessage;
                         console.warn(`Error executing for ${plugin.name}/${category}`, e);
-                        newResults[plugin.id][category] = {};
                     }
                 }
             }
             setPluginResults(newResults);
+            setPluginErrors(newErrors);
         } catch (err: any) {
-            console.error('Error fetching plugin results:', err);
-            setPluginError(err.message || 'Failed to fetch plugin results');
+            console.error('Critical error in plugin execution loop:', err);
         } finally {
             setIsLoadingPlugins(false);
         }
@@ -91,13 +101,13 @@ export const usePluginResults = (
 
     const resetPluginResults = useCallback(() => {
         setPluginResults({});
-        setPluginError(null);
-    }, []);
+        setPluginErrors({});
+        }, []);
 
     return {
         pluginResults,
         isLoadingPlugins,
-        pluginError,
+        pluginErrors,
         refreshPluginResults,
         resetPluginResults,
     };

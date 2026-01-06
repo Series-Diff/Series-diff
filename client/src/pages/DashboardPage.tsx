@@ -1,5 +1,5 @@
 import { useState, useRef } from 'react';
-import { Button, Modal, Form, Spinner } from 'react-bootstrap';
+import {Button, Modal, Form, Spinner, Alert} from 'react-bootstrap';
 import './DashboardPage.css';
 import '../components/Chart/Chart.css';
 import '../components/Metric/Metrics.css';
@@ -32,6 +32,7 @@ function DashboardPage() {
 
   const {
     pluginResults,
+      pluginErrors,
     isLoadingPlugins,
     refreshPluginResults,
     resetPluginResults
@@ -379,50 +380,76 @@ function DashboardPage() {
               )}
 
               {enabledPlugins.length > 0 && selectedCategory && (
-                <div className="section-container" style={{ padding: "16px" }}>
-                  <div className="d-flex justify-content-between align-items-center mb-3">
-                    <h3 style={{ margin: 0 }}>Plugins</h3>
-                    <div className="d-flex align-items-center gap-2">
-                       {isLoadingPlugins && <Spinner animation="border" size="sm" />}
-                       <Button
-                         variant="outline-secondary"
-                         size="sm"
-                         onClick={refreshPluginResults}
-                         disabled={isLoadingPlugins}
-                       >
-                         Refresh
-                       </Button>
+                  <div className="section-container" style={{ padding: "16px" }}>
+                    <div className="d-flex justify-content-between align-items-center mb-3">
+                      <h3 style={{ margin: 0 }}>Plugins</h3>
+                      <div className="d-flex align-items-center gap-2">
+                        {isLoadingPlugins && <Spinner animation="border" size="sm" />}
+                        <Button
+                            variant="outline-secondary"
+                            size="sm"
+                            onClick={refreshPluginResults}
+                            disabled={isLoadingPlugins}
+                        >
+                          Refresh
+                        </Button>
+                      </div>
                     </div>
-                  </div>
 
-                  {enabledPlugins.map((plugin) => {
-                    const categoryData = pluginResults[plugin.id]?.[selectedCategory];
-                    if (!categoryData || Object.keys(categoryData).length === 0) {
-                      return null;
-                    }
+                    {enabledPlugins.map((plugin) => {
+                      const categoryData = pluginResults[plugin.id]?.[selectedCategory];
+                      const categoryError = pluginErrors[plugin.id]?.[selectedCategory];
 
-                    return (
-                      <components.StandardTable
-                        key={plugin.id}
-                        data={categoryData}
-                        category={selectedCategory}
-                        metric={plugin.name}
-                      />
-                    );
-                  })}
+                      if (categoryError) {
+                        return (
+                            <div key={plugin.id} className="mb-3">
+                              <h5>{plugin.name} ({selectedCategory})</h5>
+                              <Alert variant="danger" className="py-2">
+                                {categoryError}
+                              </Alert>
+                            </div>
+                        );
+                      }
 
-                  {secondaryCategory && enabledPlugins.map((plugin) => {
-                    const categoryData = pluginResults[plugin.id]?.[secondaryCategory];
-                    if (!categoryData || Object.keys(categoryData).length === 0) {
-                      return null;
-                    }
-                    return (
-                      <div key={`${plugin.id}-${secondaryCategory}`} style={{ marginTop: "32px" }}>
-                        <components.StandardTable
-                          data={categoryData}
-                          category={secondaryCategory}
-                          metric={plugin.name}
-                        />
+                      if (!categoryData || Object.keys(categoryData).length === 0) {
+                        return null;
+                      }
+
+                      return (
+                          <components.StandardTable
+                              key={plugin.id}
+                              data={categoryData}
+                              category={selectedCategory}
+                              metric={plugin.name}
+                          />
+                      );
+                    })}
+
+                    {secondaryCategory && enabledPlugins.map((plugin) => {
+                      const categoryData = pluginResults[plugin.id]?.[secondaryCategory];
+                      const categoryError = pluginErrors[plugin.id]?.[secondaryCategory];
+
+                      if (categoryError) {
+                        return (
+                            <div key={`${plugin.id}-${secondaryCategory}`} style={{ marginTop: "32px" }}>
+                              <h5>{plugin.name} ({secondaryCategory})</h5>
+                              <Alert variant="danger" className="py-2">
+                                {categoryError}
+                              </Alert>
+                            </div>
+                        );
+                      }
+
+                      if (!categoryData || Object.keys(categoryData).length === 0) {
+                        return null;
+                      }
+                      return (
+                          <div key={`${plugin.id}-${secondaryCategory}`} style={{ marginTop: "32px" }}>
+                            <components.StandardTable
+                                data={categoryData}
+                                category={secondaryCategory}
+                                metric={plugin.name}
+                            />
                       </div>
                     );
                   })}
