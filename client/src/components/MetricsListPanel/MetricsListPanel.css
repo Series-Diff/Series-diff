@@ -1,3 +1,4 @@
+/* Tabs layout styles */
 .tabs-top {
     align-items: flex-start;
     display: flex;
@@ -45,6 +46,7 @@
     align-items: flex-end;
     display: flex;
     justify-content: space-between;
+    gap: 1rem;
 }
 
 .metrics-content-container {
@@ -65,19 +67,7 @@
     min-height: 0;
 }
 
-.search-box-instance {
-    width: 400px;
-}
-
-.input {
-    align-items: center;
-    align-self: stretch;
-    border-radius: 4px;
-    display: flex;
-    flex: 0 0 auto;
-    z-index: 0;
-}
-
+/* Ensure metric-row has proper flexbox layout */
 .metric-row {
     align-items: center;
     background-color: var(--bs-gray-100);
@@ -91,6 +81,7 @@
     min-height: fit-content;
 }
 
+/* Checkbox positioning on the left side */
 .checkbox-margin {
     align-items: center;
     display: inline-flex;
@@ -118,6 +109,19 @@
 .description {
     display: flex;
     align-items: center;
+}
+
+.input {
+    align-items: center;
+    align-self: stretch;
+    border-radius: 4px;
+    display: flex;
+    flex: 0 0 auto;
+    z-index: 0;
+}
+
+.search-box-instance {
+    width: 400px;
 }
 
 .text-wrapper-2 {
@@ -152,4 +156,9 @@
     color: var(--gray-600);
     padding: 2rem;
     width: 100%;
+}
+
+/* Modal variant: narrower, responsive search input */
+.modal-metrics-panel .search-box-instance {
+    width: min(22rem, 80vw);
 }

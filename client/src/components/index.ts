@@ -9,7 +9,10 @@ export { default as CorrelationTable } from './CorrelationTable/CorrelationTable
 export { default as StandardTable } from './StandardTable/StandardTable';
 export { default as ScatterPlotModal } from './ScatterPlotModal/ScatterPlotModal';
 export type { ScatterPoint } from './ScatterPlotModal/ScatterPlotModal';
+export { default as MetricInfoModal } from './MetricInfoModal/MetricInfoModal';
 
 export { default as MetricModal } from './MetricModal/MetricModal';
 export { MetricRow } from './MetricRow/MetricRow';
 export { Header } from './Header';
+export { default as MetricsSelectionModal } from './MetricsSelectionModal/MetricsSelectionModal';
+export { MetricsListPanel } from './MetricsListPanel/MetricsListPanel';

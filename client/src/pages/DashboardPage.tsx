@@ -1,5 +1,5 @@
-import { useState, useRef } from 'react';
-import {Button, Modal, Form, Spinner, Alert} from 'react-bootstrap';
+import { useState, useRef, useEffect } from 'react';
+import { Button, Modal, Form, Spinner, Alert } from 'react-bootstrap';
 import './DashboardPage.css';
 import '../components/Chart/Chart.css';
 import '../components/Metric/Metrics.css';
@@ -22,18 +22,22 @@ function DashboardPage() {
   const { showTitleModal, setShowTitleModal, reportTitle, setReportTitle, isExporting, handleExportClick, handleExportToPDF } = hooks.useExport(chartData);
   const { isPopupOpen, selectedFiles, handleFileUpload, handlePopupComplete, handlePopupClose, resetFileUpload } = hooks.useFileUpload(handleFetchData, setError, setIsLoading);
   const { dataImportPopupRef, resetAllData } = hooks.useDataImportPopup();
+  const { userMetrics, selectedMetricsForDisplay, setSelectedMetricsForDisplay, showMetricsModal, setShowMetricsModal, filteredGroupedMetrics, shouldShowMetric } = hooks.useMetricsSelection(groupedMetrics);
 
   const { plugins } = hooks.useLocalPlugins();
 
   const hasData = Object.keys(chartData).length > 0;
   const enabledPlugins = plugins.filter(p => p.enabled);
 
+  // Filter enabled plugins by selection in modal
+  const visiblePlugins = enabledPlugins.filter(p => shouldShowMetric(p.id));
+
   // Dynamic height calculation for chart container
   const chartDynamicHeight = hooks.useDynamicHeight(chartContainerRef, [hasData, isLoading]);
 
   const {
     pluginResults,
-      pluginErrors,
+    pluginErrors,
     isLoadingPlugins,
     refreshPluginResults,
     resetPluginResults
@@ -95,6 +99,23 @@ function DashboardPage() {
     setChartMode(prev => prev === 'standard' ? 'difference' : 'standard');
   };
 
+  // Compute metric visibility flags to avoid circular dependencies
+  const canShowMovingAverage = shouldShowMetric('moving_average');
+  const canShowDifferenceChart = shouldShowMetric('difference_chart');
+
+  // Auto-disable features when deselected in modal
+  useEffect(() => {
+    // If moving_average is deselected and currently active, turn it off
+    if (!canShowMovingAverage && showMovingAverage) {
+      handleToggleMovingAverage();
+    }
+
+    // If difference_chart is deselected and in difference mode, switch to standard
+    if (!canShowDifferenceChart && isInDifferenceMode) {
+      setChartMode('standard');
+    }
+  }, [canShowMovingAverage, canShowDifferenceChart, showMovingAverage, isInDifferenceMode, handleToggleMovingAverage]);
+
   return (
     <div className="d-flex" style={mainStyle}>
       <div className="App-main-content flex-grow-1 d-flex align-items-start w-100 rounded">
@@ -123,8 +144,8 @@ function DashboardPage() {
               filenamesPerCategory={filenamesPerCategory}
               handleDropdownChange={handleDropdownChange}
               handleSecondaryDropdownChange={handleSecondaryDropdownChange}
-              showMovingAverage={showMovingAverage}
-              handleToggleMovingAverage={handleToggleMovingAverage}
+              showMovingAverage={shouldShowMetric('moving_average') ? showMovingAverage : undefined}
+              handleToggleMovingAverage={shouldShowMetric('moving_average') ? handleToggleMovingAverage : undefined}
               isMaLoading={isMaLoading}
               maWindow={maWindow}
               setMaWindow={setMaWindow}
@@ -222,7 +243,7 @@ function DashboardPage() {
             )}
 
             {/* Switch Chart Mode Button */}
-            {hasData && (
+            {hasData && shouldShowMetric('difference_chart') && (
               <Button
                 variant="outline-secondary"
                 size="sm"
@@ -237,9 +258,15 @@ function DashboardPage() {
           {/* Standard mode specific sections */}
           {!isInDifferenceMode && (
             <>
-              {Object.keys(groupedMetrics).length > 0 && (
+              {(hasData && Object.keys(groupedMetrics).length > 0) && (
                 <div className="section-container p-3">
-                  <div className="d-flex justify-content-end align-items-center">
+                  <div className="d-flex justify-content-end align-items-center gap-2 mb-3">
+                    <Button
+                      variant="outline-secondary"
+                      onClick={() => setShowMetricsModal(true)}
+                    >
+                      Select Metrics
+                    </Button>
                     {isExporting && <Spinner animation="border" size="sm" className="me-2" />}
                     <Button
                       variant="secondary"
@@ -249,11 +276,17 @@ function DashboardPage() {
                       {isExporting ? 'Exporting...' : 'Export to PDF'}
                     </Button>
                   </div>
-                  <components.Metrics groupedMetrics={groupedMetrics} />
+                  {Object.keys(filteredGroupedMetrics).length > 0 ? (
+                    <components.Metrics groupedMetrics={filteredGroupedMetrics} />
+                  ) : (selectedMetricsForDisplay !== null && selectedMetricsForDisplay.size === 0) ? (
+                    <div className="text-muted fst-italic">
+                      No metrics selected. Use "Select Metrics" to choose which metrics to display.
+                    </div>
+                  ) : null}
                 </div>
               )}
 
-              {selectedCategory && PearsonCorrelationValues[selectedCategory] && (
+              {shouldShowMetric('pearson_correlation') && selectedCategory && PearsonCorrelationValues[selectedCategory] && (
                 <div className="section-container p-3">
                   <components.CorrelationTable
                     data={PearsonCorrelationValues[selectedCategory]}
@@ -262,6 +295,7 @@ function DashboardPage() {
                       handleCellClick(file1, file2, selectedCategory)
                     }
                     metric="Pearson Correlation"
+                    metricKey="pearson_correlation"
                   />
 
                   {secondaryCategory && PearsonCorrelationValues[secondaryCategory] && (
@@ -273,19 +307,22 @@ function DashboardPage() {
                           handleCellClick(file1, file2, secondaryCategory)
                         }
                         metric="Pearson Correlation"
+                        metricKey="pearson_correlation"
+                        showInfoIcon={false}
                       />
                     </div>
                   )}
                 </div>
               )}
 
-              {selectedCategory && CosineSimilarityValues[selectedCategory] && (
+              {shouldShowMetric('cosine_similarity') && selectedCategory && CosineSimilarityValues[selectedCategory] && (
                 <div className="section-container p-3">
                   <components.CorrelationTable
                     data={CosineSimilarityValues[selectedCategory]}
                     category={selectedCategory}
                     clickable={false}
                     metric="Cosine Similarity"
+                    metricKey="cosine_similarity"
                   />
 
                   {secondaryCategory && CosineSimilarityValues[secondaryCategory] && (
@@ -295,18 +332,21 @@ function DashboardPage() {
                         category={secondaryCategory}
                         clickable={false}
                         metric="Cosine Similarity"
+                        metricKey="cosine_similarity"
+                        showInfoIcon={false}
                       />
                     </div>
                   )}
                 </div>
               )}
 
-              {selectedCategory && maeValues[selectedCategory] && (
+              {shouldShowMetric('mae') && selectedCategory && maeValues[selectedCategory] && (
                 <div className="section-container p-3">
                   <components.StandardTable
                     data={maeValues[selectedCategory]}
                     category={selectedCategory}
                     metric="MAE"
+                    metricKey="mae"
                   />
 
                   {secondaryCategory && maeValues[secondaryCategory] && (
@@ -315,18 +355,21 @@ function DashboardPage() {
                         data={maeValues[secondaryCategory]}
                         category={secondaryCategory}
                         metric="MAE"
+                        metricKey="mae"
+                        showInfoIcon={false}
                       />
                     </div>
                   )}
                 </div>
               )}
 
-              {selectedCategory && rmseValues[selectedCategory] && (
+              {shouldShowMetric('rmse') && selectedCategory && rmseValues[selectedCategory] && (
                 <div className="section-container p-3">
                   <components.StandardTable
                     data={rmseValues[selectedCategory]}
                     category={selectedCategory}
                     metric="RMSE"
+                    metricKey="rmse"
                   />
 
                   {secondaryCategory && rmseValues[secondaryCategory] && (
@@ -335,18 +378,21 @@ function DashboardPage() {
                         data={rmseValues[secondaryCategory]}
                         category={secondaryCategory}
                         metric="RMSE"
+                        metricKey="rmse"
+                        showInfoIcon={false}
                       />
                     </div>
                   )}
                 </div>
               )}
 
-              {selectedCategory && DTWValues[selectedCategory] && (
+              {shouldShowMetric('dtw') && selectedCategory && DTWValues[selectedCategory] && (
                 <div className="section-container p-3">
                   <components.StandardTable
                     data={DTWValues[selectedCategory]}
                     category={selectedCategory}
                     metric="DTW"
+                    metricKey="dtw"
                   />
 
                   {secondaryCategory && DTWValues[secondaryCategory] && (
@@ -355,18 +401,21 @@ function DashboardPage() {
                         data={DTWValues[secondaryCategory]}
                         category={secondaryCategory}
                         metric="DTW"
+                        metricKey="dtw"
+                        showInfoIcon={false}
                       />
                     </div>
                   )}
                 </div>
               )}
 
-              {selectedCategory && EuclideanValues[selectedCategory] && (
+              {shouldShowMetric('euclidean') && selectedCategory && EuclideanValues[selectedCategory] && (
                 <div className="section-container p-3">
                   <components.StandardTable
                     data={EuclideanValues[selectedCategory]}
                     category={selectedCategory}
                     metric="Euclidean"
+                    metricKey="euclidean"
                   />
 
                   {secondaryCategory && EuclideanValues[secondaryCategory] && (
@@ -375,83 +424,87 @@ function DashboardPage() {
                         data={EuclideanValues[secondaryCategory]}
                         category={secondaryCategory}
                         metric="Euclidean"
+                        metricKey="euclidean"
+                        showInfoIcon={false}
                       />
                     </div>
                   )}
                 </div>
               )}
 
-              {enabledPlugins.length > 0 && selectedCategory && (
-                  <div className="section-container" style={{ padding: "16px" }}>
-                    <div className="d-flex justify-content-between align-items-center mb-3">
-                      <h3 style={{ margin: 0 }}>Plugins</h3>
-                      <div className="d-flex align-items-center gap-2">
-                        {isLoadingPlugins && <Spinner animation="border" size="sm" />}
-                        <Button
-                            variant="outline-secondary"
-                            size="sm"
-                            onClick={refreshPluginResults}
-                            disabled={isLoadingPlugins}
-                        >
-                          Refresh
-                        </Button>
-                      </div>
+              {visiblePlugins.length > 0 && selectedCategory && (
+                <div className="section-container" style={{ padding: "16px" }}>
+                  <div className="d-flex justify-content-between align-items-center mb-3">
+                    <h3 style={{ margin: 0 }}>Plugins</h3>
+                    <div className="d-flex align-items-center gap-2">
+                      {isLoadingPlugins && <Spinner animation="border" size="sm" />}
+                      <Button
+                        variant="outline-secondary"
+                        size="sm"
+                        onClick={refreshPluginResults}
+                        disabled={isLoadingPlugins}
+                      >
+                        Refresh
+                      </Button>
                     </div>
+                  </div>
 
-                    {enabledPlugins.map((plugin) => {
-                      const categoryData = pluginResults[plugin.id]?.[selectedCategory];
-                      const categoryError = pluginErrors[plugin.id]?.[selectedCategory];
+                  {visiblePlugins.map((plugin) => {
+                    const categoryData = pluginResults[plugin.id]?.[selectedCategory];
+                    const categoryError = pluginErrors[plugin.id]?.[selectedCategory];
 
-                      if (categoryError) {
-                        return (
-                            <div key={plugin.id} className="mb-3">
-                              <h5>{plugin.name} ({selectedCategory})</h5>
-                              <Alert variant="danger" className="py-2">
-                                {categoryError}
-                              </Alert>
-                            </div>
-                        );
-                      }
-
-                      if (!categoryData || Object.keys(categoryData).length === 0) {
-                        return null;
-                      }
-
+                    if (categoryError) {
                       return (
-                          <components.StandardTable
-                              key={plugin.id}
-                              data={categoryData}
-                              category={selectedCategory}
-                              metric={plugin.name}
-                          />
+                        <div key={plugin.id} className="mb-3">
+                          <h5>{plugin.name} ({selectedCategory})</h5>
+                          <Alert variant="danger" className="py-2">
+                            {categoryError}
+                          </Alert>
+                        </div>
                       );
-                    })}
+                    }
 
-                    {secondaryCategory && enabledPlugins.map((plugin) => {
-                      const categoryData = pluginResults[plugin.id]?.[secondaryCategory];
-                      const categoryError = pluginErrors[plugin.id]?.[secondaryCategory];
+                    if (!categoryData || Object.keys(categoryData).length === 0) {
+                      return null;
+                    }
 
-                      if (categoryError) {
-                        return (
-                            <div key={`${plugin.id}-${secondaryCategory}`} style={{ marginTop: "32px" }}>
-                              <h5>{plugin.name} ({secondaryCategory})</h5>
-                              <Alert variant="danger" className="py-2">
-                                {categoryError}
-                              </Alert>
-                            </div>
-                        );
-                      }
+                    return (
+                      <components.StandardTable
+                        key={plugin.id}
+                        data={categoryData}
+                        category={selectedCategory}
+                        metric={plugin.name}
+                        customInfo={{ name: plugin.name, description: plugin.description }}
+                      />
+                    );
+                  })}
 
-                      if (!categoryData || Object.keys(categoryData).length === 0) {
-                        return null;
-                      }
+                  {secondaryCategory && visiblePlugins.map((plugin) => {
+                    const categoryData = pluginResults[plugin.id]?.[secondaryCategory];
+                    const categoryError = pluginErrors[plugin.id]?.[secondaryCategory];
+
+                    if (categoryError) {
                       return (
-                          <div key={`${plugin.id}-${secondaryCategory}`} style={{ marginTop: "32px" }}>
-                            <components.StandardTable
-                                data={categoryData}
-                                category={secondaryCategory}
-                                metric={plugin.name}
-                            />
+                        <div key={`${plugin.id}-${secondaryCategory}`} style={{ marginTop: "32px" }}>
+                          <h5>{plugin.name} ({secondaryCategory})</h5>
+                          <Alert variant="danger" className="py-2">
+                            {categoryError}
+                          </Alert>
+                        </div>
+                      );
+                    }
+
+                    if (!categoryData || Object.keys(categoryData).length === 0) {
+                      return null;
+                    }
+                    return (
+                      <div key={`${plugin.id}-${secondaryCategory}`} style={{ marginTop: "32px" }}>
+                        <components.StandardTable
+                          data={categoryData}
+                          category={secondaryCategory}
+                          metric={plugin.name}
+                          customInfo={{ name: plugin.name, description: plugin.description }}
+                        />
                       </div>
                     );
                   })}
@@ -523,6 +576,14 @@ function DashboardPage() {
           </Button>
         </Modal.Footer>
       </Modal>
+
+      <components.MetricsSelectionModal
+        show={showMetricsModal}
+        onHide={() => setShowMetricsModal(false)}
+        userMetrics={userMetrics}
+        selectedMetrics={selectedMetricsForDisplay}
+        onApply={setSelectedMetricsForDisplay}
+      />
     </div>
   );
 }

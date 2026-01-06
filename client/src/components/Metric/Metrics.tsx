@@ -1,5 +1,8 @@
-import React from "react";
+import React, { useState } from "react";
+import { Button } from 'react-bootstrap';
+import { InfoCircle } from 'react-bootstrap-icons';
 import './Metrics.css';
+import StatisticsInfoModal from './StatisticsInfoModal';
 
 export type CombinedMetric = {
   id: string;
@@ -16,6 +19,7 @@ interface MetricsProps {
 }
 
 export const Metrics: React.FC<MetricsProps> = ({ groupedMetrics }) => {
+  const [showModal, setShowModal] = useState(false);
   const hasAnyMetrics = Object.keys(groupedMetrics).length > 0;
 
   if (!hasAnyMetrics) {
@@ -23,12 +27,25 @@ export const Metrics: React.FC<MetricsProps> = ({ groupedMetrics }) => {
   }
 
   return (
-    <div className="Metrics-container">
-      {Object.entries(groupedMetrics).map(([groupName, metrics]) => (
-        <div key={groupName} className='Metric-group' id='pdf-content-statistics-horizontal'>
-          <div className="Metrics-header">
-            <h3>{groupName} Statistics</h3>
-          </div>
+    <>
+      <div className="Metrics-container">
+        {Object.entries(groupedMetrics).map(([groupName, metrics], index) => (
+          <div key={groupName} className='Metric-group' id='pdf-content-statistics-horizontal'>
+            <div className="Metrics-header" style={{ position: 'relative' }}>
+              <h3>{groupName} Statistics</h3>
+              {index === 0 && (
+                <Button
+                  variant="link"
+                  size="sm"
+                  onClick={() => setShowModal(true)}
+                  className="p-0 position-absolute top-50 end-0 translate-middle-y me-3"
+                  title="Statistics information"
+                  aria-label="Show statistics information"
+                >
+                  <InfoCircle size={20} />
+                </Button>
+              )}
+            </div>
           <div className="Metric-wrapper">
             {metrics.map((metric) => (
               <div className="single-metric" key={metric.id}>
@@ -57,6 +74,12 @@ export const Metrics: React.FC<MetricsProps> = ({ groupedMetrics }) => {
         </div>
       ))}
     </div>
+    
+    <StatisticsInfoModal
+      show={showModal}
+      onHide={() => setShowModal(false)}
+    />
+  </>
   );
 };
 

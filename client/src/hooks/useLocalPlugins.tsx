@@ -32,6 +32,10 @@ function loadPluginsFromStorage(): LocalPlugin[] {
 function savePluginsToStorage(plugins: LocalPlugin[]): void {
     try {
         localStorage.setItem(STORAGE_KEY, JSON.stringify(plugins));
+        // Dispatch custom event to notify other components in the same tab
+        window.dispatchEvent(new CustomEvent('localStorageChange', { 
+            detail: { key: STORAGE_KEY, value: plugins } 
+        }));
     } catch (error) {
         console.error('Error saving plugins to localStorage:', error);
     }

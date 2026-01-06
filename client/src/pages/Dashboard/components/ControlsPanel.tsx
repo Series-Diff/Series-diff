@@ -9,8 +9,8 @@ interface StandardControlsProps {
     filenamesPerCategory: Record<string, string[]>;
     handleDropdownChange: (event: React.ChangeEvent<HTMLSelectElement>) => void;
     handleSecondaryDropdownChange: (event: React.ChangeEvent<HTMLSelectElement>) => void;
-    showMovingAverage: boolean;
-    handleToggleMovingAverage: () => void;
+    showMovingAverage?: boolean;
+    handleToggleMovingAverage?: () => void;
     isMaLoading: boolean;
     maWindow: string;
     setMaWindow: (value: string) => void;
@@ -66,33 +66,36 @@ const ControlsPanel: React.FC<ControlsPanelProps> = (props) => {
                             allowNoneOption
                         />
 
-                        <div className="d-flex align-items-center gap-2 ms-3">
-                            <Form.Check
-                                type="switch"
-                                id="ma-toggle"
-                                label={(props as StandardControlsProps).isMaLoading ? "Loading MA..." : "Show Moving Avg"}
-                                checked={(props as StandardControlsProps).showMovingAverage}
-                                onChange={(props as StandardControlsProps).handleToggleMovingAverage}
-                                disabled={(props as StandardControlsProps).isMaLoading}
-                            />
-                            <Form.Control
-                                type="text"
-                                style={{ width: '80px' }}
-                                size="sm"
-                                value={(props as StandardControlsProps).maWindow}
-                                onChange={(e) => (props as StandardControlsProps).setMaWindow(e.target.value)}
-                                placeholder="e.g. 1d"
-                                disabled={(props as StandardControlsProps).isMaLoading}
-                            />
-                            <Button
-                                variant="secondary"
-                                size="sm"
-                                onClick={(props as StandardControlsProps).handleApplyMaWindow}
-                                disabled={(props as StandardControlsProps).isMaLoading || !(props as StandardControlsProps).showMovingAverage}
-                            >
-                                Apply
-                            </Button>
-                        </div>
+                        {(props as StandardControlsProps).showMovingAverage !== undefined && (props as StandardControlsProps).handleToggleMovingAverage && (
+                            <div className="d-flex align-items-center gap-2 ms-3">
+                                <Form.Check
+                                    type="switch"
+                                    id="ma-toggle"
+                                    label={(props as StandardControlsProps).isMaLoading ? "Loading MA..." : "Show Moving Avg"}
+                                    checked={(props as StandardControlsProps).showMovingAverage === true}
+                                    onChange={(props as StandardControlsProps).handleToggleMovingAverage}
+                                    disabled={(props as StandardControlsProps).isMaLoading}
+                                />
+                                <Form.Control
+                                    type="text"
+                                    style={{ width: '80px' }}
+                                    size="sm"
+                                    value={(props as StandardControlsProps).maWindow}
+                                    onChange={(e) => (props as StandardControlsProps).setMaWindow(e.target.value)}
+                                    placeholder="e.g. 1d"
+                                    disabled={(props as StandardControlsProps).isMaLoading}
+                                />
+                                <Button
+                                    variant="secondary"
+                                    size="sm"
+                                    onClick={(props as StandardControlsProps).handleApplyMaWindow}
+                                    disabled={(props as StandardControlsProps).isMaLoading || (props as StandardControlsProps).showMovingAverage !== true}
+                                >
+                                    Apply
+                                </Button>
+                            </div>
+                        )}
+                        
                         <div className="d-flex align-items-center ms-3">
                             <Form.Check
                                 type="switch"
