@@ -71,6 +71,36 @@ def _create_response(data, status_code=200, token=None):
     return response
 
 
+def _apply_timezone_conversion(data, param_name="data"):
+    """
+    Apply timezone conversion to timeseries data.
+
+    :param data: Dictionary with timeseries data (keys are timestamps)
+    :param param_name: Name of the parameter for logging
+    """
+    if not data:
+        return data
+
+    tz_param = request.args.get("tz", "Europe/Warsaw")
+    keep_offset_param = request.args.get("keep_offset", "false").lower() in (
+        "1",
+        "true",
+        "yes",
+    )
+
+    try:
+        return convert_timeseries_keys_timezone(
+            data, tz_str=tz_param, keep_offset=keep_offset_param
+        )
+    except Exception as e:
+        logger.warning(
+            "Time conversion failed for %s: %s. Returning original timestamps.",
+            param_name,
+            e,
+        )
+        return data
+
+
 @app.route("/health")
 def health_check():
     try:
@@ -214,25 +244,13 @@ def get_scatter_data():
         data1 = timeseries_manager.get_timeseries(
             token=token, filename=filename1, category=category
         )
-        tz_param = request.args.get("tz", "Europe/Warsaw")
-        keep_offset_param = request.args.get("keep_offset", "false").lower() in (
-            "1",
-            "true",
-            "yes",
-        )
-        if data1:
-            data1 = convert_timeseries_keys_timezone(
-                data1, tz_str=tz_param, keep_offset=keep_offset_param
-            )
+        data1 = _apply_timezone_conversion(data1, "data1")
         serie1 = metric_service.extract_series_from_dict(data1, category, filename1)
 
         data2 = timeseries_manager.get_timeseries(
             token=token, filename=filename2, category=category
         )
-        if data2:
-            data2 = convert_timeseries_keys_timezone(
-                data2, tz_str=tz_param, keep_offset=keep_offset_param
-            )
+        data2 = _apply_timezone_conversion(data2, "data2")
         serie2 = metric_service.extract_series_from_dict(data2, category, filename2)
 
         # Użycie wspólnej logiki alignowania
@@ -854,6 +872,7 @@ def get_difference():
     except Exception as e:
         return _create_response({"error": str(e)}, 400)
 
+    difference_series = _apply_timezone_conversion(difference_series, "difference")
     return _create_response({"difference": difference_series}, 200)
 
 
@@ -875,6 +894,7 @@ def get_rolling_mean():
     except Exception as e:
         return _create_response({"error": str(e)}, 400)
 
+    rolling_mean_series = _apply_timezone_conversion(rolling_mean_series, "rolling_mean")
     return _create_response({"rolling_mean": rolling_mean_series}, 200)
 
 
