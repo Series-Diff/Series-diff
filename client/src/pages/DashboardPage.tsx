@@ -48,7 +48,12 @@ function DashboardPage() {
     isLoadingPlugins,
     refreshPluginResults,
     resetPluginResults
-  } = hooks.usePluginResults(filenamesPerCategory, plugins);
+  } = hooks.usePluginResults(
+    filenamesPerCategory, 
+    plugins, 
+    ignoreTimeRange ? null : (startDate ? startDate.toISOString() : undefined),
+    ignoreTimeRange ? null : (endDate ? endDate.toISOString() : undefined)
+  );
 
   // Difference chart hook
   const {
