@@ -9,10 +9,7 @@ const API_URL = (process.env.REACT_APP_API_URL || '').replace(/\/$/, '');
 const NUMERIC_PATTERN = /^-?\d+(\.\d+)?$/;
 
 // --- HELPER: Generate unique group IDs (outside component to persist across renders) ---
-const generateGroupId = (() => {
-  let counter = 0;
-  return () => `group-${++counter}`;
-})();
+const generateGroupId = () => `group-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
 
 interface FileConfig {
   logDateColumn: string;
@@ -411,13 +408,32 @@ export const DataImportPopup: React.FC<Props> = ({ show, files, onHide, onComple
             const dateCol = config.logDateColumn;
             const numericColumn = columns.find(col => {
               if (col === dateCol) return false;
-              const value = firstRow[col];
-              return value !== undefined && value !== null && !isNaN(parseFloat(value as any));
+              
+              // Check multiple rows (up to 10) to ensure column is truly numeric
+              const sampleSize = Math.min(config.rawData.length, 10);
+              let checkedCount = 0;
+
+              for (let i = 0; i < config.rawData.length && checkedCount < sampleSize; i++) {
+                const row = config.rawData[i];
+                const value = row[col];
+
+                // Skip null/undefined values
+                if (value === undefined || value === null || value === '') continue;
+
+                checkedCount++;
+
+                // Use strict regex validation to ensure purely numeric values
+                const strValue = String(value).trim();
+                if (!NUMERIC_PATTERN.test(strValue)) return false;
+              }
+
+              return checkedCount > 0;
             });
 
-            valueMappings[key] = numericColumn || config.valueColumn;
+            // Use 'none' instead of potentially non-numeric valueColumn if no numeric column found
+            valueMappings[key] = numericColumn || 'none';
           } else {
-            valueMappings[key] = config.valueColumn;
+            valueMappings[key] = 'none';
           }
         });
       }
@@ -1069,10 +1085,14 @@ export const DataImportPopup: React.FC<Props> = ({ show, files, onHide, onComple
                             <Button
                               size="sm"
                               variant="outline-danger"
+                              disabled={groups.filter((g) => g.id !== 'date').length <= 1}
                               onClick={() => removeGroup(group.id)}
                             >
                               Remove
                             </Button>
+                            {groups.filter((g) => g.id !== 'date').length <= 1 && (
+                              <span className="text-muted small">At least one value group is required.</span>
+                            )}
                           </div>
                         )}
                       </>
