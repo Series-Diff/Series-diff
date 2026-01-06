@@ -112,7 +112,7 @@ def create_plugin_executor_lambda(environment: str) -> dict:
         f"plugin-executor-{environment}",
         name=f"plugin-executor-{environment}",
         package_type="Image",
-        image_uri=ecr_repo.repository_url.apply(lambda url: f"{url}:latest"),
+        image_uri=image.ref,
         role=lambda_role.arn,
         timeout=120,
         memory_size=512,
