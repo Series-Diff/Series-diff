@@ -40,7 +40,7 @@ const StatisticsInfoModal: React.FC<StatisticsInfoModalProps> = ({ show, onHide 
             <Modal.Header closeButton className="bg-light">
                 <Modal.Title style={{ fontSize: '1.25rem' }}>Statistics Information</Modal.Title>
             </Modal.Header>
-            <Modal.Body style={{ maxHeight: '70vh' }}>
+            <Modal.Body style={{ maxHeight: '60vh' }}>
                 <p className="text-muted mb-3" style={{ fontSize: '0.9rem' }}>
                     Below you will find brief descriptions of each statistic displayed for time series.
                 </p>

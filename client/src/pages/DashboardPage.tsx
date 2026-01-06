@@ -99,19 +99,22 @@ function DashboardPage() {
     setChartMode(prev => prev === 'standard' ? 'difference' : 'standard');
   };
 
+  // Compute metric visibility flags to avoid circular dependencies
+  const canShowMovingAverage = shouldShowMetric('moving_average');
+  const canShowDifferenceChart = shouldShowMetric('difference_chart');
+
   // Auto-disable features when deselected in modal
   useEffect(() => {
     // If moving_average is deselected and currently active, turn it off
-    if (!shouldShowMetric('moving_average') && showMovingAverage) {
+    if (!canShowMovingAverage && showMovingAverage) {
       handleToggleMovingAverage();
     }
     
     // If difference_chart is deselected and in difference mode, switch to standard
-    if (!shouldShowMetric('difference_chart') && isInDifferenceMode) {
+    if (!canShowDifferenceChart && isInDifferenceMode) {
       setChartMode('standard');
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [selectedMetricsForDisplay, shouldShowMetric, showMovingAverage, isInDifferenceMode]);
+  }, [canShowMovingAverage, canShowDifferenceChart, showMovingAverage, isInDifferenceMode, handleToggleMovingAverage]);
 
   return (
     <div className="d-flex" style={mainStyle}>

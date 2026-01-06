@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useRef } from 'react';
 import { Metric } from '../constants/metricsConfig';
 import { LocalPlugin } from './useLocalPlugins';
 
@@ -56,7 +56,38 @@ export const useMetricsSelection = (
   // Modal visibility state
   const [showMetricsModal, setShowMetricsModal] = useState(false);
 
+  // Use ref to track current selectedMetricsForDisplay value for event handlers
+  // This avoids re-registering event listeners when selectedMetricsForDisplay changes
+  const selectedMetricsRef = useRef(selectedMetricsForDisplay);
+  
+  useEffect(() => {
+    selectedMetricsRef.current = selectedMetricsForDisplay;
+  }, [selectedMetricsForDisplay]);
+
+  // Helper function to auto-add new plugin IDs to selectedMetricsForDisplay
+  const autoAddNewPlugins = (
+    prevMetrics: Metric[], 
+    newUserMetrics: Metric[]
+  ): Metric[] => {
+    const prevIds = new Set(prevMetrics.map(m => m.value));
+    const newIds = newUserMetrics.filter(m => !prevIds.has(m.value)).map(m => m.value);
+    
+    // Use ref to get current value without dependency on selectedMetricsForDisplay
+    if (newIds.length > 0 && selectedMetricsRef.current !== null) {
+      // Add new plugin IDs to selection
+      const updatedSelection = new Set([...Array.from(selectedMetricsRef.current), ...newIds]);
+      setSelectedMetricsForDisplay(updatedSelection);
+      
+      // Save to localStorage
+      localStorage.setItem('selectedMetricsForDisplay', JSON.stringify(Array.from(updatedSelection)));
+    }
+    
+    return newUserMetrics;
+  };
+
   // Sync userMetrics whenever localStorage changes
+  // Note: selectedMetricsForDisplay is intentionally NOT in the dependency array
+  // to avoid re-registering event listeners on every state change. We use a ref instead.
   useEffect(() => {
     const handleStorageChange = () => {
       const storedPlugins = localStorage.getItem('user-custom-metrics');
@@ -71,21 +102,7 @@ export const useMetricsSelection = (
           }));
           
           // Auto-add new plugin IDs to selectedMetricsForDisplay
-          setUserMetrics(prevMetrics => {
-            const prevIds = new Set(prevMetrics.map(m => m.value));
-            const newIds = newUserMetrics.filter(m => !prevIds.has(m.value)).map(m => m.value);
-            
-            if (newIds.length > 0 && selectedMetricsForDisplay !== null) {
-              // Add new plugin IDs to selection
-              const updatedSelection = new Set([...Array.from(selectedMetricsForDisplay), ...newIds]);
-              setSelectedMetricsForDisplay(updatedSelection);
-              
-              // Save to localStorage
-              localStorage.setItem('selectedMetricsForDisplay', JSON.stringify(Array.from(updatedSelection)));
-            }
-            
-            return newUserMetrics;
-          });
+          setUserMetrics(prevMetrics => autoAddNewPlugins(prevMetrics, newUserMetrics));
         } catch (error) {
           console.error('Failed to parse plugins from localStorage:', error);
         }
@@ -105,21 +122,7 @@ export const useMetricsSelection = (
         }));
         
         // Auto-add new plugin IDs to selectedMetricsForDisplay
-        setUserMetrics(prevMetrics => {
-          const prevIds = new Set(prevMetrics.map(m => m.value));
-          const newIds = newUserMetrics.filter(m => !prevIds.has(m.value)).map(m => m.value);
-          
-          if (newIds.length > 0 && selectedMetricsForDisplay !== null) {
-            // Add new plugin IDs to selection
-            const updatedSelection = new Set([...Array.from(selectedMetricsForDisplay), ...newIds]);
-            setSelectedMetricsForDisplay(updatedSelection);
-            
-            // Save to localStorage
-            localStorage.setItem('selectedMetricsForDisplay', JSON.stringify(Array.from(updatedSelection)));
-          }
-          
-          return newUserMetrics;
-        });
+        setUserMetrics(prevMetrics => autoAddNewPlugins(prevMetrics, newUserMetrics));
       } else if (customEvent.detail?.key === 'selectedMetricsForDisplay') {
         // Update selectedMetricsForDisplay when changed in modal
         const selectedArray = customEvent.detail.value as string[];
@@ -135,7 +138,8 @@ export const useMetricsSelection = (
       window.removeEventListener('storage', handleStorageChange);
       window.removeEventListener('localStorageChange', handleCustomStorageChange);
     };
-  }, [selectedMetricsForDisplay]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []); // Empty dependency array - listeners are registered once and use ref for current state
 
   // Filter metrics based on selected metrics
   const filteredGroupedMetrics = useMemo(() => {

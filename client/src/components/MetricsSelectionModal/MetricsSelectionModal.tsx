@@ -127,14 +127,19 @@ const MetricsSelectionModal: React.FC<MetricsSelectionModalProps> = ({
         onHide();
     };
 
-    // Update localSelectedMetrics when selectedMetrics prop changes
+    // Update localSelectedMetrics when modal opens
+    // Note: allAvailableMetrics is intentionally NOT in the dependency array to avoid
+    // unnecessary re-renders when userMetrics changes. The modal state should only reset
+    // when it opens (show changes) or when external selectedMetrics prop changes.
     useEffect(() => {
         if (show) {
-            setLocalSelectedMetrics(
-                selectedMetrics === null ? new Set(allAvailableMetrics) : new Set(selectedMetrics)
-            );
+            const metricsToSet = selectedMetrics === null 
+                ? new Set(allAvailableMetrics) 
+                : new Set(selectedMetrics);
+            setLocalSelectedMetrics(metricsToSet);
         }
-    }, [show, selectedMetrics, allAvailableMetrics]);
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [show, selectedMetrics]);
 
     return (
         <Modal show={show} onHide={handleClose} size="lg" centered>
@@ -160,7 +165,7 @@ const MetricsSelectionModal: React.FC<MetricsSelectionModalProps> = ({
                     onMetricToggle={handleMetricToggle}
                     emptyStatePredefined="No metrics found"
                     emptyStateUser="No custom metrics found"
-                    maxHeight="400px"
+                    maxHeight="40vh"
                 />
             </Modal.Body>
             <Modal.Footer>
