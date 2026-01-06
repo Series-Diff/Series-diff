@@ -62,4 +62,6 @@ jobs:
 
       - name: Pulumi Preview
         working-directory: ./infra
+        env:
+          BUILDX_NO_DEFAULT_ATTESTATIONS: 1
         run: poetry run pulumi preview --stack dev
