@@ -1017,6 +1017,73 @@ def api_validate_plugin_code():
     return _create_response(result, 200, token=token)
 
 
+def _validate_plugin_request(data):
+    """Validate plugin execution request data."""
+    if not data:
+        return {"error": "No data provided"}
+
+    required_fields = ["code", "category", "filenames"]
+    for field in required_fields:
+        if field not in data:
+            return {"error": f"Missing required field: {field}"}
+
+    if not data["filenames"] or len(data["filenames"]) < 2:
+        return {"error": "At least 2 filenames required"}
+
+    return None
+
+
+def _fetch_series_data(filenames, category, start, end, token):
+    """Fetch all series data for given filenames."""
+    series_data = {}
+    for filename in filenames:
+        try:
+            raw_data = timeseries_manager.get_timeseries(
+                filename=filename,
+                category=category,
+                start=start,
+                end=end,
+                token=token,
+            )
+            series_data[filename] = metric_service.extract_series_from_dict(
+                raw_data, category, filename
+            )
+        except Exception as e:
+            logger.error("Error extracting series data for file '%s': %s", filename, e)
+            raise RuntimeError(
+                f"Error extracting series data for file '{filename}': {e}"
+            ) from e
+    return series_data
+
+
+def _build_execution_pairs(filenames, series_data):
+    """Build pairs for execution from filenames and series data."""
+    pairs = []
+    for file1 in filenames:
+        for file2 in filenames:
+            pairs.append(
+                {
+                    "series1": series_data[file1],
+                    "series2": series_data[file2],
+                    "key": f"{file1}|{file2}",
+                }
+            )
+    return pairs
+
+
+def _transform_results_to_map(execution_results):
+    """Transform flat execution results to nested structure."""
+    results_map = {}
+    for item in execution_results:
+        key = item.get("key", "")
+        if "|" in key:
+            f1, f2 = key.split("|", 1)
+            if f1 not in results_map:
+                results_map[f1] = {}
+            results_map[f1][f2] = item.get("result") if "result" in item else None
+    return results_map
+
+
 @app.route("/api/plugins/execute", methods=["POST"])
 def api_execute_plugin():
     """
@@ -1027,85 +1094,40 @@ def api_execute_plugin():
     token, _ = _get_session_token()
     data = request.get_json()
 
-    if not data:
-        return _create_response({"error": "No data provided"}, 400)
-
-    required_fields = ["code", "category", "filenames"]
-    for field in required_fields:
-        if field not in data:
-            return _create_response({"error": f"Missing required field: {field}"}, 400)
-
-    filenames = data["filenames"]
-    if not filenames or len(filenames) < 2:
-        return _create_response({"error": "At least 2 filenames required"}, 400)
+    # Validate request
+    validation_error = _validate_plugin_request(data)
+    if validation_error:
+        return _create_response(validation_error, 400)
 
     try:
-        # Fetch all series data first
-        series_data = {}
-        for filename in filenames:
-            try:
-                raw_data = timeseries_manager.get_timeseries(
-                    filename=filename,
-                    category=data["category"],
-                    start=data.get("start"),
-                    end=data.get("end"),
-                    token=token,
-                )
-                series_data[filename] = metric_service.extract_series_from_dict(
-                    raw_data, data["category"], filename
-                )
-            except Exception as e:
-                logger.error(
-                    "Error extracting series data for file '%s': %s", filename, e
-                )
-                raise RuntimeError(
-                    f"Error extracting series data for file '{filename}': {e}"
-                ) from e
+        # Fetch all series data
+        series_data = _fetch_series_data(
+            data["filenames"],
+            data["category"],
+            data.get("start"),
+            data.get("end"),
+            token,
+        )
 
-        # Build pairs for execution
-        pairs = []
-        for file1 in filenames:
-            for file2 in filenames:
-                pairs.append(
-                    {
-                        "series1": series_data[file1],
-                        "series2": series_data[file2],
-                        "key": f"{file1}|{file2}",
-                    }
-                )
-
-        # Execute
+        # Build pairs and execute
+        pairs = _build_execution_pairs(data["filenames"], series_data)
         executor = get_executor()
         result = executor.execute(data["code"], pairs)
 
-        # 1. Check for Top-Level Execution Errors (e.g., SyntaxError, Timeout)
+        # Check for top-level execution errors
         if "error" in result:
             logger.error("Plugin execution error: %s", result["error"])
             return _create_response(result, 400)
 
-        # 2. Check for Item-Level Errors (e.g., Runtime errors inside the loop)
-        # If the user code fails for one pair, it likely fails for all.
-        # We extract the first error found to show to the user.
+        # Check for item-level errors
         execution_results = result.get("results", [])
         errors = [item["error"] for item in execution_results if "error" in item]
-
         if errors:
-            # Return the first error found as a request failure
-            first_error = errors[0]
-            logger.warning("Plugin code execution failed: %s", first_error)
-            return _create_response({"error": first_error}, 400)
+            logger.warning("Plugin code execution failed: %s", errors[0])
+            return _create_response({"error": errors[0]}, 400)
 
-        # 3. Transform results to nested structure
-        results_map = {}
-        for item in execution_results:
-            key = item.get("key", "")
-            if "|" in key:
-                f1, f2 = key.split("|", 1)
-                if f1 not in results_map:
-                    results_map[f1] = {}
-                # Only map if 'result' exists (it should, since we checked for errors above)
-                results_map[f1][f2] = item.get("result") if "result" in item else None
-
+        # Transform results to nested structure
+        results_map = _transform_results_to_map(execution_results)
         logger.info("Plugin executed successfully for %d pairs", len(pairs))
         return _create_response({"results": results_map}, 200, token=token)
 

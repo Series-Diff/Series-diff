@@ -1,6 +1,8 @@
 import React, { useState, useEffect, useCallback, useMemo, forwardRef, useImperativeHandle } from 'react';
 import { Modal, Button, Form, Spinner, Alert } from 'react-bootstrap';
 import { DataTable } from '../DataTable/DataTable';
+import { ValidationErrorDisplay } from '../ValidationErrorDisplay/ValidationErrorDisplay';
+import { validateTimeSeriesJSON, ValidationResult, normalizeToISODate } from '../../utils/jsonValidation';
 import Papa from 'papaparse';
 
 const API_URL = (process.env.REACT_APP_API_URL || '').replace(/\/$/, '');
@@ -47,6 +49,8 @@ export const DataImportPopup = forwardRef<DataImportPopupHandle, Props>(
   // --- STATE: Loading & Errors ---
   const [isLoadingFile, setIsLoadingFile] = useState(false);
   const [errorParsingFile, setErrorParsingFile] = useState<string | null>(null);
+  const [validationResults, setValidationResults] = useState<Record<string, ValidationResult>>({});
+  const [filePreviewTexts, setFilePreviewTexts] = useState<Record<string, string>>({});
 
   // --- STATE: Grouping & Renaming ---
   const [groups, setGroups] = useState<Group[]>([]);
@@ -85,7 +89,7 @@ export const DataImportPopup = forwardRef<DataImportPopupHandle, Props>(
   }, []);
 
   // --- HELPER: Flatten Object ---
-  const flattenObject = (obj: any, prefix = ''): Record<string, any> => {
+  const flattenObject = useCallback((obj: any, prefix = ''): Record<string, any> => {
     let result: Record<string, any> = {};
     for (const key in obj) {
       if (!obj.hasOwnProperty(key)) continue;
@@ -99,24 +103,196 @@ export const DataImportPopup = forwardRef<DataImportPopupHandle, Props>(
       }
     }
     return result;
-  };
+  }, []);
 
   // --- HELPER: Get File ID (stable file identifier) ---
-  const getFileId = (file?: File) => {
+  const getFileId = useCallback((file?: File) => {
     if (!file) return '';
     return file.name.replace(/\.(json|csv)$/i, '');
-  };
+  }, []);
 
   // --- HELPER: Get File Key (display name) ---
-  const getFileKey = (file?: File) => {
+  const getFileKey = useCallback((file?: File) => {
     if (!file) return '';
     const originalKey = file.name.replace(/\.(json|csv)$/i, '');
     return renamedFiles[originalKey] || originalKey;
-  };
+  }, [renamedFiles]);
 
   const currentFile = files[currentFileIndex];
   const currentFileKey = getFileKey(currentFile);
   const currentConfig = currentFileKey ? fileConfigs[currentFileKey] : null;
+
+  // --- EFFECT: Reset State on Open ---
+  useEffect(() => {
+    if (show && files.length > 0) {
+      setCurrentStep('file-preview');
+      setCurrentFileIndex(0);
+      setFileConfigs({});
+      setColumnOptions([]);
+      setErrorParsingFile(null);
+      setGroups([]);
+      setRenamedFiles({});
+      setEditingGroupName(null);
+      setTempGroupName('');
+      setGroupNameError(null);
+
+      // Reset pivot state
+      setIsPivotMode({});
+      setPivotIndex('');
+      setPivotColumn('');
+      setPivotValue('');
+      setPivotError(null);
+      setOriginalData({});
+      setPivotWarnings({});
+      setPivotApplied({});
+    }
+  }, [show, files]);
+
+  // --- EFFECT: Load file when modal opens ---
+  useEffect(() => {
+    if (show && files.length > 0 && currentFileIndex === 0) {
+      // Call loadFileForConfiguration asynchronously
+      const timer = setTimeout(() => {
+        const loadFile = async () => {
+          if (!files || files.length === 0 || currentFileIndex >= files.length) return;
+          
+          setIsLoadingFile(true);
+          setErrorParsingFile(null);
+          setPivotError(null);
+
+          const file = files[currentFileIndex];
+          const fileKey = getFileKey(file);
+
+          // Cache check
+          if (fileConfigs[fileKey]?.rawData) {
+            const firstEntry = fileConfigs[fileKey].rawData[0];
+            if (typeof firstEntry === 'object' && firstEntry !== null) {
+              setColumnOptions(Object.keys(firstEntry));
+            }
+            setIsLoadingFile(false);
+            return;
+          }
+
+          try {
+            const text = await file.text();
+            
+            // Extract file preview (first 20 lines or less)
+            const lines = text.split('\n');
+            const maxPreviewLines = 20;
+            const previewText = lines.slice(0, maxPreviewLines).join('\n');
+            setFilePreviewTexts(prev => ({ ...prev, [fileKey]: previewText }));
+
+            let dataArray: any[] = [];
+
+            if (file.name.toLowerCase().endsWith('.csv')) {
+              const result = Papa.parse(text, {
+                header: true,
+                skipEmptyLines: true,
+                dynamicTyping: true,
+              });
+              if (result.errors.length > 0) {
+                throw new Error(`CSV Parsing Error: ${result.errors[0].message}`);
+              }
+              dataArray = result.data;
+            } else if (file.name.toLowerCase().endsWith('.json')) {
+              const jsonData = JSON.parse(text);
+              dataArray = Array.isArray(jsonData) ? jsonData : (typeof jsonData === 'object' && jsonData !== null ? [jsonData] : []);
+              
+              // Validate JSON format using validateTimeSeriesJSON
+              const validationResult = validateTimeSeriesJSON(dataArray);
+              setValidationResults(prev => ({ ...prev, [fileKey]: validationResult }));
+              
+              // If there are errors, throw them
+              if (validationResult.errors.length > 0) {
+                const errorMessages = validationResult.errors.join('; ');
+                throw new Error(`Validation Error: ${errorMessages}`);
+              }
+            } else {
+              throw new Error(`Unsupported file type: ${file.name}. Please upload .json or .csv files.`);
+            }
+
+            const flattenedDataArray = dataArray.map(entry => flattenObject(entry));
+
+            if (flattenedDataArray.length > 0) {
+              const firstEntry = flattenedDataArray[0];
+              const columns = Object.keys(firstEntry);
+              setColumnOptions(columns);
+
+              // Store original data before any pivot (using stable file ID)
+              const fileId = getFileId(file);
+              setOriginalData(prev => ({ ...prev, [fileId]: flattenedDataArray }));
+
+              // Advanced detection if file might need pivoting (long format detection)
+              const hasDateCol = columns.some(c => c.toLowerCase().includes('date') || c.toLowerCase().includes('time'));
+              const hasNameCol = columns.some(c => c.toLowerCase().includes('name') || c.toLowerCase().includes('type') || c.toLowerCase().includes('metric') || c.toLowerCase().includes('category') || c.toLowerCase().includes('sensor'));
+              const hasValueCol = columns.some(c => c.toLowerCase().includes('value') || c.toLowerCase().includes('reading') || c.toLowerCase().includes('measure') || c.toLowerCase().includes('data') || c.toLowerCase() === 'y');
+
+              // Check if multiple rows have the same date but different metric values (strong indicator of long format)
+              let isProbablyLongFormat = false;
+              if (hasDateCol && hasNameCol && hasValueCol && flattenedDataArray.length > 2) {
+                const dateColName = columns.find(c => c.toLowerCase().includes('date') || c.toLowerCase().includes('time'));
+                const nameColName = columns.find(c => c.toLowerCase().includes('name') || c.toLowerCase().includes('type') || c.toLowerCase().includes('metric') || c.toLowerCase().includes('category') || c.toLowerCase().includes('sensor'));
+
+                if (dateColName && nameColName) {
+                  // Sample a subset of rows to see if any date has multiple different metrics
+                  const maxSampleSize = 100;
+                  const sampleSize = Math.min(flattenedDataArray.length, maxSampleSize);
+                  const dateStats: Record<string, { count: number; metrics: Set<string> }> = {};
+
+                  for (let i = 0; i < sampleSize; i++) {
+                    const row = flattenedDataArray[i];
+                    const dateValue = String(row[dateColName]);
+                    if (!dateStats[dateValue]) {
+                      dateStats[dateValue] = { count: 0, metrics: new Set() };
+                    }
+                    dateStats[dateValue].count++;
+                    dateStats[dateValue].metrics.add(String(row[nameColName]));
+                  }
+
+                  // If any date has multiple different metrics, it's likely long format
+                  isProbablyLongFormat = Object.values(dateStats).some(
+                    stat => stat.count > 1 && stat.metrics.size > 1
+                  );
+                }
+              }
+
+              if (isProbablyLongFormat) {
+                setPivotWarnings(prev => ({ ...prev, [fileId]: 'This file appears to be in "long format" (multiple data types per timestamp). You may want to enable "Pivot Data" to transform it.' }));
+              } else {
+                setPivotWarnings(prev => {
+                  const newWarnings = { ...prev };
+                  delete newWarnings[fileId];
+                  return newWarnings;
+                });
+              }
+
+              const newConfig: FileConfig = {
+                logDateColumn: columns.find(c => c.toLowerCase().includes('date') || c.toLowerCase().includes('time')) || columns[0] || '',
+                valueColumn: columns.find(c => c.toLowerCase().includes('value') || c.toLowerCase().includes('metric')) || (columns.length > 1 ? columns[1] : columns[0]) || '',
+                rawData: flattenedDataArray,
+              };
+              setFileConfigs(prev => ({ ...prev, [fileKey]: newConfig }));
+            } else {
+              throw new Error(`File ${file.name} is empty or not an array of objects.`);
+            }
+          } catch (e: any) {
+            console.error(`Error processing file ${file.name}:`, e);
+            let errorMessage = `Error parsing file ${file.name}: ${e.message}.`;
+            if (e.message.includes('Unexpected token')) {
+              errorMessage += ' Please check for common JSON errors like missing commas or brackets.';
+            }
+            setErrorParsingFile(errorMessage);
+          } finally {
+            setIsLoadingFile(false);
+          }
+        };
+        loadFile();
+      }, 0);
+      return () => clearTimeout(timer);
+    }
+  }, [show, files, currentFileIndex, fileConfigs, getFileKey, getFileId, flattenObject]);
+
+
   const resetState = () => {
     setCurrentStep('file-preview');
     setCurrentFileIndex(0);
@@ -197,6 +373,13 @@ export const DataImportPopup = forwardRef<DataImportPopupHandle, Props>(
 
     try {
       const text = await file.text();
+      
+      // Extract file preview (first 20 lines or less)
+      const lines = text.split('\n');
+      const maxPreviewLines = 20;
+      const previewText = lines.slice(0, maxPreviewLines).join('\n');
+      setFilePreviewTexts(prev => ({ ...prev, [fileKey]: previewText }));
+
       let dataArray: any[] = [];
 
       if (file.name.toLowerCase().endsWith('.csv')) {
@@ -212,6 +395,16 @@ export const DataImportPopup = forwardRef<DataImportPopupHandle, Props>(
       } else if (file.name.toLowerCase().endsWith('.json')) {
         const jsonData = JSON.parse(text);
         dataArray = Array.isArray(jsonData) ? jsonData : (typeof jsonData === 'object' && jsonData !== null ? [jsonData] : []);
+        
+        // Validate JSON format using validateTimeSeriesJSON
+        const validationResult = validateTimeSeriesJSON(dataArray);
+        setValidationResults(prev => ({ ...prev, [fileKey]: validationResult }));
+        
+        // If there are errors, throw them
+        if (validationResult.errors.length > 0) {
+          const errorMessages = validationResult.errors.join('; ');
+          throw new Error(`Validation Error: ${errorMessages}`);
+        }
       } else {
         throw new Error(`Unsupported file type: ${file.name}. Please upload .json or .csv files.`);
       }
@@ -315,7 +508,7 @@ return prevGroups.map(group => {
     } finally {
       setIsLoadingFile(false);
     }
-  }, [files, fileConfigs, renamedFiles]);
+  }, [files, fileConfigs, renamedFiles, flattenObject, getFileId, getFileKey, validateTimeSeriesJSON]);
 
   useImperativeHandle(ref, () => ({
     resetAllData: () => {
@@ -435,6 +628,12 @@ useEffect(() => {
       setCurrentFileIndex(currentFileIndex + 1);
       setEditingFileName(false);
     } else {
+      // Check if there are any loaded files before going to column config
+      if (Object.keys(fileConfigs).length === 0) {
+        alert('No valid files were loaded. All files were either skipped or failed validation.');
+        onHide();
+        return;
+      }
       setCurrentStep('column-config');
       initializeGroups();
     }
@@ -455,6 +654,10 @@ useEffect(() => {
   const initializeGroups = () => {
     if (groups.length > 0) return;
     const fileKeys = Object.keys(fileConfigs);
+    if (fileKeys.length === 0) {
+      console.warn('No files loaded - cannot initialize groups');
+      return;
+    }
     if (fileKeys.length > 0) {
       // Find first COMMON numeric column (exists in all files and is numeric)
       // This ensures consistency across all files, not per-file selection
@@ -710,6 +913,8 @@ useEffect(() => {
       }
 
       for (const fileKey in group.fileMappings) {
+        // Skip files that failed initial JSON validation
+        if (validationResults[fileKey]?.isValid === false) continue;
         const columnName = group.fileMappings[fileKey];
         if (!columnName || columnName === 'none') continue;
 
@@ -722,8 +927,9 @@ useEffect(() => {
 
         const errorKey = `${group.id}-${fileKey}`;
         if (group.id === 'date') {
-          const dateObj = new Date(value);
-          if (isNaN(dateObj.getTime())) {
+          // Align date parsing with upload-time validation to support SensorData formats
+          const dateObj = normalizeToISODate(value);
+          if (!dateObj || isNaN(dateObj.getTime())) {
             errors[errorKey] = `Column '${columnName}' appears to contain an invalid date format.`;
           }
         } else {
@@ -746,6 +952,8 @@ useEffect(() => {
     if (!dateGroup) return result;
 
     Object.entries(fileConfigs).forEach(([fileKey, config]) => {
+      // Skip files that failed initial JSON validation
+      if (validationResults[fileKey]?.isValid === false) return;
       const dateColumn = dateGroup.fileMappings[fileKey];
       if (!dateColumn) return;
 
@@ -753,8 +961,9 @@ useEffect(() => {
         const dateValue = row[dateColumn];
         if (dateValue === undefined) return;
 
-        const dateObj = new Date(dateValue);
-        if (isNaN(dateObj.getTime())) return;
+        // Use normalizeToISODate for consistent date format handling
+        const dateObj = normalizeToISODate(dateValue);
+        if (!dateObj || isNaN(dateObj.getTime())) return;
         const isoDateString = dateObj.toISOString();
 
         if (!result[isoDateString]) {
@@ -994,8 +1203,8 @@ useEffect(() => {
                 ) : (
                   <span className="fw-normal text-muted">No file loaded</span>
                 )}
-              </Form.Label>
-            </Form.Group>
+                </Form.Label>
+              </Form.Group>
 
             {/* --- SEKCJA PIVOT START --- */}
             {currentFile && pivotWarnings[getFileId(currentFile)] && !isPivotMode[getFileId(currentFile)] && (
@@ -1014,6 +1223,11 @@ useEffect(() => {
                 id="pivot-switch"
                 label="Pivot Data"
                 checked={isPivotMode[getFileId(currentFile)] || false}
+                disabled={
+                  validationResults[currentFileKey]?.isValid === false ||
+                  !fileConfigs[currentFileKey]?.rawData ||
+                  fileConfigs[currentFileKey]?.rawData.length === 0
+                }
                 onChange={(e) => {
                   const fileKey = getFileKey(currentFile);
                   const fileId = getFileId(currentFile);
@@ -1079,7 +1293,12 @@ useEffect(() => {
                     variant="primary"
                     size="sm"
                     onClick={handleApplyPivot}
-                    disabled={isLoadingFile || !pivotIndex || !pivotColumn || !pivotValue}
+                    disabled={
+                      isLoadingFile || !pivotIndex || !pivotColumn || !pivotValue ||
+                      validationResults[currentFileKey]?.isValid === false ||
+                      !fileConfigs[currentFileKey]?.rawData ||
+                      fileConfigs[currentFileKey]?.rawData.length === 0
+                    }
                   >
                     {isLoadingFile ? <Spinner size="sm" animation="border" /> : 'Apply Pivot'}
                   </Button>
@@ -1090,7 +1309,14 @@ useEffect(() => {
             {/* --- SEKCJA PIVOT END --- */}
 
             {isLoadingFile && <p>Loading data...</p>}
-            {errorParsingFile && !isPivotMode[getFileId(currentFile)] && <p style={{ color: 'red' }}>Error: {errorParsingFile}</p>}
+            {errorParsingFile && !isPivotMode[getFileId(currentFile)] && (
+              <ValidationErrorDisplay
+                validationResult={validationResults[getFileKey(currentFile)]}
+                fileName={getFileKey(currentFile)}
+                filePreview={filePreviewTexts[getFileKey(currentFile)]}
+                error={errorParsingFile}
+              />
+            )}
 
             {!isLoadingFile && currentConfig?.rawData && (
               <div className="mt-4">
@@ -1120,6 +1346,18 @@ useEffect(() => {
 
             {/* Data Groups Section */}
             <h5 className="fw-bold">Data Groups</h5>
+            {Object.keys(fileConfigs).length === 0 ? (
+              <Alert variant="warning">
+                <strong>No files loaded</strong>
+                <p className="mb-0">There are no valid files to configure. Please go back and load valid files.</p>
+              </Alert>
+            ) : (
+              <>
+            <h5 className="fw-bold mb-3">Configure Column Groups</h5>
+            <p className="text-muted mb-4">
+              Group columns from different files together for comparison. The Date Group is automatically configured.
+            </p>
+
             {groups.map((group) => {
               const isEditing = editingGroupName === group.id;
               return (
@@ -1278,6 +1516,8 @@ useEffect(() => {
             )}
           </>
         )}
+        </>
+      )}
       </Modal.Body>
 
       <Modal.Footer>
@@ -1289,7 +1529,7 @@ useEffect(() => {
           onClick={currentStep === 'file-preview' ? handleNextFilePreview : handleFinish}
           disabled={
             currentStep === 'file-preview'
-              ? isLoadingFile || !!errorParsingFile || !!renameError || (isPivotMode[getFileId(currentFile)] && !!pivotError)
+              ? isLoadingFile || !!renameError
               : Object.keys(fieldErrors).length > 0 || !hasNonDateGroups()
           }
         >
