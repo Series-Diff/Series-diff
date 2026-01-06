@@ -12,7 +12,7 @@ const handleSessionToken = (response: Response) => {
   }
 };
 
-async function fetchallVariances(
+async function fetchVariance(
   category: string,
   filename: string,
   start?: string,
@@ -51,7 +51,6 @@ async function fetchallVariances(
   return data.variance ?? null;
 }
 
-
 export async function fetchAllVariances(
   filenamesPerCategory: Record<string, string[]>,
   start?: string,
@@ -62,7 +61,7 @@ export async function fetchAllVariances(
   for (const category of Object.keys(filenamesPerCategory)) {
     for (const filename of filenamesPerCategory[category]) {
       try {
-        const variance = await fetchallVariances(category, filename, start, end);
+        const variance = await fetchVariance(category, filename, start, end);
         if (!varianceValues[category]) {
           varianceValues[category] = {};
         }
@@ -77,4 +76,3 @@ export async function fetchAllVariances(
 
   return varianceValues;
 }
-
