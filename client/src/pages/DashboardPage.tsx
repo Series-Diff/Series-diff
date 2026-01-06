@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { Button, Modal, Form, Spinner, Alert } from 'react-bootstrap';
 import './DashboardPage.css';
 import '../components/Chart/Chart.css';
@@ -6,6 +6,7 @@ import '../components/Metric/Metrics.css';
 import '../components/Dropdown/Dropdown.css';
 import * as components from '../components';
 import * as hooks from '../hooks';
+import { useManualData } from '../hooks/useManualData'; 
 
 import ControlsPanel from './Dashboard/components/ControlsPanel';
 import DifferenceSelectionPanel from './Dashboard/components/DifferenceSelectionPanel';
@@ -14,13 +15,19 @@ function DashboardPage() {
   const [chartMode, setChartMode] = useState<'standard' | 'difference'>('standard');
   const chartContainerRef = useRef<HTMLDivElement>(null);
 
-  const { chartData, error, setError, isLoading, setIsLoading, filenamesPerCategory, handleFetchData, handleReset: baseReset } = hooks.useDataFetching();
+
+  const { chartData, error, setError, isLoading, setIsLoading, filenamesPerCategory, handleFetchData, handleReset: baseReset  } = hooks.useDataFetching();
+ 
+  const { manualData, addManualData, clearManualData, removeByFileId, removeTimestampFromGroup, updateManualPoint } = useManualData();
+  const [showManualModal, setShowManualModal] = useState(false);
+  const [showManualEdit, setShowManualEdit] = useState(false);
   const { showMovingAverage, maWindow, setMaWindow, isMaLoading, rollingMeanChartData, handleToggleMovingAverage, handleApplyMaWindow, resetMovingAverage, } = hooks.useMovingAverage(filenamesPerCategory, setError);
-  const { selectedCategory, secondaryCategory, handleRangeChange, syncColorsByFile, setSyncColorsByFile, filteredData, handleDropdownChange, handleSecondaryDropdownChange, resetChartConfig } = hooks.useChartConfiguration(filenamesPerCategory, chartData, rollingMeanChartData, showMovingAverage, maWindow);
-  const { maeValues, rmseValues, PearsonCorrelationValues, DTWValues, EuclideanValues, CosineSimilarityValues, groupedMetrics, resetMetrics } = hooks.useMetricCalculations(filenamesPerCategory, selectedCategory, secondaryCategory);
+  const { isPopupOpen, selectedFiles, handleFileUpload, handlePopupComplete, handlePopupClose, resetFileUpload } = hooks.useFileUpload(handleFetchData, setError, setIsLoading);
+  const { startDate, endDate, handleStartChange, handleEndChange, resetDates, defaultMinDate, defaultMaxDate,   ignoreTimeRange,setIgnoreTimeRange, } = hooks.useDateRange(Object.entries(chartData).map(([_, entries]) => ({ entries })), manualData);
+  const { selectedCategory, secondaryCategory, handleRangeChange, syncColorsByFile, setSyncColorsByFile, filteredData, handleDropdownChange, handleSecondaryDropdownChange, resetChartConfig } = hooks.useChartConfiguration(filenamesPerCategory, chartData, rollingMeanChartData, showMovingAverage, maWindow,   ignoreTimeRange ? null : startDate,ignoreTimeRange ? null : endDate);
+  const { maeValues, rmseValues, PearsonCorrelationValues, DTWValues, EuclideanValues, CosineSimilarityValues, groupedMetrics, resetMetrics } = hooks.useMetricCalculations(filenamesPerCategory, selectedCategory, secondaryCategory,   ignoreTimeRange ? null : startDate,ignoreTimeRange ? null : endDate);
   const { scatterPoints, isScatterLoading, isScatterOpen, selectedPair, handleCloseScatter, handleCellClick } = hooks.useScatterPlot();
   const { showTitleModal, setShowTitleModal, reportTitle, setReportTitle, isExporting, handleExportClick, handleExportToPDF } = hooks.useExport(chartData);
-  const { isPopupOpen, selectedFiles, handleFileUpload, handlePopupComplete, handlePopupClose, resetFileUpload } = hooks.useFileUpload(handleFetchData, setError, setIsLoading);
   const { dataImportPopupRef, resetAllData } = hooks.useDataImportPopup();
   const { userMetrics, selectedMetricsForDisplay, setSelectedMetricsForDisplay, showMetricsModal, setShowMetricsModal, filteredGroupedMetrics, shouldShowMetric } = hooks.useMetricsSelection(groupedMetrics);
 
@@ -41,7 +48,12 @@ function DashboardPage() {
     isLoadingPlugins,
     refreshPluginResults,
     resetPluginResults
-  } = hooks.usePluginResults(filenamesPerCategory, plugins);
+  } = hooks.usePluginResults(
+    filenamesPerCategory, 
+    plugins, 
+    ignoreTimeRange ? null : (startDate ? startDate.toISOString() : undefined),
+    ignoreTimeRange ? null : (endDate ? endDate.toISOString() : undefined)
+  );
 
   // Difference chart hook
   const {
@@ -71,6 +83,8 @@ function DashboardPage() {
     resetMovingAverage();
     resetFileUpload();
     resetPluginResults();
+    resetDates();
+    clearManualData();
     resetDifferenceChart();
     resetAllData();
   };
@@ -155,7 +169,8 @@ function DashboardPage() {
               isLoading={isLoading}
               handleFileUpload={handleFileUpload}
               handleReset={handleReset}
-            />
+
+          />
           )}
 
           {/* Error Display */}
@@ -181,18 +196,62 @@ function DashboardPage() {
                   <div className="d-flex align-items-center justify-content-center text-muted flex-grow-1" style={{ minHeight: chartDynamicHeight }}>
                     Load data to visualize
                   </div>}
+                
                 {!isLoading && hasData && (
-                  <div className="chart-wrapper" style={{ height: chartDynamicHeight }}>
-                    <components.MyChart
-                      primaryData={filteredData.primary}
-                      secondaryData={filteredData.secondary || undefined}
-                      syncColorsByFile={syncColorsByFile}
-                    />
-                  </div>
+                    <><div className="d-flex w-100 px-3 py-2 ">
+                    <div className="d-flex  gap-2 w-100">
+                      <components.DateTimePicker
+                        label="Start"
+                        value={startDate}
+                        onChange={handleStartChange}
+                        minDate={defaultMinDate}
+                        maxDate={endDate ?? defaultMaxDate}
+                        openToDate={startDate ?? defaultMinDate} />
+
+                      <components.DateTimePicker
+                        label="End"
+                        value={endDate}
+                        onChange={handleEndChange}
+                        minDate={startDate ?? defaultMinDate}
+                        maxDate={defaultMaxDate}
+                        openToDate={endDate ?? defaultMaxDate} />
+
+                      <div className="d-flex align-items-center ms-2 pb-1">
+                        <Form.Check
+                          type="switch"
+                          id="date-filter-toggle"
+                          label={<span className="text-nowrap small text-muted">Calculate metrics on full date range</span>}
+                          checked={ignoreTimeRange}
+                          onChange={(e) => setIgnoreTimeRange(e.target.checked)}
+                          className="mb-0" />
+
+                      </div>
+                      <div className="d-flex ms-auto p-2">
+                        <div className="d-flex gap-2">
+                          <Button
+                            variant="outline-secondary"
+                            size="sm"
+                            onClick={() => Object.keys(manualData).length === 0 ? setShowManualModal(true) : setShowManualEdit(true)}
+                            className="ms-2 mb-1 text-nowrap"
+                          >
+                            Manual Measurements
+                          </Button>
+                        </div>
+                      </div>
+                      
+                    </div>
+                  </div><div className="chart-wrapper " style={{ height: chartDynamicHeight }}>
+
+                      <components.MyChart
+                        primaryData={filteredData.primary}
+                        secondaryData={filteredData.secondary || undefined}
+                        syncColorsByFile={syncColorsByFile}
+                        manualData={manualData} />
+
+                    </div></>
                 )}
               </>
             )}
-
             {/* Difference Chart Mode */}
             {isInDifferenceMode && (
               <>
@@ -513,16 +572,37 @@ function DashboardPage() {
             </>
           )}
 
-          <components.ScatterPlotModal
-            show={isScatterOpen}
-            onHide={handleCloseScatter}
-            file1={selectedPair.file1}
-            file2={selectedPair.file2}
-            points={scatterPoints}
-            isLoading={isScatterLoading}
+          <components.ScatterPlotModal show={isScatterOpen} onHide={handleCloseScatter} file1={selectedPair.file1} file2={selectedPair.file2} points={scatterPoints} isLoading={isScatterLoading} />
+          <components.DataImportPopup ref={dataImportPopupRef} show={isPopupOpen} onHide={handlePopupClose} files={selectedFiles} onComplete={handlePopupComplete} />
+          
+      
+          <components.ManualDataImport 
+            show={showManualModal}
+            onHide={() => setShowManualModal(false)}
+            onHideToEdit={() => {
+              setShowManualModal(false);
+              setShowManualEdit(true);
+            }}
+            existingData={chartData}
+            onAddData={addManualData} 
           />
 
-          <components.DataImportPopup ref={dataImportPopupRef} show={isPopupOpen} onHide={handlePopupClose} files={selectedFiles} onComplete={handlePopupComplete} />
+          <components.ManualDataEdit
+            show={showManualEdit}
+            onHide={() => setShowManualEdit(false)}
+            manualData={manualData}
+            chartData={chartData}
+            onRemoveTimestamp={(fileId, ts, rowIdx) => removeTimestampFromGroup(fileId, ts, rowIdx)}
+            onRemoveGroup={(fileId) => removeByFileId(fileId)}
+            onUpdatePoint={(seriesKey, ts, val, idx) => updateManualPoint(seriesKey, ts, val, idx)}
+            onClearAll={() => clearManualData()}
+            onAddManualData={addManualData}
+            onOpenImport={() => {
+              setShowManualEdit(false);
+              setShowManualModal(true);
+            }}
+          />
+
         </div>
       </div>
 
@@ -552,7 +632,7 @@ function DashboardPage() {
         </div>
       )}
 
-      <Modal show={showTitleModal} onHide={() => setShowTitleModal(false)} centered>
+     <Modal show={showTitleModal} onHide={() => setShowTitleModal(false)} centered>
         <Modal.Header closeButton>
           <Modal.Title>Enter report title</Modal.Title>
         </Modal.Header>

@@ -18,17 +18,25 @@ async function fetchMae(
   category: string,
   filename1: string,
   filename2: string,
+  start?: string,
+  end?: string,
   tolerance?: string
 ): Promise<number | null> {
-  const tolParam = tolerance ? `&tolerance=${encodeURIComponent(tolerance)}` : "";
+  const params = new URLSearchParams();
+  params.set('category', category.trim());
+  params.set('filename1', filename1.trim());
+  params.set('filename2', filename2.trim());
+  if (start) params.set('start', start);
+  if (end) params.set('end', end);
+  if (tolerance) params.set('tolerance', tolerance);
+  const url = `${API_URL}/api/timeseries/mae?${params.toString()}`;
 
-  const resp = await fetch(
-    `${API_URL}/api/timeseries/mae?category=${encodeURIComponent(category.trim())}&filename1=${encodeURIComponent(filename1.trim())}&filename2=${encodeURIComponent(filename2.trim())}${tolParam}`
-  , {
-      headers: {
-        ...getAuthHeaders(),
-      },
-    });
+  const resp = await fetch(url, {
+    headers: {
+      ...getAuthHeaders(),
+    },
+  });
+
   handleSessionToken(resp);
 
   if (!resp.ok) {
@@ -42,6 +50,8 @@ async function fetchMae(
 
 export async function fetchAllMae(
   filenamesPerCategory: Record<string, string[]>,
+  start?: string,
+  end?: string,
   tolerance?: string
 ): Promise<Record<string, Record<string, Record<string, number>>>> {
   const maeValues: Record<string, Record<string, Record<string, number>>> = {};
@@ -54,7 +64,7 @@ export async function fetchAllMae(
         if (f1 === f2) continue;
 
         try {
-          const mae = await fetchMae(category, f1, f2, tolerance);
+          const mae = await fetchMae(category, f1, f2, start, end, tolerance);
 
           if (!maeValues[category]) maeValues[category] = {};
           if (!maeValues[category][f1]) maeValues[category][f1] = {};

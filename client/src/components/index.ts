@@ -2,7 +2,7 @@ export { default as MyChart } from './Chart/Chart';
 export { default as DataImportPopup } from './DataImportPopup/DataImportPopup';
 export { default as Metrics } from './Metric/Metrics';
 export type { CombinedMetric } from './Metric/Metrics';
-
+export { default as DateTimePicker } from './DateTimePicker/DateTimePicker';
 export { default as Select } from './Select/Select';
 export { default as Dropdown } from './Dropdown/Dropdown';
 export { default as CorrelationTable } from './CorrelationTable/CorrelationTable';
@@ -16,3 +16,5 @@ export { MetricRow } from './MetricRow/MetricRow';
 export { Header } from './Header';
 export { default as MetricsSelectionModal } from './MetricsSelectionModal/MetricsSelectionModal';
 export { MetricsListPanel } from './MetricsListPanel/MetricsListPanel';
+export { default as ManualDataImport } from './ManualDataImport/ManualDataImport';
+export { default as ManualDataEdit } from './ManualDataEdit/ManualDataEdit';

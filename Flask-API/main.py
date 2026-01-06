@@ -911,16 +911,18 @@ def get_euclidean_distance():
     filename1 = request.args.get("filename1")
     filename2 = request.args.get("filename2")
     category = request.args.get("category")
+    start = request.args.get("start")
+    end = request.args.get("end")
     tolerance = request.args.get("tolerance")
 
     try:
         data1 = timeseries_manager.get_timeseries(
-            token=token, filename=filename1, category=category
+            token=token, filename=filename1, category=category, start=start, end=end
         )
         series1 = metric_service.extract_series_from_dict(data1, category, filename1)
 
         data2 = timeseries_manager.get_timeseries(
-            token=token, filename=filename2, category=category
+            token=token, filename=filename2, category=category, start=start, end=end
         )
         series2 = metric_service.extract_series_from_dict(data2, category, filename2)
 

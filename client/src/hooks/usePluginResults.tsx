@@ -28,7 +28,9 @@ export interface UsePluginResultsReturn {
 
 export const usePluginResults = (
     filenamesPerCategory: Record<string, string[]>,
-    plugins: LocalPlugin[]
+    plugins: LocalPlugin[],
+    start?: string | null,
+    end?: string | null
 ): UsePluginResultsReturn => {
     const [pluginResults, setPluginResults] = useState<PluginResultsMap>({});
     const [isLoadingPlugins, setIsLoadingPlugins] = useState(false);
@@ -65,7 +67,9 @@ export const usePluginResults = (
                         const pluginResult = await executePlugin(
                             plugin.code,
                             category,
-                            files
+                            files,
+                            start || undefined,
+                            end || undefined
                         );
 
                         if (pluginResult.error) {
@@ -90,14 +94,14 @@ export const usePluginResults = (
         } finally {
             setIsLoadingPlugins(false);
         }
-    }, [filenamesPerCategory, plugins]);
+    }, [filenamesPerCategory, plugins, start, end]);
 
     // Auto-refresh when files or plugin definitions change
     useEffect(() => {
         if (Object.keys(filenamesPerCategory).length > 0 && plugins.length > 0) {
             refreshPluginResults();
         }
-    }, [filenamesPerCategory, plugins, refreshPluginResults]);
+    }, [filenamesPerCategory, plugins, refreshPluginResults, start, end]);
 
     const resetPluginResults = useCallback(() => {
         setPluginResults({});

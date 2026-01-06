@@ -9,33 +9,38 @@ import { TimeSeriesEntry } from "@/services/fetchTimeSeries";
 interface MyChartProps {
     primaryData: Record<string, TimeSeriesEntry[]>;
     secondaryData?: Record<string, TimeSeriesEntry[]>;
+    manualData?: Record<string, TimeSeriesEntry[]>; 
     title?: string;
     syncColorsByFile?: boolean;
 }
 
-const MyChart: React.FC<MyChartProps> = ({ primaryData, secondaryData, title, syncColorsByFile =true}) => {
-    // Extract state and setters from hook
-    const {
-        xaxisRange,
-        tickFormat,
-        showMarkers,
-        customRange, setCustomRange,
-        customYMin, setCustomYMin,
-        customYMax, setCustomYMax,
-        customRange2, setCustomRange2,
-        customY2Min, setCustomY2Min,
-        customY2Max, setCustomY2Max,
-        visibleMap, setVisibleMap,
-        handleRelayout,
+const MyChart: React.FC<MyChartProps> = ({ 
+    primaryData, 
+    secondaryData, 
+    manualData = {}, 
+    title, 
+    syncColorsByFile = true
+}) => {
+    
+   const {
+        xaxisRange, tickFormat, showMarkers,
+        customRange, setCustomRange, customYMin, setCustomYMin, customYMax, setCustomYMax,
+        customRange2, setCustomRange2, customY2Min, setCustomY2Min, customY2Max, setCustomY2Max,
+        visibleMap, setVisibleMap, handleRelayout,
         primaryDataBounds,
         secondaryDataBounds,
-    } = useChartState(primaryData, secondaryData);
+    } = useChartState(primaryData, secondaryData, manualData); 
 
-    // Extract interaction handlers from hook
     const { handleLegendClick, containerRef } = useChartInteractions(setVisibleMap);
 
-    // Build traces using utility function
-    const traces = buildTraces(primaryData, secondaryData, visibleMap, showMarkers, syncColorsByFile);
+    const traces = buildTraces(
+        primaryData, 
+        secondaryData, 
+        manualData, 
+        visibleMap, 
+        showMarkers, 
+        syncColorsByFile
+    );
 
     return (
         <div className="d-flex flex-column h-100 gap-2">
@@ -47,7 +52,7 @@ const MyChart: React.FC<MyChartProps> = ({ primaryData, secondaryData, title, sy
                         xaxis: {
                             title: { text: 'Time' },
                             type: 'date',
-                            tickformat: tickFormat, // Displaying date and time
+                            tickformat: tickFormat,
                             fixedrange: false,
                             showspikes: true,
                             spikemode: 'across',
@@ -69,8 +74,7 @@ const MyChart: React.FC<MyChartProps> = ({ primaryData, secondaryData, title, sy
                                 bgcolor: '#f8f9fa',
                                 bordercolor: '#ced4da',
                                 borderwidth: 1
-                            },
-                        },
+                            },                        },
                         yaxis: {
                             title: { text: Object.keys(primaryData)[0]?.split('.')[0] || 'Y-Axis' },
                             side: 'left',
