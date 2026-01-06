@@ -46,13 +46,13 @@ ENV PYTHONUNBUFFERED=1
 ENV PYTHONDONTWRITEBYTECODE=1
 
 # Copy virtual environment from builder
-COPY --from=builder /app/venv /app/venv
+COPY --from=builder /app/.venv /app/.venv
 
 # Copy application code
 COPY . .
 
 # Use the virtual environment
-ENV PATH="/app/venv/bin:$PATH"
+ENV PATH="/app/.venv/bin:$PATH"
 
 # Run gunicorn directly (no need for poetry run since we have .venv in PATH)
 CMD ["gunicorn", "-c", "gunicorn_config.py", "main:app"]
