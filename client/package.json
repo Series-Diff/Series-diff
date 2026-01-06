@@ -6,7 +6,6 @@
   "dependencies": {
     "@types/plotly.js": "^3.0.8",
     "@types/react-plotly.js": "^2.6.3",
-    "ajv": "^8.12.0",
     "bootstrap": "^5.3.8",
     "html2canvas": "^1.4.1",
     "jspdf": "^3.0.4",

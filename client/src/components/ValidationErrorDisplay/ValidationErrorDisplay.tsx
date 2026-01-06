@@ -40,7 +40,7 @@ export const ValidationErrorDisplay: React.FC<Props> = ({ validationResult, file
     return null;
   }
 
-  const { isValid, errors, warnings, detectedFormat, dateColumns, numericColumns } = validationResult;
+  const { isValid, errors, warnings} = validationResult;
 
   if (isValid && errors.length === 0 && warnings.length === 0) {
     return null;
