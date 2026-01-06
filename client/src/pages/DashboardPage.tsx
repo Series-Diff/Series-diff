@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from 'react';
-import {Button, Modal, Form, Spinner, Alert} from 'react-bootstrap';
+import { Button, Modal, Form, Spinner, Alert } from 'react-bootstrap';
 import './DashboardPage.css';
 import '../components/Chart/Chart.css';
 import '../components/Metric/Metrics.css';
@@ -28,7 +28,7 @@ function DashboardPage() {
 
   const hasData = Object.keys(chartData).length > 0;
   const enabledPlugins = plugins.filter(p => p.enabled);
-  
+
   // Filter enabled plugins by selection in modal
   const visiblePlugins = enabledPlugins.filter(p => shouldShowMetric(p.id));
 
@@ -37,7 +37,7 @@ function DashboardPage() {
 
   const {
     pluginResults,
-      pluginErrors,
+    pluginErrors,
     isLoadingPlugins,
     refreshPluginResults,
     resetPluginResults
@@ -109,7 +109,7 @@ function DashboardPage() {
     if (!canShowMovingAverage && showMovingAverage) {
       handleToggleMovingAverage();
     }
-    
+
     // If difference_chart is deselected and in difference mode, switch to standard
     if (!canShowDifferenceChart && isInDifferenceMode) {
       setChartMode('standard');
@@ -262,12 +262,12 @@ function DashboardPage() {
                 <div className="section-container p-3">
                   <div className="d-flex justify-content-end align-items-center gap-2 mb-3">
                     <Button
-                  variant="outline-secondary"
-                  onClick={() => setShowMetricsModal(true)}
-                >
-                  Select Metrics
-                </Button>
-                {isExporting && <Spinner animation="border" size="sm" className="me-2" />}
+                      variant="outline-secondary"
+                      onClick={() => setShowMetricsModal(true)}
+                    >
+                      Select Metrics
+                    </Button>
+                    {isExporting && <Spinner animation="border" size="sm" className="me-2" />}
                     <Button
                       variant="secondary"
                       onClick={handleExportClick}
@@ -277,13 +277,13 @@ function DashboardPage() {
                     </Button>
                   </div>
                   {Object.keys(filteredGroupedMetrics).length > 0 ? (
-                <components.Metrics groupedMetrics={filteredGroupedMetrics} />
+                    <components.Metrics groupedMetrics={filteredGroupedMetrics} />
                   ) : (selectedMetricsForDisplay !== null && selectedMetricsForDisplay.size === 0) ? (
                     <div className="text-muted fst-italic">
                       No metrics selected. Use "Select Metrics" to choose which metrics to display.
                     </div>
                   ) : null}
-            </div>
+                </div>
               )}
 
               {shouldShowMetric('pearson_correlation') && selectedCategory && PearsonCorrelationValues[selectedCategory] && (
@@ -296,7 +296,7 @@ function DashboardPage() {
                     }
                     metric="Pearson Correlation"
                     metricKey="pearson_correlation"
-              />
+                  />
 
                   {secondaryCategory && PearsonCorrelationValues[secondaryCategory] && (
                     <div className="mt-4">
@@ -308,8 +308,8 @@ function DashboardPage() {
                         }
                         metric="Pearson Correlation"
                         metricKey="pearson_correlation"
-                    showInfoIcon={false}
-                  />
+                        showInfoIcon={false}
+                      />
                     </div>
                   )}
                 </div>
@@ -323,7 +323,7 @@ function DashboardPage() {
                     clickable={false}
                     metric="Cosine Similarity"
                     metricKey="cosine_similarity"
-              />
+                  />
 
                   {secondaryCategory && CosineSimilarityValues[secondaryCategory] && (
                     <div className="mt-3">
@@ -333,8 +333,8 @@ function DashboardPage() {
                         clickable={false}
                         metric="Cosine Similarity"
                         metricKey="cosine_similarity"
-                    showInfoIcon={false}
-                  />
+                        showInfoIcon={false}
+                      />
                     </div>
                   )}
                 </div>
@@ -347,7 +347,7 @@ function DashboardPage() {
                     category={selectedCategory}
                     metric="MAE"
                     metricKey="mae"
-              />
+                  />
 
                   {secondaryCategory && maeValues[secondaryCategory] && (
                     <div className="mt-3">
@@ -356,8 +356,8 @@ function DashboardPage() {
                         category={secondaryCategory}
                         metric="MAE"
                         metricKey="mae"
-                    showInfoIcon={false}
-                  />
+                        showInfoIcon={false}
+                      />
                     </div>
                   )}
                 </div>
@@ -370,7 +370,7 @@ function DashboardPage() {
                     category={selectedCategory}
                     metric="RMSE"
                     metricKey="rmse"
-              />
+                  />
 
                   {secondaryCategory && rmseValues[secondaryCategory] && (
                     <div className="mt-3">
@@ -379,8 +379,8 @@ function DashboardPage() {
                         category={secondaryCategory}
                         metric="RMSE"
                         metricKey="rmse"
-                    showInfoIcon={false}
-                  />
+                        showInfoIcon={false}
+                      />
                     </div>
                   )}
                 </div>
@@ -393,7 +393,7 @@ function DashboardPage() {
                     category={selectedCategory}
                     metric="DTW"
                     metricKey="dtw"
-              />
+                  />
 
                   {secondaryCategory && DTWValues[secondaryCategory] && (
                     <div className="mt-4">
@@ -402,8 +402,8 @@ function DashboardPage() {
                         category={secondaryCategory}
                         metric="DTW"
                         metricKey="dtw"
-                    showInfoIcon={false}
-                  />
+                        showInfoIcon={false}
+                      />
                     </div>
                   )}
                 </div>
@@ -416,7 +416,7 @@ function DashboardPage() {
                     category={selectedCategory}
                     metric="Euclidean"
                     metricKey="euclidean"
-              />
+                  />
 
                   {secondaryCategory && EuclideanValues[secondaryCategory] && (
                     <div className="mt-4">
@@ -425,85 +425,85 @@ function DashboardPage() {
                         category={secondaryCategory}
                         metric="Euclidean"
                         metricKey="euclidean"
-                    showInfoIcon={false}
-                  />
+                        showInfoIcon={false}
+                      />
                     </div>
                   )}
                 </div>
               )}
 
               {visiblePlugins.length > 0 && selectedCategory && (
-                  <div className="section-container" style={{ padding: "16px" }}>
-                    <div className="d-flex justify-content-between align-items-center mb-3">
-                      <h3 style={{ margin: 0 }}>Plugins</h3>
-                      <div className="d-flex align-items-center gap-2">
-                        {isLoadingPlugins && <Spinner animation="border" size="sm" />}
-                        <Button
-                            variant="outline-secondary"
-                            size="sm"
-                            onClick={refreshPluginResults}
-                            disabled={isLoadingPlugins}
-                        >
-                          Refresh
-                        </Button>
-                      </div>
+                <div className="section-container" style={{ padding: "16px" }}>
+                  <div className="d-flex justify-content-between align-items-center mb-3">
+                    <h3 style={{ margin: 0 }}>Plugins</h3>
+                    <div className="d-flex align-items-center gap-2">
+                      {isLoadingPlugins && <Spinner animation="border" size="sm" />}
+                      <Button
+                        variant="outline-secondary"
+                        size="sm"
+                        onClick={refreshPluginResults}
+                        disabled={isLoadingPlugins}
+                      >
+                        Refresh
+                      </Button>
                     </div>
+                  </div>
 
-                    {visiblePlugins.map((plugin) => {
-                      const categoryData = pluginResults[plugin.id]?.[selectedCategory];
-                      const categoryError = pluginErrors[plugin.id]?.[selectedCategory];
+                  {visiblePlugins.map((plugin) => {
+                    const categoryData = pluginResults[plugin.id]?.[selectedCategory];
+                    const categoryError = pluginErrors[plugin.id]?.[selectedCategory];
 
-                      if (categoryError) {
-                        return (
-                            <div key={plugin.id} className="mb-3">
-                              <h5>{plugin.name} ({selectedCategory})</h5>
-                              <Alert variant="danger" className="py-2">
-                                {categoryError}
-                              </Alert>
-                            </div>
-                        );
-                      }
-
-                      if (!categoryData || Object.keys(categoryData).length === 0) {
-                        return null;
-                      }
-
+                    if (categoryError) {
                       return (
-                          <components.StandardTable
-                              key={plugin.id}
-                              data={categoryData}
-                              category={selectedCategory}
-                              metric={plugin.name}
-                            customInfo={{ name: plugin.name, description: plugin.description }}
-                      />
+                        <div key={plugin.id} className="mb-3">
+                          <h5>{plugin.name} ({selectedCategory})</h5>
+                          <Alert variant="danger" className="py-2">
+                            {categoryError}
+                          </Alert>
+                        </div>
                       );
-                    })}
+                    }
 
-                    {secondaryCategory && visiblePlugins.map((plugin) => {
-                      const categoryData = pluginResults[plugin.id]?.[secondaryCategory];
-                      const categoryError = pluginErrors[plugin.id]?.[secondaryCategory];
+                    if (!categoryData || Object.keys(categoryData).length === 0) {
+                      return null;
+                    }
 
-                      if (categoryError) {
-                        return (
-                            <div key={`${plugin.id}-${secondaryCategory}`} style={{ marginTop: "32px" }}>
-                              <h5>{plugin.name} ({secondaryCategory})</h5>
-                              <Alert variant="danger" className="py-2">
-                                {categoryError}
-                              </Alert>
-                            </div>
-                        );
-                      }
+                    return (
+                      <components.StandardTable
+                        key={plugin.id}
+                        data={categoryData}
+                        category={selectedCategory}
+                        metric={plugin.name}
+                        customInfo={{ name: plugin.name, description: plugin.description }}
+                      />
+                    );
+                  })}
 
-                      if (!categoryData || Object.keys(categoryData).length === 0) {
-                        return null;
-                      }
+                  {secondaryCategory && visiblePlugins.map((plugin) => {
+                    const categoryData = pluginResults[plugin.id]?.[secondaryCategory];
+                    const categoryError = pluginErrors[plugin.id]?.[secondaryCategory];
+
+                    if (categoryError) {
                       return (
-                          <div key={`${plugin.id}-${secondaryCategory}`} style={{ marginTop: "32px" }}>
-                            <components.StandardTable
-                                data={categoryData}
-                                category={secondaryCategory}
-                                metric={plugin.name}
-                              customInfo={{ name: plugin.name, description: plugin.description }}
+                        <div key={`${plugin.id}-${secondaryCategory}`} style={{ marginTop: "32px" }}>
+                          <h5>{plugin.name} ({secondaryCategory})</h5>
+                          <Alert variant="danger" className="py-2">
+                            {categoryError}
+                          </Alert>
+                        </div>
+                      );
+                    }
+
+                    if (!categoryData || Object.keys(categoryData).length === 0) {
+                      return null;
+                    }
+                    return (
+                      <div key={`${plugin.id}-${secondaryCategory}`} style={{ marginTop: "32px" }}>
+                        <components.StandardTable
+                          data={categoryData}
+                          category={secondaryCategory}
+                          metric={plugin.name}
+                          customInfo={{ name: plugin.name, description: plugin.description }}
                         />
                       </div>
                     );

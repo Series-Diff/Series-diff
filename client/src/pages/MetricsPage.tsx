@@ -1,5 +1,4 @@
 import React, { useState, useEffect } from 'react';
-import './MetricsPage.css';
 import { Col, Button, Modal } from "react-bootstrap";
 import { MetricModal, Header, MetricInfoModal, MetricsListPanel } from '../components';
 import { Metric, METRIC_CATEGORIES, PREDEFINED_METRICS } from '../constants/metricsConfig';

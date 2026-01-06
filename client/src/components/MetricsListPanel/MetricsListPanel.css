@@ -46,6 +46,7 @@
     align-items: flex-end;
     display: flex;
     justify-content: space-between;
+    gap: 1rem;
 }
 
 .metrics-content-container {
@@ -108,4 +109,56 @@
 .description {
     display: flex;
     align-items: center;
+}
+
+.input {
+    align-items: center;
+    align-self: stretch;
+    border-radius: 4px;
+    display: flex;
+    flex: 0 0 auto;
+    z-index: 0;
+}
+
+.search-box-instance {
+    width: 400px;
+}
+
+.text-wrapper-2 {
+    color: var(--gray-900);
+    font-family: var(--m3-title-medium-font-family);
+    font-size: var(--m3-title-medium-font-size);
+    font-weight: var(--m3-title-medium-font-weight);
+    letter-spacing: var(--m3-title-medium-letter-spacing);
+    line-height: var(--m3-title-medium-line-height);
+    white-space: nowrap;
+}
+
+.p {
+    color: var(--gray-600);
+    font-family: "Roboto-Regular", Helvetica;
+    font-size: 12px;
+    font-weight: 400;
+    letter-spacing: 0;
+    line-height: 12px;
+    white-space: nowrap;
+}
+
+.buttons {
+    align-items: center;
+    display: inline-flex;
+    flex: 0 0 auto;
+    gap: 10px;
+}
+
+.empty-state-message {
+    text-align: center;
+    color: var(--gray-600);
+    padding: 2rem;
+    width: 100%;
+}
+
+/* Modal variant: narrower, responsive search input */
+.modal-metrics-panel .search-box-instance {
+    width: min(22rem, 80vw);
 }

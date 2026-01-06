@@ -96,9 +96,6 @@ const MetricsSelectionModal: React.FC<MetricsSelectionModalProps> = ({
         setLocalSelectedMetrics(
             selectedMetrics === null ? new Set(allAvailableMetrics) : selectedMetrics
         );
-        setSelectedCategory('All');
-        setSearchQuery('');
-        setActiveTab('predefined');
         onHide();
     };
 
@@ -121,9 +118,6 @@ const MetricsSelectionModal: React.FC<MetricsSelectionModalProps> = ({
         if (onApply) {
             onApply(new Set(validSelectedMetrics));
         }
-        setSelectedCategory('All');
-        setSearchQuery('');
-        setActiveTab('predefined');
         onHide();
     };
 
@@ -141,13 +135,23 @@ const MetricsSelectionModal: React.FC<MetricsSelectionModalProps> = ({
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [show, selectedMetrics]);
 
+        // Reset filters and tab after the modal fully closes to avoid interfering with the closing lifecycle
+        useEffect(() => {
+            if (!show) {
+                setSelectedCategory('All');
+                setSearchQuery('');
+                setActiveTab('predefined');
+            }
+        }, [show]);
+
     return (
         <Modal show={show} onHide={handleClose} size="lg" centered>
             <Modal.Header closeButton>
                 <Modal.Title>Select Metrics to Display</Modal.Title>
             </Modal.Header>
-            <Modal.Body style={{ maxHeight: '70vh', overflowY: 'hidden', display: 'flex', flexDirection: 'column' }}>
+            <Modal.Body style={{ maxHeight: '70vh', overflowY: 'hidden', display: 'flex', flexDirection: 'column', gap: '1rem' }}>
                 <MetricsListPanel
+                    containerClassName="modal-metrics-panel"
                     activeTab={activeTab}
                     onTabChange={setActiveTab}
                     searchQuery={searchQuery}
