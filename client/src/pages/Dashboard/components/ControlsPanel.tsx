@@ -1,6 +1,9 @@
 import React from 'react';
 import * as components from '../../../components';
-import { Button, Form } from 'react-bootstrap';
+import { Button, Form, InputGroup } from 'react-bootstrap';
+
+export type LayoutMode = 'stacked' | 'overlay';
+type ColorSyncMode = 'default' | 'group' | 'file';
 
 interface StandardControlsProps {
     mode: 'standard';
@@ -15,8 +18,10 @@ interface StandardControlsProps {
     maWindow: string;
     setMaWindow: (value: string) => void;
     handleApplyMaWindow: () => void;
-    syncColorsByFile: boolean;
-    setSyncColorsByFile: React.Dispatch<React.SetStateAction<boolean>>;
+    colorSyncMode: ColorSyncMode;
+    setColorSyncMode: React.Dispatch<React.SetStateAction<ColorSyncMode>>;
+    layoutMode: LayoutMode;
+    setLayoutMode: (mode: LayoutMode) => void;
 }
 
 interface DifferenceControlsProps {
@@ -43,14 +48,18 @@ const ControlsPanel: React.FC<ControlsPanelProps> = (props) => {
     const { isLoading, handleFileUpload, handleReset, mode, filenamesPerCategory } = props;
     const hasCategories = Object.keys(filenamesPerCategory).length > 0;
 
+    const allCategories = Object.keys(filenamesPerCategory);
+    const { selectedCategory, secondaryCategory, tertiaryCategory } = props as StandardControlsProps;
+
     return (
-        <div className="d-flex justify-content-between align-items-end w-100 ps-1">
-            <div className="d-flex align-items-end gap-3">
+        <div className="d-flex justify-content-between align-items-center w-100 ps-1">
+            <div className="d-flex align-items-center gap-3">
                 {hasCategories && mode === 'standard' && (
                     <>
+                        <div className="d-flex align-items-center gap-2 bg-white border rounded shadow-sm px-3 py-2 me-3">
                         <components.Select
                             id="category-select"
-                            label="Main Y-Axis"
+                            label="Primary Y-Axis"
                             selected={(props as StandardControlsProps).selectedCategory || Object.keys(filenamesPerCategory)[0]}
                             categories={Object.keys(filenamesPerCategory)}
                             onChange={(props as StandardControlsProps).handleDropdownChange}
@@ -58,53 +67,84 @@ const ControlsPanel: React.FC<ControlsPanelProps> = (props) => {
                         />
                         <components.Select
                             id="secondary-category-select"
-                            label="Second Y-Axis"
+                            label="Secondary Y-Axis"
                             selected={(props as StandardControlsProps).secondaryCategory || ""}
                             categories={Object.keys(filenamesPerCategory)}
                             onChange={(props as StandardControlsProps).handleSecondaryDropdownChange}
-                            disabledCategory={(props as StandardControlsProps).selectedCategory ?? undefined}
                             allowNoneOption
                         />
+                        <components.Select
+                        id="tertiary-category-select"
+                        label="Tertiary Y-Axis"
+                        selected={tertiaryCategory || ""}
+                        categories={allCategories.filter(cat => cat !== selectedCategory && cat !== secondaryCategory)}
+                        onChange={(props as StandardControlsProps).handleTertiaryDropdownChange}
+                        allowNoneOption
+                        />
+                    </div>
+                {(props as StandardControlsProps).showMovingAverage !== undefined && (props as StandardControlsProps).handleToggleMovingAverage && (
 
-                        {(props as StandardControlsProps).showMovingAverage !== undefined && (props as StandardControlsProps).handleToggleMovingAverage && (
-                            <div className="d-flex align-items-center gap-2 ms-3">
+                    <div className="d-flex align-items-center gap-3 bg-white border rounded shadow-sm px-3 py-2">
+                            <div className="d-flex align-items-center gap-2">
                                 <Form.Check
-                                    type="switch"
-                                    id="ma-toggle"
-                                    label={(props as StandardControlsProps).isMaLoading ? "Loading MA..." : "Show Moving Avg"}
-                                    checked={(props as StandardControlsProps).showMovingAverage === true}
-                                    onChange={(props as StandardControlsProps).handleToggleMovingAverage}
-                                    disabled={(props as StandardControlsProps).isMaLoading}
-                                />
-                                <Form.Control
-                                    type="text"
-                                    style={{ width: '80px' }}
-                                    size="sm"
-                                    value={(props as StandardControlsProps).maWindow}
-                                    onChange={(e) => (props as StandardControlsProps).setMaWindow(e.target.value)}
-                                    placeholder="e.g. 1d"
-                                    disabled={(props as StandardControlsProps).isMaLoading}
-                                />
-                                <Button
-                                    variant="secondary"
-                                    size="sm"
-                                    onClick={(props as StandardControlsProps).handleApplyMaWindow}
-                                    disabled={(props as StandardControlsProps).isMaLoading || (props as StandardControlsProps).showMovingAverage !== true}
-                                >
-                                    Apply
-                                </Button>
-                            </div>
-                        )}
-
-                        <div className="d-flex align-items-center ms-3">
-                            <Form.Check
                                 type="switch"
-                                id="color-sync-toggle"
-                                label="Sync Colors"
-                                checked={(props as StandardControlsProps).syncColorsByFile}
-                                onChange={() => (props as StandardControlsProps).setSyncColorsByFile(prev => !prev)}
+                                id="ma-toggle"
+                                label={(props as StandardControlsProps).isMaLoading ? "Loading MA..." : "Moving Avg"}
+                                checked={(props as StandardControlsProps).showMovingAverage}
+                                onChange={(props as StandardControlsProps).handleToggleMovingAverage}
+                                disabled={(props as StandardControlsProps).isMaLoading}
+                                className="mb-0 text-nowrap"
                             />
+                            {(props as StandardControlsProps).showMovingAverage && (
+                                <InputGroup size="sm" style={{ width: '120px' }}>
+                                    <Form.Control
+                                        placeholder="e.g. 1d"
+                                        value={(props as StandardControlsProps).maWindow}
+                                        onChange={(e) => (props as StandardControlsProps).setMaWindow(e.target.value)}
+                                        disabled={(props as StandardControlsProps).isMaLoading}
+                                        onKeyDown={(e) => e.key === 'Enter' && (props as StandardControlsProps).handleApplyMaWindow()}
+                                    />
+                            <Button
+                                variant="outline-secondary"
+                                onClick={(props as StandardControlsProps).handleApplyMaWindow}
+                                disabled={(props as StandardControlsProps).isMaLoading || !(props as StandardControlsProps).showMovingAverage}
+                            >
+                                Set
+                            </Button>
+                                </InputGroup>
+                                )}
                         </div>
+                            <div style={{ width: '1px', height: '24px', backgroundColor: '#dee2e6' }}></div>
+                        <div className="d-flex align-items-center gap-2">
+                            <Form.Label className="mb-0 text-nowrap">Color Sync:</Form.Label>
+                            <Form.Select
+                                size="sm"
+                                value={(props as StandardControlsProps).colorSyncMode}
+                                onChange={(e) => (props as StandardControlsProps).setColorSyncMode(e.target.value as ColorSyncMode)}
+                                style={{ width: 'auto', minWidth: '100px' }}
+                            >
+                                <option value="default">Default</option>
+                                <option value="group">By Group</option>
+                                <option value="file">By File</option>
+                            </Form.Select>
+                        </div>
+
+                            <div style={{ width: '1px', height: '24px', backgroundColor: '#dee2e6' }}></div>
+
+                            <div className="d-flex align-items-center gap-2">
+                                <Form.Label className="mb-0 text-nowrap">Layout:</Form.Label>
+                                <Form.Select
+                                    size="sm"
+                                    value={(props as StandardControlsProps).layoutMode}
+                                    onChange={(e) => (props as StandardControlsProps).setLayoutMode(e.target.value as LayoutMode)}
+                                    style={{ width: 'auto', minWidth: '100px' }}
+                                >
+                                    <option value="overlay">Overlay</option>
+                                    <option value="stacked">Stacked</option>
+                                </Form.Select>
+                            </div>
+                        </div>
+                )}
                     </>
                 )}
 

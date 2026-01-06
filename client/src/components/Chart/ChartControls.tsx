@@ -1,10 +1,8 @@
-import React from "react";
-import { Form, Button } from 'react-bootstrap';
+import React, { useEffect } from "react";
+import {Form, Button, InputGroup} from 'react-bootstrap';
 
 /**
  * Sub-component for Y-axis range controls.
- * Renders inputs and buttons for custom min/max on primary and secondary Y-axes using React-Bootstrap for consistent styling.
- * Supports partial input - if only min or max is provided, the other value is taken from data bounds.
  */
 interface ChartControlsProps {
     customYMin: string;
@@ -24,187 +22,209 @@ interface ChartControlsProps {
     setCustomRange3: React.Dispatch<React.SetStateAction<boolean>>;
     hasSecondary: boolean;
     hasTertiary: boolean;
-    // Data bounds for filling in missing values
     primaryDataBounds: { min: number; max: number };
     secondaryDataBounds: { min: number; max: number };
     tertiaryDataBounds: { min: number; max: number }
 }
 
 const ChartControls: React.FC<ChartControlsProps> = ({
-    customYMin, setCustomYMin, customYMax, setCustomYMax, setCustomRange, customY2Min, setCustomY2Min,
-    customY2Max, setCustomY2Max, setCustomRange2, customY3Min, setCustomY3Min, customY3Max, setCustomY3Max, setCustomRange3, hasSecondary, hasTertiary, primaryDataBounds, secondaryDataBounds, tertiaryDataBounds
-}) => {
-    // Apply range - if only one value provided, use data bounds for the other
-    // If max < min, swap the values
-    const handleApplyPrimary = () => {
-        if (customYMin !== '' || customYMax !== '') {
-            // Fill in missing value from data bounds
-            let minVal = customYMin !== '' ? parseFloat(customYMin) : primaryDataBounds.min;
-            let maxVal = customYMax !== '' ? parseFloat(customYMax) : primaryDataBounds.max;
-            
-            // Swap if max < min
-            if (maxVal < minVal) {
-                [minVal, maxVal] = [maxVal, minVal];
-            }
-            
-            setCustomYMin(minVal.toString());
-            setCustomYMax(maxVal.toString());
-            setCustomRange(true);
+                                                         customYMin, setCustomYMin, customYMax, setCustomYMax, setCustomRange, customY2Min, setCustomY2Min,
+                                                         customY2Max, setCustomY2Max, setCustomRange2, customY3Min, setCustomY3Min, customY3Max, setCustomY3Max, setCustomRange3, hasSecondary, hasTertiary, primaryDataBounds, secondaryDataBounds, tertiaryDataBounds
+                                                     }) => {
+
+
+    // Y1
+    useEffect(() => {
+        if (primaryDataBounds.min === 0 && primaryDataBounds.max === 100) {
+            return;
         }
+
+        if (primaryDataBounds.min !== undefined) {
+            if (customYMin === '' || customYMin === '0') {
+                setCustomYMin(primaryDataBounds.min.toFixed(0));
+            }
+        }
+
+        if (primaryDataBounds.max !== undefined) {
+            if (customYMax === '' || customYMax === '100') {
+                setCustomYMax(primaryDataBounds.max.toFixed(0));
+            }
+        }
+    }, [primaryDataBounds, customYMin, customYMax, setCustomYMin, setCustomYMax]);
+
+    // Y2
+    useEffect(() => {
+        if (hasSecondary) {
+            if (customY2Min === '' && secondaryDataBounds.min !== undefined) setCustomY2Min(secondaryDataBounds.min.toFixed(0));
+            if (customY2Max === '' && secondaryDataBounds.max !== undefined) setCustomY2Max(secondaryDataBounds.max.toFixed(0));
+        }
+    }, [secondaryDataBounds, hasSecondary, setCustomY2Min, setCustomY2Max]);
+
+    // Y3
+    useEffect(() => {
+        if (hasTertiary) {
+            if (customY3Min === '' && tertiaryDataBounds.min !== undefined) setCustomY3Min(tertiaryDataBounds.min.toFixed(0));
+            if (customY3Max === '' && tertiaryDataBounds.max !== undefined) setCustomY3Max(tertiaryDataBounds.max.toFixed(0));
+        }
+    }, [tertiaryDataBounds, hasTertiary, setCustomY3Min, setCustomY3Max]);
+
+
+    const handleApplyPrimary = () => {
+        // Jeśli input jest pusty, bierzemy zaokrągloną wartość z bounds
+        // Math.round() jest użyte tutaj dla bezpieczeństwa, gdybyśmy operowali na number
+        let minVal = customYMin !== '' ? parseFloat(customYMin) : Math.round(primaryDataBounds.min);
+        let maxVal = customYMax !== '' ? parseFloat(customYMax) : Math.round(primaryDataBounds.max);
+
+        if (isNaN(minVal)) minVal = Math.round(primaryDataBounds.min);
+        if (isNaN(maxVal)) maxVal = Math.round(primaryDataBounds.max);
+
+        if (maxVal < minVal) {
+            [minVal, maxVal] = [maxVal, minVal];
+        }
+
+        // Zapisujemy jako stringi (jeśli były obliczane z bounds, to usuwamy ew. części dziesiętne)
+        setCustomYMin(Number.isInteger(minVal) ? minVal.toString() : minVal.toFixed(0));
+        setCustomYMax(Number.isInteger(maxVal) ? maxVal.toString() : maxVal.toFixed(0));
+        setCustomRange(true);
     };
 
     const handleApplySecondary = () => {
-        if (customY2Min !== '' || customY2Max !== '') {
-            // Fill in missing value from data bounds
-            let minVal = customY2Min !== '' ? parseFloat(customY2Min) : secondaryDataBounds.min;
-            let maxVal = customY2Max !== '' ? parseFloat(customY2Max) : secondaryDataBounds.max;
-            
-            // Swap if max < min
-            if (maxVal < minVal) {
-                [minVal, maxVal] = [maxVal, minVal];
-            }
-            
-            setCustomY2Min(minVal.toString());
-            setCustomY2Max(maxVal.toString());
-            setCustomRange2(true);
+        let minVal = customY2Min !== '' ? parseFloat(customY2Min) : Math.round(secondaryDataBounds.min);
+        let maxVal = customY2Max !== '' ? parseFloat(customY2Max) : Math.round(secondaryDataBounds.max);
+
+        if (isNaN(minVal)) minVal = Math.round(secondaryDataBounds.min);
+        if (isNaN(maxVal)) maxVal = Math.round(secondaryDataBounds.max);
+
+        if (maxVal < minVal) {
+            [minVal, maxVal] = [maxVal, minVal];
         }
+
+        setCustomY2Min(Number.isInteger(minVal) ? minVal.toString() : minVal.toFixed(0));
+        setCustomY2Max(Number.isInteger(maxVal) ? maxVal.toString() : maxVal.toFixed(0));
+        setCustomRange2(true);
     };
 
     const handleApplyTertiary = () => {
-        if (customY3Min !== '' || customY3Max !== '') {
-            // Fill in missing value from data bounds
-            let minVal = customY3Min !== '' ? parseFloat(customY3Min) : tertiaryDataBounds.min;
-            let maxVal = customY3Max !== '' ? parseFloat(customY3Max) : tertiaryDataBounds.max;
+        let minVal = customY3Min !== '' ? parseFloat(customY3Min) : Math.round(tertiaryDataBounds.min);
+        let maxVal = customY3Max !== '' ? parseFloat(customY3Max) : Math.round(tertiaryDataBounds.max);
 
-            // Swap if max < min
-            if (maxVal < minVal) {
-                [minVal, maxVal] = [maxVal, minVal];
-            }
+        if (isNaN(minVal)) minVal = Math.round(tertiaryDataBounds.min);
+        if (isNaN(maxVal)) maxVal = Math.round(tertiaryDataBounds.max);
 
-            setCustomY3Min(minVal.toString());
-            setCustomY3Max(maxVal.toString());
-            setCustomRange3(true);
+        if (maxVal < minVal) {
+            [minVal, maxVal] = [maxVal, minVal];
         }
+
+        setCustomY3Min(Number.isInteger(minVal) ? minVal.toString() : minVal.toFixed(0));
+        setCustomY3Max(Number.isInteger(maxVal) ? maxVal.toString() : maxVal.toFixed(0));
+        setCustomRange3(true);
     };
 
-    // Enable Apply if at least one value is provided
-    const canApplyPrimary = customYMin !== '' || customYMax !== '';
-    const canApplySecondary = customY2Min !== '' || customY2Max !== '';
-    const canApplyTertiary = customY3Min !== '' || customY3Max !== '';
-
     return (
-        <div className="d-flex justify-content-center align-items-center flex-wrap gap-5">
+        <div className="d-flex align-items-center flex-wrap gap-5">
             {/* Primary Y-axis controls */}
             <div className="d-flex align-items-center gap-2">
-                <Form.Label className="mb-0 text-nowrap fw-medium">Main Y:</Form.Label>
-                <Form.Control
-                    type="number"
-                    value={customYMin}
-                    onChange={(e) => setCustomYMin(e.target.value)}
-                    style={{ width: '70px' }}
-                    size="sm"
-                    placeholder="min"
-                />
-                <Form.Control
-                    type="number"
-                    value={customYMax}
-                    onChange={(e) => setCustomYMax(e.target.value)}
-                    style={{ width: '70px' }}
-                    size="sm"
-                    placeholder="max"
-                />
-                <Button
-                    variant="secondary"
-                    size="sm"
-                    onClick={handleApplyPrimary}
-                    disabled={!canApplyPrimary}
-                    title="Apply Y-axis range (missing value will use data bounds)"
-                >
-                    Apply
-                </Button>
-                <Button
-                    variant="outline-secondary"
-                    size="sm"
-                    onClick={() => { setCustomYMin(''); setCustomYMax(''); setCustomRange(false); }}
-                >
-                    Reset
-                </Button>
+                <InputGroup size="sm">
+                    <InputGroup.Text>Y1</InputGroup.Text>
+                    <Form.Control
+                        type="number"
+                        value={customYMin}
+                        onChange={(e) => setCustomYMin(e.target.value)}
+                        style={{ width: '70px' }}
+                        size="sm"
+                        placeholder={primaryDataBounds.min.toFixed(0)}
+                    />
+                    <InputGroup.Text>-</InputGroup.Text>
+                    <Form.Control
+                        type="number"
+                        value={customYMax}
+                        onChange={(e) => setCustomYMax(e.target.value)}
+                        style={{ width: '70px' }}
+                        size="sm"
+                        placeholder={primaryDataBounds.max.toFixed(0)}
+                    />
+                    <Button variant="outline-primary" onClick={handleApplyPrimary}>Set</Button>
+                    {(customYMin || customYMax) && (
+                        <Button
+                            variant="outline-secondary"
+                            size="sm"
+                            onClick={() => { setCustomYMin(''); setCustomYMax(''); setCustomRange(false); }}
+                        >
+                            Reset
+                        </Button>
+                    )}
+                </InputGroup>
             </div>
 
             {/* Secondary Y-axis controls */}
             {hasSecondary && (
                 <div className="d-flex align-items-center gap-2">
-                    <Form.Label className="mb-0 text-nowrap fw-medium">Secondary Y:</Form.Label>
-                    <Form.Control
-                        type="number"
-                        value={customY2Min}
-                        onChange={(e) => setCustomY2Min(e.target.value)}
-                        style={{ width: '70px' }}
-                        size="sm"
-                        placeholder="min"
-                    />
-                    <Form.Control
-                        type="number"
-                        value={customY2Max}
-                        onChange={(e) => setCustomY2Max(e.target.value)}
-                        style={{ width: '70px' }}
-                        size="sm"
-                        placeholder="max"
-                    />
-                    <Button
-                        variant="secondary"
-                        size="sm"
-                        onClick={handleApplySecondary}
-                        disabled={!canApplySecondary}
-                        title="Apply Y2-axis range (missing value will use data bounds)"
-                    >
-                        Apply
-                    </Button>
-                    <Button
-                        variant="outline-secondary"
-                        size="sm"
-                        onClick={() => { setCustomY2Min(''); setCustomY2Max(''); setCustomRange2(false); }}
-                    >
-                        Reset
-                    </Button>
+                    <InputGroup size="sm">
+                        <InputGroup.Text>Y2</InputGroup.Text>
+                        <Form.Control
+                            type="number"
+                            value={customY2Min}
+                            onChange={(e) => setCustomY2Min(e.target.value)}
+                            style={{ width: '70px' }}
+                            size="sm"
+                            placeholder={secondaryDataBounds.min.toFixed(0)}
+                        />
+                        <InputGroup.Text>-</InputGroup.Text>
+                        <Form.Control
+                            type="number"
+                            value={customY2Max}
+                            onChange={(e) => setCustomY2Max(e.target.value)}
+                            style={{ width: '70px' }}
+                            size="sm"
+                            placeholder={secondaryDataBounds.max.toFixed(0)}
+                        />
+                        <Button variant="outline-primary" onClick={handleApplySecondary}>Set</Button>
+                        {(customY2Min || customY2Max) && (
+                            <Button
+                                variant="outline-secondary"
+                                size="sm"
+                                onClick={() => { setCustomY2Min(''); setCustomY2Max(''); setCustomRange2(false); }}
+                            >
+                                Reset
+                            </Button>
+                        )}
+                    </InputGroup>
                 </div>
             )}
-            {/* Secondary Y-axis controls */}
+
+            {/* Tertiary Y-axis controls */}
             {hasTertiary && (
                 <div className="d-flex align-items-center gap-2">
-                    <Form.Label className="mb-0 text-nowrap fw-medium">Tertiary Y:</Form.Label>
-                    <Form.Control
-                        type="number"
-                        value={customY3Min}
-                        onChange={(e) => setCustomY3Min(e.target.value)}
-                        style={{ width: '70px' }}
-                        size="sm"
-                        placeholder="min"
-                    />
-                    <Form.Control
-                        type="number"
-                        value={customY3Max}
-                        onChange={(e) => setCustomY3Max(e.target.value)}
-                        style={{ width: '70px' }}
-                        size="sm"
-                        placeholder="max"
-                    />
-                    <Button
-                        variant="secondary"
-                        size="sm"
-                        onClick={handleApplyTertiary}
-                        disabled={!canApplyTertiary}
-                        title="Apply Y3-axis range (missing value will use data bounds)"
-                    >
-                        Apply
-                    </Button>
-                    <Button
-                        variant="outline-secondary"
-                        size="sm"
-                        onClick={() => { setCustomY3Min(''); setCustomY3Max(''); setCustomRange3(false); }}
-                    >
-                        Reset
-                    </Button>
+                    <InputGroup size="sm">
+                        <InputGroup.Text>Y3</InputGroup.Text>
+                        <Form.Control
+                            type="number"
+                            value={customY3Min}
+                            onChange={(e) => setCustomY3Min(e.target.value)}
+                            style={{ width: '70px' }}
+                            size="sm"
+                            placeholder={tertiaryDataBounds.min.toFixed(0)}
+                        />
+                        <InputGroup.Text>-</InputGroup.Text>
+                        <Form.Control
+                            type="number"
+                            value={customY3Max}
+                            onChange={(e) => setCustomY3Max(e.target.value)}
+                            style={{ width: '70px' }}
+                            size="sm"
+                            placeholder={tertiaryDataBounds.max.toFixed(0)}
+                        />
+                        <Button variant="outline-primary" onClick={handleApplyTertiary}>Set</Button>
+                        {(customY3Min || customY3Max) && (
+                            <Button
+                                variant="outline-secondary"
+                                size="sm"
+                                onClick={() => { setCustomY3Min(''); setCustomY3Max(''); setCustomRange3(false); }}
+                            >
+                                Reset
+                            </Button>
+                        )}
+                    </InputGroup>
                 </div>
             )}
         </div>

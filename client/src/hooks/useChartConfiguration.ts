@@ -1,6 +1,8 @@
 import { useState, useEffect } from 'react';
 import * as services from '../services';
 
+export type ColorSyncMode = 'default' | 'group' | 'file';
+
 export const useChartConfiguration = (
     filenamesPerCategory: Record<string, string[]>,
     chartData: Record<string, services.TimeSeriesEntry[]>,
@@ -26,8 +28,10 @@ export const useChartConfiguration = (
     });
 
     const [rangePerCategory, setRangePerCategory] = useState<{ [key: string]: { min: number | '', max: number | '' } }>({});
-    const [syncColorsByFile, setSyncColorsByFile] = useState(true);
-    const [syncColorsByGroup, setSyncColorsByGroup] = useState(true);
+    const [colorSyncMode, setColorSyncMode] = useState<ColorSyncMode>('default');
+
+    const syncColorsByFile = colorSyncMode === 'file';
+    const syncColorsByGroup = colorSyncMode === 'group';
 
     const [filteredData, setFilteredData] = useState<{
         primary: Record<string, services.TimeSeriesEntry[]>;
@@ -176,6 +180,7 @@ export const useChartConfiguration = (
         setTertiaryCategory(null);
         setRangePerCategory({});
         setFilteredData({ primary: {}, secondary: null, tertiary: null });
+        setColorSyncMode('default');
     };
 
     return {
@@ -184,9 +189,9 @@ export const useChartConfiguration = (
         tertiaryCategory,
         handleRangeChange,
         syncColorsByFile,
-        setSyncColorsByFile,
+        colorSyncMode,
+        setColorSyncMode,
         syncColorsByGroup,
-        setSyncColorsByGroup,
         filteredData,
         handleDropdownChange,
         handleSecondaryDropdownChange,

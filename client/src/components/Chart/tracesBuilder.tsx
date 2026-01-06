@@ -6,22 +6,18 @@ const colors = ['#1f77b4', '#ff7f0e', '#2ca02c', '#d62728', '#9467bd', '#8c564b'
 const MA_Suffix = / \(MA.*\)$/;
 
 const getBaseKey = (name: string, syncByFile: boolean, syncByGroup: boolean): string => {
-    // 1. Najpierw usuń sufiks średniej kroczącej, jeśli istnieje
     let tempName = name.replace(MA_Suffix, '');
 
     const parts = tempName.split('.');
 
     if (syncByGroup) {
-        // Zwraca tylko "Grupa" (pierwszy człon przed kropką)
         return parts[0];
     }
 
     if (syncByFile) {
-        // Zwraca wszystko po pierwszej kropce (sama nazwa pliku)
         return parts.length > 1 ? parts.slice(1).join('.') : parts[0];
     }
 
-    // Fallback, jeśli nie było prefiksu kategorii
     return tempName;
 };
 
@@ -49,11 +45,6 @@ export const getColorMap = (
     return colorMap;
 };
 
-/**
- * Utility function to build Plotly traces from data.
- * * Generates traces for primary and secondary data series, applying visibility and marker modes.
- * Maps moving average series to the same color as their source series, using a dashed line style.
- */
 export const buildTraces = (
     primaryData: Record<string, TimeSeriesEntry[]>,
     secondaryData: Record<string, TimeSeriesEntry[]> | undefined,
@@ -68,14 +59,13 @@ export const buildTraces = (
 
     let colorIndex = 0;
 
-    // 1. Zbieramy aktywne grupy, żeby wiedzieć co filtrować
     const activePrimaryGroups = new Set(Object.keys(primaryData).map(getGroupName));
     const activeSecondaryGroups = new Set(Object.keys(secondaryData || {}).map(getGroupName));
     const activeTeriaryGroups = new Set(Object.keys(tertiaryData || {}).map(getGroupName));
 
     const validManualKeys = Object.keys(manualData).filter(key => {
         const group = getGroupName(key);
-        return activePrimaryGroups.has(group) || activeSecondaryGroups.has(group);
+        return activePrimaryGroups.has(group) || activeSecondaryGroups.has(group) || activeTeriaryGroups.has(group);
     });
 
     const allKeys = [
@@ -99,6 +89,9 @@ export const buildTraces = (
         yaxis: 'y1' | 'y2' | 'y3',
         isManual: boolean = false
     ): Data => {
+        const parts = name.split('.');
+        const groupName = parts[0];
+
         const baseKey = getBaseKey(name, syncColorsByFile, syncColorsByGroup);
         const color = colorMap.get(baseKey) || '#000000';
         const isSeriesMA = isMA(name);
@@ -109,6 +102,11 @@ export const buildTraces = (
             type: 'scattergl' as const,
             mode: isManual ? 'markers' : (showMarkers ? 'lines+markers' : 'lines') as 'lines' | 'lines+markers' | 'markers',
             name,
+            legendgroup: groupName,
+            legendgrouptitle: {
+                text: `<b>${groupName}</b>`,
+            },
+            showlegend: !isSeriesMA,
             line: {
                 color: color,
                 dash: isSeriesMA ? 'dash' : 'solid',
@@ -122,7 +120,7 @@ export const buildTraces = (
             },
             yaxis: yaxis,
             visible: visibleMap[name] === false ? 'legendonly' : true,
-            hovertemplate: `<b>${name}</b><br>Value: %{y:.2f}`,
+            hovertemplate: `<br>Value: %{y:.2f}`,
         };
     };
 
