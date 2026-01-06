@@ -23,6 +23,7 @@ function DashboardPage() {
     const [showManualEdit, setShowManualEdit] = useState(false);
 
     const { showMovingAverage, maWindow, setMaWindow, isMaLoading, rollingMeanChartData, handleToggleMovingAverage, handleApplyMaWindow, resetMovingAverage, } = hooks.useMovingAverage(filenamesPerCategory, setError);
+
     const { isPopupOpen, selectedFiles, handleFileUpload, handlePopupComplete, handlePopupClose, resetFileUpload } = hooks.useFileUpload(handleFetchData, setError, setIsLoading);
 
     const { startDate, endDate, handleStartChange, handleEndChange, resetDates, defaultMinDate, defaultMaxDate, ignoreTimeRange, setIgnoreTimeRange } = hooks.useDateRange(Object.entries(chartData).map(([_, entries]) => ({ entries })), manualData);
@@ -66,13 +67,11 @@ function DashboardPage() {
     const { userMetrics, selectedMetricsForDisplay, setSelectedMetricsForDisplay, showMetricsModal, setShowMetricsModal, filteredGroupedMetrics, shouldShowMetric } = hooks.useMetricsSelection(groupedMetrics);
 
     const { plugins } = hooks.useLocalPlugins();
-
     const hasData = Object.keys(chartData).length > 0;
     const enabledPlugins = plugins.filter(p => p.enabled);
-
     const visiblePlugins = enabledPlugins.filter(p => shouldShowMetric(p.id));
 
-    const chartDynamicHeight = hooks.useDynamicHeight(chartContainerRef, [hasData, isLoading]);
+    const chartDynamicHeight = hooks.useDynamicHeight(chartContainerRef, [hasData, isLoading, layoutMode]);
 
     const {
         pluginResults,
@@ -122,7 +121,6 @@ function DashboardPage() {
 
     const hasDifferenceData = Object.keys(differenceChartData).length > 0;
     const isInDifferenceMode = chartMode === 'difference';
-
     const hasEnoughFilesForDifference = Object.values(filenamesPerCategory).some(files => files.length >= 2);
     const totalFilesLoaded = Object.values(filenamesPerCategory).reduce((sum, files) => sum + files.length, 0);
 
@@ -147,11 +145,11 @@ function DashboardPage() {
     const canShowMovingAverage = shouldShowMetric('moving_average');
     const canShowDifferenceChart = shouldShowMetric('difference_chart');
 
+    // Auto-disable features
     useEffect(() => {
         if (!canShowMovingAverage && showMovingAverage) {
             handleToggleMovingAverage();
         }
-
         if (!canShowDifferenceChart && isInDifferenceMode) {
             setChartMode('standard');
         }
@@ -161,6 +159,7 @@ function DashboardPage() {
         <div className="d-flex" style={mainStyle}>
             <div className="App-main-content flex-grow-1 d-flex align-items-start w-100 rounded">
                 <div className={chartLayoutClass}>
+
                     {isInDifferenceMode ? (
                         <ControlsPanel
                             mode="difference"
@@ -228,7 +227,7 @@ function DashboardPage() {
                                 {!isLoading && hasData && (
                                     <>
                                         <div className="d-flex w-100 px-3 py-2 ">
-                                            <div className="d-flex  gap-2 w-100">
+                                            <div className="d-flex gap-2 w-100">
                                                 <components.DateTimePicker
                                                     label="Start"
                                                     value={startDate}
@@ -269,7 +268,7 @@ function DashboardPage() {
                                             </div>
                                         </div>
 
-                                        <div className="chart-wrapper " style={{ height: chartDynamicHeight }}>
+                                        <div className="chart-wrapper" style={{ height: chartDynamicHeight }}>
                                             <components.MyChart
                                                 primaryData={filteredData.primary}
                                                 secondaryData={filteredData.secondary || undefined}
