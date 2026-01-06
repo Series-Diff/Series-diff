@@ -130,3 +130,5 @@ pulumi.export(
         "https://", config.fe_subdomain, ".", config.hosted_zone_domain
     ),
 )
+
+# Trigger
