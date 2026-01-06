@@ -89,10 +89,30 @@ export const useDataFetching = () => {
 
     useEffect(() => {
         if (Object.keys(chartData).length > 0) {
-            localStorage.setItem('chartData', JSON.stringify(chartData));
+            try {
+                localStorage.setItem('chartData', JSON.stringify(chartData));
+            } catch (e) {
+                // Handle QuotaExceededError - data too large for localStorage
+                if (e instanceof DOMException && e.name === 'QuotaExceededError') {
+                    console.warn('chartData too large for localStorage, clearing cache');
+                    // Clear old data and skip saving this large dataset
+                    localStorage.removeItem('chartData');
+                } else {
+                    console.error('Error saving chartData to localStorage:', e);
+                }
+            }
         }
         if (Object.keys(filenamesPerCategory).length > 0) {
-            localStorage.setItem('filenamesPerCategory', JSON.stringify(filenamesPerCategory));
+            try {
+                localStorage.setItem('filenamesPerCategory', JSON.stringify(filenamesPerCategory));
+            } catch (e) {
+                if (e instanceof DOMException && e.name === 'QuotaExceededError') {
+                    console.warn('filenamesPerCategory too large for localStorage, clearing cache');
+                    localStorage.removeItem('filenamesPerCategory');
+                } else {
+                    console.error('Error saving filenamesPerCategory to localStorage:', e);
+                }
+            }
         }
     }, [chartData, filenamesPerCategory]);
 

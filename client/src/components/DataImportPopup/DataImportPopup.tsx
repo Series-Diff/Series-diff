@@ -1,9 +1,15 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { Modal, Button, Form, Spinner, Alert } from 'react-bootstrap';
 import { DataTable } from '../DataTable/DataTable';
 import Papa from 'papaparse';
 
 const API_URL = (process.env.REACT_APP_API_URL || '').replace(/\/$/, '');
+
+// --- CONSTANTS ---
+const NUMERIC_PATTERN = /^-?\d+(\.\d+)?$/;
+
+// --- HELPER: Generate unique group IDs (outside component to persist across renders) ---
+const generateGroupId = () => `group-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
 
 interface FileConfig {
   logDateColumn: string;
@@ -29,7 +35,7 @@ export const DataImportPopup: React.FC<Props> = ({ show, files, onHide, onComple
   const [currentStep, setCurrentStep] = useState<'file-preview' | 'column-config'>('file-preview');
   const [currentFileIndex, setCurrentFileIndex] = useState(0);
   const [fileConfigs, setFileConfigs] = useState<Record<string, FileConfig>>({});
-  const [columnOptions, setColumnOptions] = useState<string[]>([]); // Dostępne kolumny w bieżącym pliku
+  const [columnOptions, setColumnOptions] = useState<string[]>([]); // Available columns in the current file
 
   // --- STATE: Loading & Errors ---
   const [isLoadingFile, setIsLoadingFile] = useState(false);
@@ -46,6 +52,10 @@ export const DataImportPopup: React.FC<Props> = ({ show, files, onHide, onComple
   const [groupCounter, setGroupCounter] = useState(2);
   const [groupNameError, setGroupNameError] = useState<string | null>(null);
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
+  const [manuallyEditedGroups, setManuallyEditedGroups] = useState<Set<string>>(new Set());
+  const [showOnlyNumeric, setShowOnlyNumeric] = useState(true);
+  const [missingValueGroupError, setMissingValueGroupError] = useState(false);
+  const modalBodyRef = React.useRef<HTMLDivElement>(null);
   // --- STATE: Pivot ---
   const [isPivotMode, setIsPivotMode] = useState<Record<string, boolean>>({});
   const [pivotIndex, setPivotIndex] = useState('');   // np. log_date
@@ -111,6 +121,7 @@ export const DataImportPopup: React.FC<Props> = ({ show, files, onHide, onComple
     setTempGroupName('');
     setGroupCounter(2);
     setGroupNameError(null);
+    setManuallyEditedGroups(new Set());
 
     // Reset pivot state
     setIsPivotMode({});
@@ -361,6 +372,9 @@ export const DataImportPopup: React.FC<Props> = ({ show, files, onHide, onComple
   const handleBack = () => {
     if (currentStep === 'column-config') {
       setCurrentStep('file-preview');
+      // Reset validation state when returning to file preview
+      setFieldErrors({});
+      setMissingValueGroupError(false);
     } else if (currentFileIndex > 0) {
       setCurrentFileIndex(currentFileIndex - 1);
       setEditingFileName(false);
@@ -370,6 +384,66 @@ export const DataImportPopup: React.FC<Props> = ({ show, files, onHide, onComple
   const initializeGroups = () => {
     const fileKeys = Object.keys(fileConfigs);
     if (fileKeys.length > 0) {
+      // Find first COMMON numeric column (exists in all files and is numeric)
+      // This ensures consistency across all files, not per-file selection
+      const commonNumericColumns = proposedColumns.filter(col => col.isNumeric);
+      const commonNumericColumn = commonNumericColumns.length > 0 ? commonNumericColumns[0].name : '';
+
+      // Create mappings: use common numeric column if available, fallback to per-file numeric
+      const valueMappings: Record<string, string> = {};
+
+      if (commonNumericColumn) {
+        // All files use the same common numeric column
+        fileKeys.forEach(key => {
+          valueMappings[key] = commonNumericColumn;
+        });
+      } else {
+        // Fallback: find first numeric column per file (only if no common numeric exists)
+        fileKeys.forEach(key => {
+          const config = fileConfigs[key];
+          if (config.rawData.length > 0) {
+            const firstRow = config.rawData[0];
+            const columns = Object.keys(firstRow);
+
+            const dateCol = config.logDateColumn;
+            const numericColumn = columns.find(col => {
+              if (col === dateCol) return false;
+              
+              // Check multiple rows (up to 10) to ensure column is truly numeric
+              const sampleSize = Math.min(config.rawData.length, 10);
+              let checkedCount = 0;
+
+              for (let i = 0; i < config.rawData.length && checkedCount < sampleSize; i++) {
+                const row = config.rawData[i];
+                const value = row[col];
+
+                // Skip null/undefined values
+                if (value === undefined || value === null || value === '') continue;
+
+                checkedCount++;
+
+                // Use strict regex validation to ensure purely numeric values
+                const strValue = String(value).trim();
+                if (!NUMERIC_PATTERN.test(strValue)) return false;
+              }
+
+              return checkedCount > 0;
+            });
+
+            // Use 'none' instead of potentially non-numeric valueColumn if no numeric column found
+            valueMappings[key] = numericColumn || 'none';
+          } else {
+            valueMappings[key] = 'none';
+          }
+        });
+      }
+
+      // Try to generate automatic name based on value columns
+      const valueColumns = Object.values(valueMappings).filter(col => col !== 'none');
+      const firstValueColumn = valueColumns[0];
+      const allSameValueColumns = valueColumns.length > 0 && valueColumns.every(col => col === firstValueColumn);
+      const autoValueGroupName = allSameValueColumns ? firstValueColumn : 'Value Group 1';
+
       setGroups([
         {
           id: 'date',
@@ -378,8 +452,8 @@ export const DataImportPopup: React.FC<Props> = ({ show, files, onHide, onComple
         },
         {
           id: 'value',
-          name: 'Value Group 1',
-          fileMappings: Object.fromEntries(fileKeys.map(key => [key, fileConfigs[key].valueColumn]))
+          name: autoValueGroupName,
+          fileMappings: valueMappings
         }
       ]);
     }
@@ -389,18 +463,66 @@ export const DataImportPopup: React.FC<Props> = ({ show, files, onHide, onComple
   const addNewGroup = () => {
     const newGroupName = `Value Group ${groupCounter}`;
     setGroupCounter(prev => prev + 1);
+    setMissingValueGroupError(false);
     setGroups(prev => [
       ...prev,
       {
-        id: `group-${Date.now()}`,
+        id: generateGroupId(),
         name: newGroupName,
         fileMappings: Object.fromEntries(Object.keys(fileConfigs).map(key => [key, 'none']))
       }
     ]);
+    // Scroll to bottom after adding group
+    setTimeout(() => {
+      if (modalBodyRef.current) {
+        modalBodyRef.current.scrollTop = modalBodyRef.current.scrollHeight;
+      }
+    }, 100);
   };
 
   const removeGroup = (groupId: string) => {
     setGroups(groups.filter(group => group.id !== groupId));
+    setManuallyEditedGroups(prev => {
+      const newSet = new Set(prev);
+      newSet.delete(groupId);
+      return newSet;
+    });
+    // Clear field errors for this group
+    setFieldErrors(prev => {
+      const newErrors = { ...prev };
+      Object.keys(newErrors).forEach(key => {
+        if (key.startsWith(`${groupId}-`)) {
+          delete newErrors[key];
+        }
+      });
+      return newErrors;
+    });
+  };
+
+  // Generate automatic group name based on selected columns
+  const generateAutoGroupName = (groupId: string, updatedMappings: Record<string, string>): string | null => {
+    // Don't auto-rename if user manually edited the name
+    if (manuallyEditedGroups.has(groupId)) {
+      return null;
+    }
+
+    // Get all selected columns (excluding 'none')
+    const selectedColumns = Object.values(updatedMappings).filter(col => col !== 'none');
+
+    // If no columns selected, don't auto-rename
+    if (selectedColumns.length === 0) {
+      return null;
+    }
+
+    // Check if all selected columns have the same name
+    const firstColumn = selectedColumns[0];
+    const allSame = selectedColumns.every(col => col === firstColumn);
+
+    if (allSame) {
+      return firstColumn;
+    }
+
+    return null;
   };
 
   const updateGroupMapping = (groupId: string, fileKey: string, column: string) => {
@@ -411,11 +533,19 @@ export const DataImportPopup: React.FC<Props> = ({ show, files, onHide, onComple
       delete newErrors[errorKey];
       return newErrors;
     });
-    setGroups(groups.map(group =>
-      group.id === groupId
-        ? { ...group, fileMappings: { ...group.fileMappings, [fileKey]: column } }
-        : group
-    ));
+
+    setGroups(prevGroups => prevGroups.map(group => {
+      if (group.id !== groupId) return group;
+
+      const updatedMappings = { ...group.fileMappings, [fileKey]: column };
+      const autoName = generateAutoGroupName(groupId, updatedMappings);
+
+      return {
+        ...group,
+        fileMappings: updatedMappings,
+        name: autoName !== null ? autoName : group.name
+      };
+    }));
   };
 
   // --- LOGIC: Renaming ---
@@ -477,6 +607,7 @@ export const DataImportPopup: React.FC<Props> = ({ show, files, onHide, onComple
       return;
     }
     setGroups(groups.map(group => group.id === groupId ? { ...group, name: trimmedName } : group));
+    setManuallyEditedGroups(prev => new Set(prev).add(groupId));
     setEditingGroupName(null);
     setTempGroupName('');
   };
@@ -486,6 +617,18 @@ export const DataImportPopup: React.FC<Props> = ({ show, files, onHide, onComple
     const errors: Record<string, string> = {};
 
     for (const group of groups) {
+      // Check if group has at least one column selected (not all 'none')
+      const hasSelection = Object.values(group.fileMappings).some(col => col && col !== 'none');
+      if (!hasSelection && group.id !== 'date') {
+        // Don't add error for date group, but for value groups it's invalid
+        // We'll track this in field errors
+        for (const fileKey of Object.keys(fileConfigs)) {
+          const errorKey = `${group.id}-${fileKey}`;
+          errors[errorKey] = `This group has no columns selected.`;
+        }
+        continue;
+      }
+
       for (const fileKey in group.fileMappings) {
         const columnName = group.fileMappings[fileKey];
         if (!columnName || columnName === 'none') continue;
@@ -504,9 +647,10 @@ export const DataImportPopup: React.FC<Props> = ({ show, files, onHide, onComple
             errors[errorKey] = `Column '${columnName}' appears to contain an invalid date format.`;
           }
         } else {
-          const numValue = parseFloat(value as any);
-          if (isNaN(numValue)) {
-            errors[errorKey] = `Column '${columnName}' appears to contain a non-numeric value.`;
+          // Use regex to validate that value is purely numeric (not "75_NO_DD" type)
+          const strValue = String(value).trim();
+          if (!NUMERIC_PATTERN.test(strValue)) {
+            errors[errorKey] = `Column '${columnName}' contains non-numeric values. Please select a numeric column.`;
           }
         }
       }
@@ -555,8 +699,21 @@ export const DataImportPopup: React.FC<Props> = ({ show, files, onHide, onComple
     return result;
   };
 
+  // --- HELPER: Check if there are any non-date groups ---
+  const hasNonDateGroups = (): boolean => {
+    return groups.filter(g => g.id !== 'date').length > 0;
+  };
+
   const handleFinish = () => {
     setFieldErrors({});
+    setMissingValueGroupError(false);
+
+    // Check if there's at least one non-date group
+    if (!hasNonDateGroups()) {
+      setMissingValueGroupError(true);
+      return;
+    }
+
     const unnamedGroups = groups.filter(group => !group.name.trim());
     if (unnamedGroups.length > 0) {
       return;
@@ -594,6 +751,119 @@ export const DataImportPopup: React.FC<Props> = ({ show, files, onHide, onComple
     return Array.from(usedColumns);
   };
 
+  // --- HELPER: Check if column is numeric in all files ---
+  const isColumnNumericInAllFiles = (columnName: string): boolean => {
+    const fileKeys = Object.keys(fileConfigs);
+    return fileKeys.every(fileKey => {
+      const config = fileConfigs[fileKey];
+      if (!config.rawData || config.rawData.length === 0) return false;
+
+      // Check multiple rows (up to 10) to ensure column is truly numeric
+      const sampleSize = Math.min(config.rawData.length, 10);
+      let checkedCount = 0;
+
+      for (let i = 0; i < config.rawData.length && checkedCount < sampleSize; i++) {
+        const row = config.rawData[i];
+        const value = row[columnName];
+
+        // Skip null/undefined values
+        if (value === undefined || value === null || value === '') continue;
+
+        checkedCount++;
+
+        // Check if value is numeric
+        const numValue = parseFloat(value as any);
+        if (isNaN(numValue)) return false;
+
+        // CRITICAL: parseFloat('75_NO_DD') returns 75, so we need strict regex validation
+        // to ensure the entire string is purely numeric (e.g., reject "75_NO_DD", "2.2x", etc.)
+        // This prevents hardware IDs like "75_NO_DD" from being treated as numeric values
+        const strValue = String(value).trim();
+        if (!NUMERIC_PATTERN.test(strValue)) return false;
+      }
+
+      // If we didn't find any values to check, consider it non-numeric
+      return checkedCount > 0;
+    });
+  };
+
+  // --- LOGIC: Find Common Columns Across All Files (Memoized) ---
+  const proposedColumns = useMemo((): Array<{ name: string; isNumeric: boolean }> => {
+    const fileKeys = Object.keys(fileConfigs);
+    if (fileKeys.length === 0) return [];
+
+    // Get columns from first file
+    const firstFileColumns = fileConfigs[fileKeys[0]].rawData.length > 0
+      ? Object.keys(fileConfigs[fileKeys[0]].rawData[0])
+      : [];
+
+    // Filter to columns that exist in ALL files
+    const commonColumns = firstFileColumns.filter(column => {
+      return fileKeys.every(fileKey => {
+        const fileColumns = fileConfigs[fileKey].rawData.length > 0
+          ? Object.keys(fileConfigs[fileKey].rawData[0])
+          : [];
+        return fileColumns.includes(column);
+      });
+    });
+
+    // Filter out columns already used in groups
+    const usedInGroups = new Set<string>();
+    groups.forEach(group => {
+      Object.values(group.fileMappings).forEach(col => {
+        if (col && col !== 'none') usedInGroups.add(col);
+      });
+    });
+
+    const availableColumns = commonColumns.filter(col => !usedInGroups.has(col));
+
+    // Map to include numeric information
+    const columnsWithMetadata = availableColumns.map(col => ({
+      name: col,
+      isNumeric: isColumnNumericInAllFiles(col)
+    }));
+
+    // Sort: numeric first, then by name
+    return columnsWithMetadata.sort((a, b) => {
+      if (a.isNumeric !== b.isNumeric) return a.isNumeric ? -1 : 1;
+      return a.name.localeCompare(b.name);
+    });
+  }, [fileConfigs, groups]);
+
+  // --- HELPER: Check if there are any available columns in any file ---
+  const hasAvailableColumnsInFiles = (): boolean => {
+    return Object.keys(fileConfigs).some(fileKey => {
+      const fileColumns = fileConfigs[fileKey].rawData.length > 0
+        ? Object.keys(fileConfigs[fileKey].rawData[0])
+        : [];
+      const usedColumns = getUsedColumnsForFile(fileKey);
+      return fileColumns.some(col => !usedColumns.includes(col));
+    });
+  };
+
+  const addProposedGroup = (columnName: string) => {
+    const fileKeys = Object.keys(fileConfigs);
+    setMissingValueGroupError(false);
+    // NOTE: Proposed groups are intentionally NOT added to manuallyEditedGroups.
+    // This allows auto-renaming to work when user modifies column mappings after adding a proposed group.
+    // The group name will automatically update to reflect the common column name across all files,
+    // which is the expected behavior for dynamically created groups based on column suggestions.
+    setGroups(prev => [
+      ...prev,
+      {
+        id: generateGroupId(),
+        name: columnName,
+        fileMappings: Object.fromEntries(fileKeys.map(key => [key, columnName]))
+      }
+    ]);
+    // Scroll to bottom after adding group
+    setTimeout(() => {
+      if (modalBodyRef.current) {
+        modalBodyRef.current.scrollTop = modalBodyRef.current.scrollHeight;
+      }
+    }, 100);
+  };
+
   return (
     <Modal show={show} onHide={onHide} backdrop="static" keyboard={false} size="xl" centered scrollable>
       <Modal.Header closeButton>
@@ -604,10 +874,10 @@ export const DataImportPopup: React.FC<Props> = ({ show, files, onHide, onComple
         </Modal.Title>
       </Modal.Header>
 
-      <Modal.Body>
+      <Modal.Body ref={modalBodyRef} className="d-flex flex-column gap-3">
         {currentStep === 'file-preview' ? (
           <>
-            <Form.Group className="mb-4">
+            <Form.Group>
               <Form.Label className="fw-bold d-flex align-items-center gap-2">
                 File:
                 {currentFile ? (
@@ -618,6 +888,14 @@ export const DataImportPopup: React.FC<Props> = ({ show, files, onHide, onComple
                         size="sm"
                         value={tempFileName}
                         onChange={(e) => setTempFileName(e.target.value)}
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter') {
+                            e.preventDefault();
+                            handleRenameFile();
+                          } else if (e.key === 'Escape') {
+                            cancelEditingFileName();
+                          }
+                        }}
                         style={{ maxWidth: '200px' }}
                         isInvalid={!!renameError}
                       />
@@ -640,16 +918,16 @@ export const DataImportPopup: React.FC<Props> = ({ show, files, onHide, onComple
 
             {/* --- SEKCJA PIVOT START --- */}
             {currentFile && pivotWarnings[getFileId(currentFile)] && !isPivotMode[getFileId(currentFile)] && (
-              <Alert variant="info" className="mb-3 py-2">
+              <Alert variant="info" className="py-2">
                 <small>{pivotWarnings[getFileId(currentFile)]}</small>
               </Alert>
             )}
             {isPivotMode[getFileId(currentFile)] && pivotApplied[getFileId(currentFile)] && (
-              <Alert variant="success" className="mb-3 py-2">
+              <Alert variant="success" className="py-2">
                 <small>Pivot applied. To revert to original data, toggle off "Pivot Data" switch below.</small>
               </Alert>
             )}
-            <div className="p-3 mb-3 border rounded bg-light">
+            <div className="p-3 border rounded bg-light">
               <Form.Check
                 type="switch"
                 id="pivot-switch"
@@ -753,12 +1031,20 @@ export const DataImportPopup: React.FC<Props> = ({ show, files, onHide, onComple
           </>
         ) : (
           <>
+            {missingValueGroupError && (
+              <Alert variant="danger" className="mb-0">
+                <strong>Error:</strong> At least one value group is required besides the Date group.
+              </Alert>
+            )}
+
+            {/* Data Groups Section */}
+            <h5 className="fw-bold">Data Groups</h5>
             {groups.map((group) => {
               const isEditing = editingGroupName === group.id;
               return (
                 <div
                   key={group.id}
-                  className={`mb-4 p-3 border rounded ${group.id === 'date' ? 'bg-info bg-opacity-10 border-info border-opacity-50' : ''}`}
+                  className={`p-3 border rounded ${group.id === 'date' ? 'bg-info bg-opacity-10 border-info border-opacity-50' : 'bg-white'}`}
                 >
                   <div className="mb-3 d-flex align-items-center justify-content-start gap-3 flex-wrap">
                     {isEditing && group.id !== 'date' ? (
@@ -768,6 +1054,15 @@ export const DataImportPopup: React.FC<Props> = ({ show, files, onHide, onComple
                           size="sm"
                           value={tempGroupName}
                           onChange={(e) => setTempGroupName(e.target.value)}
+                          onKeyDown={(e) => {
+                            if (e.key === 'Enter') {
+                              e.preventDefault();
+                              saveGroupName(group.id);
+                            } else if (e.key === 'Escape') {
+                              setEditingGroupName(null);
+                              setGroupNameError(null);
+                            }
+                          }}
                           autoFocus
                           isInvalid={!!groupNameError}
                           style={{ maxWidth: '200px' }}
@@ -787,8 +1082,16 @@ export const DataImportPopup: React.FC<Props> = ({ show, files, onHide, onComple
                         {group.id !== 'date' && (
                           <div className="d-flex align-items-center gap-2">
                             <Button size="sm" variant="outline-primary" onClick={() => startEditingGroupName(group.id, group.name)}>Rename</Button>
-                            {group.id !== 'value' && (
-                              <Button size="sm" variant="outline-danger" onClick={() => removeGroup(group.id)}>Remove</Button>
+                            <Button
+                              size="sm"
+                              variant="outline-danger"
+                              disabled={groups.filter((g) => g.id !== 'date').length <= 1}
+                              onClick={() => removeGroup(group.id)}
+                            >
+                              Remove
+                            </Button>
+                            {groups.filter((g) => g.id !== 'date').length <= 1 && (
+                              <span className="text-muted small">At least one value group is required.</span>
                             )}
                           </div>
                         )}
@@ -835,7 +1138,63 @@ export const DataImportPopup: React.FC<Props> = ({ show, files, onHide, onComple
                 </div>
               );
             })}
-            <Button variant="outline-primary" onClick={addNewGroup}>+ Add New Group</Button>
+            {hasAvailableColumnsInFiles() && (
+              <>
+                <Button variant="outline-primary" onClick={addNewGroup}>+ Add New Group</Button>
+
+                {/* Proposed Groups Section - Below Add Button */}
+                {(() => {
+                  const filteredColumns = showOnlyNumeric
+                    ? proposedColumns.filter(col => col.isNumeric)
+                    : proposedColumns;
+
+                  return proposedColumns.length > 0 ? (
+                    <div className="p-3 border rounded bg-light">
+                      <div className="d-flex justify-content-between align-items-center mb-2">
+                        <h6 className="mb-0 fw-bold text-muted">Proposed Groups</h6>
+                        <Form.Check
+                          type="switch"
+                          id="numeric-filter-switch"
+                          label={<span className="small text-muted">Show only numeric</span>}
+                          checked={showOnlyNumeric}
+                          onChange={(e) => setShowOnlyNumeric(e.target.checked)}
+                          className="mb-0"
+                        />
+                      </div>
+                      <p className="small text-muted mb-2">
+                        These columns appear in all files and could be added as separate groups:
+                      </p>
+                      {filteredColumns.length > 0 ? (
+                        <div className="d-flex flex-wrap gap-2">
+                          {filteredColumns.map((col) => (
+                            <Button
+                              key={col.name}
+                              variant="outline-secondary"
+                              size="sm"
+                              onClick={() => addProposedGroup(col.name)}
+                              className={col.isNumeric
+                                ? 'bg-success-subtle border-success-subtle text-success-emphasis'
+                                : 'bg-danger-subtle border-danger-subtle text-danger-emphasis'}
+                            >
+                              + Add "{col.name}" {col.isNumeric ? '✓' : '⚠'}
+                            </Button>
+                          ))}
+                        </div>
+                      ) : (
+                        <p className="small text-muted mb-0 fst-italic">
+                          No {showOnlyNumeric ? 'numeric' : ''} columns available. Turn off the numeric filter to see all options.
+                        </p>
+                      )}
+                      {!showOnlyNumeric && proposedColumns.some(col => !col.isNumeric) && (
+                        <p className="small text-danger mt-2 mb-0">
+                          <strong>Note:</strong> Non-numeric columns (marked with ⚠) will fail validation if used in value groups.
+                        </p>
+                      )}
+                    </div>
+                  ) : null;
+                })()}
+              </>
+            )}
           </>
         )}
       </Modal.Body>
@@ -850,7 +1209,7 @@ export const DataImportPopup: React.FC<Props> = ({ show, files, onHide, onComple
           disabled={
             currentStep === 'file-preview'
               ? isLoadingFile || !!errorParsingFile || !!renameError || (isPivotMode[getFileId(currentFile)] && !!pivotError)
-              : Object.keys(fieldErrors).length > 0
+              : Object.keys(fieldErrors).length > 0 || !hasNonDateGroups()
           }
         >
           {currentStep === 'file-preview'
