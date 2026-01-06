@@ -36,4 +36,4 @@ RUN poetry install --no-root
 COPY . .
 
 # Run app.py when the container launches
-CMD ["poetry", "run", "gunicorn", "--workers=2", "--threads=4", "--worker-class=gthread", "--bind=0.0.0.0:5000", "main:app"]
+CMD ["poetry", "run", "gunicorn", "-c", "gunicorn_config.py", "main:app"]

@@ -18,8 +18,8 @@ export const useDataFetching = () => {
 
             const names = services.extractFilenamesPerCategory(allSeries);
             setFilenamesPerCategory(names);
-        } catch (err: any) {
-            setError(err.message || 'Failed to fetch data.');
+        } catch (err: unknown) {
+            setError(err instanceof Error ? err.message : 'Failed to fetch data.');
             setChartData({});
         } finally {
             if (showLoadingIndicator) setIsLoading(false);
@@ -59,9 +59,9 @@ export const useDataFetching = () => {
             } else {
                 console.log("Timeseries data cleared on backend.");
             }
-        } catch (err: any) {
+        } catch (err: unknown) {
             console.error("Error clearing timeseries on backend:", err);
-            setError(`Error while clearing data on server: ${err.message}. Chart data has been reset.`);
+            setError(`Error while clearing data on server: ${err instanceof Error ? err.message : 'Unknown error'}. Chart data has been reset.`);
         } finally {
             setIsLoading(false);
         }
