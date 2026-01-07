@@ -1,12 +1,16 @@
 import { useState, useEffect } from 'react';
 import * as services from '../services';
 
+export type ColorSyncMode = 'default' | 'group' | 'file';
+
 export const useChartConfiguration = (
     filenamesPerCategory: Record<string, string[]>,
     chartData: Record<string, services.TimeSeriesEntry[]>,
     rollingMeanChartData: Record<string, services.TimeSeriesEntry[]>,
     showMovingAverage: boolean,
-    maWindow: string
+    maWindow: string,
+    startDate?: Date | null,
+    endDate?: Date | null
 ) => {
     const [selectedCategory, setSelectedCategory] = useState(() => {
         const savedCategory = localStorage.getItem('selectedCategory');
@@ -18,13 +22,22 @@ export const useChartConfiguration = (
         return savedCategory ? savedCategory : null;
     });
 
+    const [tertiaryCategory, setTertiaryCategory] = useState(() => {
+        const savedCategory = localStorage.getItem('tertiaryCategory');
+        return savedCategory ? savedCategory : null;
+    });
+
     const [rangePerCategory, setRangePerCategory] = useState<{ [key: string]: { min: number | '', max: number | '' } }>({});
-    const [syncColorsByFile, setSyncColorsByFile] = useState(true);
+    const [colorSyncMode, setColorSyncMode] = useState<ColorSyncMode>('default');
+
+    const syncColorsByFile = colorSyncMode === 'file';
+    const syncColorsByGroup = colorSyncMode === 'group';
 
     const [filteredData, setFilteredData] = useState<{
         primary: Record<string, services.TimeSeriesEntry[]>;
         secondary: Record<string, services.TimeSeriesEntry[]> | null;
-    }>({ primary: {}, secondary: null });
+        tertiary: Record<string, services.TimeSeriesEntry[]> | null;
+    }>({ primary: {}, secondary: null, tertiary: null });
 
     const handleDropdownChange = (event: React.ChangeEvent<HTMLSelectElement>) => {
         setSelectedCategory(event.target.value);
@@ -32,6 +45,10 @@ export const useChartConfiguration = (
 
     const handleSecondaryDropdownChange = (event: React.ChangeEvent<HTMLSelectElement>) => {
         setSecondaryCategory(event.target.value || null);
+    };
+
+    const handleTertiaryDropdownChange = (event: React.ChangeEvent<HTMLSelectElement>) => {
+        setTertiaryCategory(event.target.value || null);
     };
 
     const handleRangeChange = (category: string, min: number | '', max: number | '') => {
@@ -62,6 +79,14 @@ export const useChartConfiguration = (
     }, [secondaryCategory]);
 
     useEffect(() => {
+        if (tertiaryCategory) {
+            localStorage.setItem('tertiaryCategory', tertiaryCategory);
+        } else {
+            localStorage.removeItem('tertiaryCategory');
+        }
+    }, [tertiaryCategory]);
+
+    useEffect(() => {
         if (!chartData || Object.keys(chartData).length === 0) return;
 
         const processCategory = (category: string | null): Record<string, services.TimeSeriesEntry[]> => {
@@ -71,7 +96,12 @@ export const useChartConfiguration = (
 
             for (const [key, series] of Object.entries(chartData)) {
                 if (key.startsWith(`${category}.`)) {
-                    result[key] = series;
+                    result[key] = series.filter(item => {
+                        const time = new Date(item.x).getTime();
+                        const afterStart = !startDate || time >= startDate.getTime();
+                        const beforeEnd = !endDate || time <= endDate.getTime();
+                        return afterStart && beforeEnd;
+                    });
                 }
             }
 
@@ -119,7 +149,13 @@ export const useChartConfiguration = (
                         const parts = key.split(".");
                         const baseKey = parts.slice(0, -1).join(".");
                         const legendKey = `${baseKey} (MA ${maWindow})`;
-                        result[legendKey] = series;
+
+                        result[legendKey] = series.filter(item => {
+                            const time = new Date(item.x).getTime();
+                            const afterStart = !startDate || time >= startDate.getTime();
+                            const beforeEnd = !endDate || time <= endDate.getTime();
+                            return afterStart && beforeEnd;
+                        });
                     }
                 }
             }
@@ -129,29 +165,37 @@ export const useChartConfiguration = (
 
         const primary = processCategory(selectedCategory);
         const secondary = processCategory(secondaryCategory);
+        const tertiary = processCategory(tertiaryCategory);
 
         setFilteredData({
             primary,
-            secondary: Object.keys(secondary).length > 0 ? secondary : null
+            secondary: Object.keys(secondary).length > 0 ? secondary : null,
+            tertiary: Object.keys(tertiary).length > 0 ? tertiary : null
         });
-    }, [chartData, selectedCategory, secondaryCategory, rangePerCategory, showMovingAverage, rollingMeanChartData, maWindow]);
+    }, [chartData, selectedCategory, secondaryCategory, tertiaryCategory, rangePerCategory, showMovingAverage, rollingMeanChartData, maWindow, startDate, endDate]);
 
     const resetChartConfig = () => {
         setSelectedCategory(null);
         setSecondaryCategory(null);
+        setTertiaryCategory(null);
         setRangePerCategory({});
-        setFilteredData({ primary: {}, secondary: null });
+        setFilteredData({ primary: {}, secondary: null, tertiary: null });
+        setColorSyncMode('default');
     };
 
     return {
         selectedCategory,
         secondaryCategory,
+        tertiaryCategory,
         handleRangeChange,
         syncColorsByFile,
-        setSyncColorsByFile,
+        colorSyncMode,
+        setColorSyncMode,
+        syncColorsByGroup,
         filteredData,
         handleDropdownChange,
         handleSecondaryDropdownChange,
+        handleTertiaryDropdownChange,
         resetChartConfig,
     };
 };

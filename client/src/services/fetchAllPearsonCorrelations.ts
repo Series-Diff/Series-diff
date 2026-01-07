@@ -13,29 +13,36 @@ const handleSessionToken = (response: Response) => {
   }
 };
 
-// Funkcja pobiera współczynnik korelacji Pearsona między dwoma plikami
 export async function fetchPearsonCorrelation(
   filename1: string,
   filename2: string,
-  category: string
+  category: string,
+  start?: string,
+  end?: string
 ): Promise<number | null> {
-  // Tworzymy adres endpointu API z parametrami - enkodujemy nazwy plików
-  const url = `${API_URL}/api/timeseries/pearson_correlation?filename1=${encodeURIComponent(filename1.trim())}&filename2=${encodeURIComponent(filename2.trim())}&category=${encodeURIComponent(category.trim())}`;
+  const params = new URLSearchParams({
+    filename1: filename1.trim(),
+    filename2: filename2.trim(),
+    category: category.trim(),
+  });
+  if (start) params.append('start', start);
+  if (end) params.append('end', end);
+  const url = `${API_URL}/api/timeseries/pearson_correlation?${params.toString()}`;
+
   try {
     const response = await fetch(url, {
       headers: {
         ...getAuthHeaders(),
       },
     });
+
     handleSessionToken(response);
 
-    // Jeśli zapytanie nie powiodło się — logujemy błąd i zwracamy null
     if (!response.ok) {
       console.error(`Failed to fetch correlation for ${filename1} vs ${filename2}:`, await response.text());
       return null;
     }
 
-    // Parsujemy odpowiedź JSON i zwracamy wartość korelacji (lub null, jeśli brak)
     const data = await response.json();
     return data.pearson_correlation ?? null;
   } catch (err) {
@@ -44,10 +51,11 @@ export async function fetchPearsonCorrelation(
   }
 }
 
-// Funkcja pobiera macierz korelacji między wszystkimi plikami w danej kategorii
 export async function fetchAllPearsonCorrelations(
   filenames: string[],
-  category: string
+  category: string,
+  start?: string,
+  end?: string
 ): Promise<Record<string, Record<string, number>>> {
   const correlations: Record<string, Record<string, number>> = {};
   const numFiles = filenames.length;
@@ -67,7 +75,7 @@ export async function fetchAllPearsonCorrelations(
     for (let j = i + 1; j < numFiles; j++) {
       const file2 = filenames[j];
 
-      const value = await fetchPearsonCorrelation(file1, file2, category);
+      const value = await fetchPearsonCorrelation(file1, file2, category, start, end);
       const correlation = value ?? 0;
 
       // Ustawiamy wartość symetrycznie

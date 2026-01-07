@@ -1017,6 +1017,8 @@ def get_euclidean_distance():
     filename1 = request.args.get("filename1")
     filename2 = request.args.get("filename2")
     category = request.args.get("category")
+    start = request.args.get("start")
+    end = request.args.get("end")
     tolerance = request.args.get("tolerance")
 
     try:
