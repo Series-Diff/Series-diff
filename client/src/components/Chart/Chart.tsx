@@ -26,7 +26,7 @@ const MyChart: React.FC<MyChartProps> = ({
                                              title,
                                              syncColorsByFile = true,
                                              syncColorsByGroup = false,
-                                             layoutMode = 'stacked'
+                                             layoutMode = 'overlay'
                                          }) => {
 
     const {
