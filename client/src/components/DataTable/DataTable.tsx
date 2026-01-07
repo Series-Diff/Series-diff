@@ -39,7 +39,15 @@ export const DataTable: React.FC<DataTableProps> = ({
     return showPagination ? data?.slice(startIndex, endIndex) || [] : data?.slice(0, rowsNumber) || [];
   }, [data, currentPage, rowsNumber, showPagination]);
   
-  const columns = React.useMemo(() => (rows.length > 0 ? Object.keys(rows[0]) : []), [rows]);
+  const columns = React.useMemo(() => {
+    // Collect all unique column keys from all data (not just first row)
+    // This ensures sparse columns are included even if they don't appear in first row
+    const columnSet = new Set<string>();
+    data?.forEach(row => {
+      Object.keys(row).forEach(key => columnSet.add(key));
+    });
+    return Array.from(columnSet);
+  }, [data]);
 
   // Reset to page 1 when rows per page or data changes
   React.useEffect(() => {
@@ -145,7 +153,7 @@ export const DataTable: React.FC<DataTableProps> = ({
           </Dropdown>
           )}
           {showRowInfo && (
-          <small className="text-muted">
+          <small className="text-muted m-0">
             Showing {data.length > 0 ? (currentPage - 1) * rowsNumber + 1 : 0} to {Math.min(currentPage * rowsNumber, data.length)} of {data.length} rows
           </small>
           )}
