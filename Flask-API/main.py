@@ -71,6 +71,39 @@ def _create_response(data, status_code=200, token=None):
     return response
 
 
+def _apply_timezone_conversion(data, param_name="data"):
+    """
+    Apply timezone conversion to timeseries data.
+
+    :param data: Dictionary with timeseries data (keys are timestamps)
+    :param param_name: Name of the parameter for logging
+    """
+    if not data:
+        return data
+
+    tz_param = request.args.get("tz", "Europe/Warsaw")
+    keep_offset_param = request.args.get("keep_offset", "false").lower() in (
+        "1",
+        "true",
+        "yes",
+    )
+
+    try:
+        return convert_timeseries_keys_timezone(
+            data,
+            tz_str=tz_param,
+            keep_offset=keep_offset_param,
+        )
+
+    except Exception as e:
+        logger.warning(
+            "Time conversion failed for %s: %s. Returning original timestamps.",
+            param_name,
+            e,
+        )
+        return data
+
+
 @app.route("/health")
 def health_check():
     try:
@@ -84,7 +117,11 @@ def health_check():
 @app.route("/", methods=["GET"])
 def index():
     return _create_response(
-        {"status": "API is working", "service": "SeriesDiff Backend"}, 200
+        {
+            "status": "API is working",
+            "service": "SeriesDiff Backend",
+        },
+        200,
     )
 
 
@@ -132,21 +169,7 @@ def get_timeseries():
             e,
         )
         return _create_response({"error": "Unexpected error occurred"}, 500)
-    tz_param = request.args.get("tz", "Europe/Warsaw")
-    keep_offset_param = request.args.get("keep_offset", "false").lower() in (
-        "1",
-        "true",
-        "yes",
-    )
-    if data:
-        try:
-            data = convert_timeseries_keys_timezone(
-                data, tz_str=tz_param, keep_offset=keep_offset_param
-            )
-        except Exception as e:
-            logger.warning(
-                "Time conversion failed: %s. Returning original timestamps.", e
-            )
+    data = _apply_timezone_conversion(data, "timeseries")
     if data is None:
         logger.warning(
             "Timeseries not found for filename '%s' and category '%s' and time interval '%s - %s'",
@@ -185,11 +208,17 @@ def transform_pivot():
 
     if not all([index_col, columns_col, values_col]):
         return _create_response(
-            {"error": "Please select columns for Index, Category and Value."}, 400
+            {"error": "Please select columns for Index, Category and Value."},
+            400,
         )
 
     try:
-        result_data = pivot_file(file, index_col, columns_col, values_col)
+        result_data = pivot_file(
+            file,
+            index_col,
+            columns_col,
+            values_col,
+        )
 
         return _create_response(result_data, 200)
 
@@ -212,27 +241,18 @@ def get_scatter_data():
     try:
         # Pobranie danych
         data1 = timeseries_manager.get_timeseries(
-            token=token, filename=filename1, category=category
+            token=token,
+            filename=filename1,
+            category=category,
         )
-        tz_param = request.args.get("tz", "Europe/Warsaw")
-        keep_offset_param = request.args.get("keep_offset", "false").lower() in (
-            "1",
-            "true",
-            "yes",
-        )
-        if data1:
-            data1 = convert_timeseries_keys_timezone(
-                data1, tz_str=tz_param, keep_offset=keep_offset_param
-            )
+        data1 = _apply_timezone_conversion(data1, "data1")
         serie1 = metric_service.extract_series_from_dict(data1, category, filename1)
-
         data2 = timeseries_manager.get_timeseries(
-            token=token, filename=filename2, category=category
+            token=token,
+            filename=filename2,
+            category=category,
         )
-        if data2:
-            data2 = convert_timeseries_keys_timezone(
-                data2, tz_str=tz_param, keep_offset=keep_offset_param
-            )
+        data2 = _apply_timezone_conversion(data2, "data2")
         serie2 = metric_service.extract_series_from_dict(data2, category, filename2)
 
         # Użycie wspólnej logiki alignowania
@@ -243,7 +263,11 @@ def get_scatter_data():
         result = []
         for index, row in df_merged.iterrows():
             result.append(
-                {"x": row["value1"], "y": row["value2"], "time": index.isoformat()}
+                {
+                    "x": row["value1"],
+                    "y": row["value2"],
+                    "time": index.isoformat(),
+                }
             )
 
         return _create_response(result, 200)
@@ -268,7 +292,11 @@ def get_mean():
     end = request.args.get("end")
     try:
         data = timeseries_manager.get_timeseries(
-            token=token, filename=filename, category=category, start=start, end=end
+            token=token,
+            filename=filename,
+            category=category,
+            start=start,
+            end=end,
         )
         serie = metric_service.extract_series_from_dict(data, category, filename)
         mean = metric_service.calculate_basic_statistics(serie)["mean"]
@@ -318,7 +346,11 @@ def get_median():
     end = request.args.get("end")
     try:
         data = timeseries_manager.get_timeseries(
-            token=token, filename=filename, category=category, start=start, end=end
+            token=token,
+            filename=filename,
+            category=category,
+            start=start,
+            end=end,
         )
         serie = metric_service.extract_series_from_dict(data, category, filename)
         median = metric_service.calculate_basic_statistics(serie)["median"]
@@ -376,7 +408,11 @@ def get_variance():
     end = request.args.get("end")
     try:
         data = timeseries_manager.get_timeseries(
-            token=token, filename=filename, category=category, start=start, end=end
+            token=token,
+            filename=filename,
+            category=category,
+            start=start,
+            end=end,
         )
         serie = metric_service.extract_series_from_dict(data, category, filename)
         variance = metric_service.calculate_basic_statistics(serie)["variance"]
@@ -425,7 +461,11 @@ def get_standard_deviation():
     end = request.args.get("end")
     try:
         data = timeseries_manager.get_timeseries(
-            token=token, filename=filename, category=category, start=start, end=end
+            token=token,
+            filename=filename,
+            category=category,
+            start=start,
+            end=end,
         )
         serie = metric_service.extract_series_from_dict(data, category, filename)
         std_dev = metric_service.calculate_basic_statistics(serie)["std_dev"]
@@ -481,7 +521,11 @@ def get_autocorrelation():
     end = request.args.get("end")
     try:
         data = timeseries_manager.get_timeseries(
-            token=token, filename=filename, category=category, start=start, end=end
+            token=token,
+            filename=filename,
+            category=category,
+            start=start,
+            end=end,
         )
         serie = metric_service.extract_series_from_dict(data, category, filename)
         acf_value = metric_service.calculate_autocorrelation(serie)
@@ -530,7 +574,11 @@ def get_coefficient_of_variation():
     end = request.args.get("end")
     try:
         data = timeseries_manager.get_timeseries(
-            token=token, filename=filename, category=category, start=start, end=end
+            token=token,
+            filename=filename,
+            category=category,
+            start=start,
+            end=end,
         )
         serie = metric_service.extract_series_from_dict(data, category, filename)
         cv = metric_service.calculate_coefficient_of_variation(serie)
@@ -579,7 +627,11 @@ def get_iqr():
     end = request.args.get("end")
     try:
         data = timeseries_manager.get_timeseries(
-            token=token, filename=filename, category=category, start=start, end=end
+            token=token,
+            filename=filename,
+            category=category,
+            start=start,
+            end=end,
         )
         serie = metric_service.extract_series_from_dict(data, category, filename)
         iqr = metric_service.calculate_iqr(serie)
@@ -630,11 +682,19 @@ def get_pearson_correlation():
     tolerance = request.args.get("tolerance")
     try:
         data1 = timeseries_manager.get_timeseries(
-            token=token, filename=filename1, category=category, start=start, end=end
+            token=token,
+            filename=filename1,
+            category=category,
+            start=start,
+            end=end,
         )
         serie1 = metric_service.extract_series_from_dict(data1, category, filename1)
         data2 = timeseries_manager.get_timeseries(
-            token=token, filename=filename2, category=category, start=start, end=end
+            token=token,
+            filename=filename2,
+            category=category,
+            start=start,
+            end=end,
         )
         serie2 = metric_service.extract_series_from_dict(data2, category, filename2)
         correlation = metric_service.calculate_pearson_correlation(
@@ -685,12 +745,20 @@ def get_cosine_similarity():
     try:
         # Pobierz dane dla obu plików
         data1 = timeseries_manager.get_timeseries(
-            token=token, filename=filename1, category=category, start=start, end=end
+            token=token,
+            filename=filename1,
+            category=category,
+            start=start,
+            end=end,
         )
         serie1 = metric_service.extract_series_from_dict(data1, category, filename1)
 
         data2 = timeseries_manager.get_timeseries(
-            token=token, filename=filename2, category=category, start=start, end=end
+            token=token,
+            filename=filename2,
+            category=category,
+            start=start,
+            end=end,
         )
         serie2 = metric_service.extract_series_from_dict(data2, category, filename2)
 
@@ -745,12 +813,20 @@ def get_mae():
 
     try:
         data1 = timeseries_manager.get_timeseries(
-            token=token, filename=filename1, category=category, start=start, end=end
+            token=token,
+            filename=filename1,
+            category=category,
+            start=start,
+            end=end,
         )
         serie1 = metric_service.extract_series_from_dict(data1, category, filename1)
 
         data2 = timeseries_manager.get_timeseries(
-            token=token, filename=filename2, category=category, start=start, end=end
+            token=token,
+            filename=filename2,
+            category=category,
+            start=start,
+            end=end,
         )
         serie2 = metric_service.extract_series_from_dict(data2, category, filename2)
 
@@ -794,12 +870,20 @@ def get_rmse():
 
     try:
         data1 = timeseries_manager.get_timeseries(
-            token=token, filename=filename1, category=category, start=start, end=end
+            token=token,
+            filename=filename1,
+            category=category,
+            start=start,
+            end=end,
         )
         serie1 = metric_service.extract_series_from_dict(data1, category, filename1)
 
         data2 = timeseries_manager.get_timeseries(
-            token=token, filename=filename2, category=category, start=start, end=end
+            token=token,
+            filename=filename2,
+            category=category,
+            start=start,
+            end=end,
         )
         serie2 = metric_service.extract_series_from_dict(data2, category, filename2)
 
@@ -838,12 +922,16 @@ def get_difference():
 
     try:
         data1 = timeseries_manager.get_timeseries(
-            token=token, filename=filename1, category=category
+            token=token,
+            filename=filename1,
+            category=category,
         )
         serie1 = metric_service.extract_series_from_dict(data1, category, filename1)
 
         data2 = timeseries_manager.get_timeseries(
-            token=token, filename=filename2, category=category
+            token=token,
+            filename=filename2,
+            category=category,
         )
         serie2 = metric_service.extract_series_from_dict(data2, category, filename2)
 
@@ -854,6 +942,7 @@ def get_difference():
     except Exception as e:
         return _create_response({"error": str(e)}, 400)
 
+    difference_series = _apply_timezone_conversion(difference_series, "difference")
     return _create_response({"difference": difference_series}, 200)
 
 
@@ -866,15 +955,24 @@ def get_rolling_mean():
 
     try:
         data = timeseries_manager.get_timeseries(
-            token=token, filename=filename, category=category
+            token=token,
+            filename=filename,
+            category=category,
         )
         serie = metric_service.extract_series_from_dict(data, category, filename)
 
-        rolling_mean_series = metric_service.calculate_rolling_mean(serie, window_size)
+        rolling_mean_series = metric_service.calculate_rolling_mean(
+            serie,
+            window_size,
+        )
 
     except Exception as e:
         return _create_response({"error": str(e)}, 400)
 
+    rolling_mean_series = _apply_timezone_conversion(
+        rolling_mean_series,
+        "rolling_mean",
+    )
     return _create_response({"rolling_mean": rolling_mean_series}, 200)
 
 
@@ -889,11 +987,19 @@ def get_dtw():
 
     try:
         data1 = timeseries_manager.get_timeseries(
-            token=token, filename=filename1, category=category, start=start, end=end
+            token=token,
+            filename=filename1,
+            category=category,
+            start=start,
+            end=end,
         )
         series1 = metric_service.extract_series_from_dict(data1, category, filename1)
         data2 = timeseries_manager.get_timeseries(
-            token=token, filename=filename2, category=category, start=start, end=end
+            token=token,
+            filename=filename2,
+            category=category,
+            start=start,
+            end=end,
         )
         series2 = metric_service.extract_series_from_dict(data2, category, filename2)
 
@@ -911,23 +1017,27 @@ def get_euclidean_distance():
     filename1 = request.args.get("filename1")
     filename2 = request.args.get("filename2")
     category = request.args.get("category")
-    start = request.args.get("start")
-    end = request.args.get("end")
     tolerance = request.args.get("tolerance")
 
     try:
         data1 = timeseries_manager.get_timeseries(
-            token=token, filename=filename1, category=category, start=start, end=end
+            token=token,
+            filename=filename1,
+            category=category,
         )
         series1 = metric_service.extract_series_from_dict(data1, category, filename1)
 
         data2 = timeseries_manager.get_timeseries(
-            token=token, filename=filename2, category=category, start=start, end=end
+            token=token,
+            filename=filename2,
+            category=category,
         )
         series2 = metric_service.extract_series_from_dict(data2, category, filename2)
 
         euclidean_distances = metric_service.calculate_euclidean_distance(
-            series1, series2, tolerance
+            series1,
+            series2,
+            tolerance,
         )
 
     except Exception as e:
@@ -951,14 +1061,16 @@ def add_timeseries():
             "Invalid data format: Expected a JSON object with keys as identifiers"
         )
         return _create_response(
-            {"error": "Expected a JSON object with keys as identifiers"}, 400
+            {"error": "Expected a JSON object with keys as identifiers"},
+            400,
         )
     try:
         current_timeseries = timeseries_manager.get_timeseries(token=token)
         for time, values in data.items():
             if not isinstance(values, dict):
                 logger.error(
-                    "Invalid data format for time '%s': Expected a dictionary", time
+                    "Invalid data format for time '%s': Expected a dictionary",
+                    time,
                 )
                 return _create_response(
                     {
