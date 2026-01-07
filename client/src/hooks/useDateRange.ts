@@ -7,30 +7,42 @@ export function useDateRange(loadedData: any[] = [], manualData: Record<string, 
   const [ignoreTimeRange, setIgnoreTimeRange] = useState(false);
 
   const dataBounds = useMemo(() => {
-    const allDates: Date[] = [];
+    let minTime = Infinity;
+    let maxTime = -Infinity;
+    let hasData = false;
 
     if (loadedData?.length) {
-      const loadedDates = loadedData.flatMap(file =>
-        (file.entries ?? [])
-          .map((e: any) => new Date(e.x))
-          .filter((d: { getTime: () => number; }) => !isNaN(d.getTime()))
-      );
-      allDates.push(...loadedDates);
+      for (const file of loadedData) {
+        const entries = file.entries ?? [];
+        for (const entry of entries) {
+          const time = new Date(entry.x).getTime();
+          if (!isNaN(time)) {
+            minTime = Math.min(minTime, time);
+            maxTime = Math.max(maxTime, time);
+            hasData = true;
+          }
+        }
+      }
     }
 
     if (Object.keys(manualData).length > 0) {
-      const manualDates = Object.values(manualData)
-        .flat()
-        .map((e: TimeSeriesEntry) => new Date(e.x))
-        .filter((d: { getTime: () => number; }) => !isNaN(d.getTime()));
-      allDates.push(...manualDates);
+      for (const entries of Object.values(manualData)) {
+        for (const entry of entries) {
+          const time = new Date(entry.x).getTime();
+          if (!isNaN(time)) {
+            minTime = Math.min(minTime, time);
+            maxTime = Math.max(maxTime, time);
+            hasData = true;
+          }
+        }
+      }
     }
 
-    if (!allDates.length) return { min: null, max: null };
+    if (!hasData) return { min: null, max: null };
 
     return {
-      min: new Date(Math.min(...allDates.map(d => d.getTime()))),
-      max: new Date(Math.max(...allDates.map(d => d.getTime()))),
+      min: new Date(minTime),
+      max: new Date(maxTime),
     };
   }, [loadedData, manualData]);
 
