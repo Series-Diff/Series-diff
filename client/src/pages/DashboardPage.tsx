@@ -143,12 +143,12 @@ function DashboardPage() {
         <div className="d-flex" style={mainStyle}>
             <div className="App-main-content flex-grow-1 d-flex align-items-start w-100 rounded">
                 <div className={chartLayoutClass}>
-                    <div style={{ 
-                        display: 'flex', 
-                        flexDirection: 'column', 
-                        gap: '16px', 
-                        height: `calc(100vh - var(--nav-height) - 2 * var(--section-margin))`, 
-                        overflow: 'hidden' 
+                    <div style={{
+                        display: 'flex',
+                        flexDirection: 'column',
+                        gap: '16px',
+                        height: `calc(100vh - var(--nav-height) - 2 * var(--section-margin))`,
+                        overflow: 'hidden'
                     }}>
                         {/* Controls Panel */}
                         {isInDifferenceMode ? (
@@ -202,136 +202,127 @@ function DashboardPage() {
                             className={chartContainerClass}
                             style={{ flex: 1, minHeight: 0 }}
                         >
-                        {!isInDifferenceMode && (
-                            <>
-                                {isLoading && !hasData &&
-                                    <div className="d-flex align-items-center justify-content-center text-muted flex-grow-1">
-                                        <Spinner animation="border" size="sm" className="me-2" />
-                                        Loading chart...
-                                    </div>}
-                                {!isLoading && !hasData && !error &&
-                                    <div className="d-flex align-items-center justify-content-center text-muted flex-grow-1">
-                                        Load data to visualize
-                                    </div>}
-                                {!isLoading && hasData && (
-                                    <>
-                                        <div className="d-flex w-100 px-3 py-2">
-                                            <div className="d-flex gap-2 w-100">
-                                                <components.DateTimePicker
-                                                    label="Start"
-                                                    value={startDate}
-                                                    onChange={handleStartChange}
-                                                    minDate={defaultMinDate}
-                                                    maxDate={endDate ?? defaultMaxDate}
-                                                    openToDate={startDate ?? defaultMinDate} />
+                            {!isInDifferenceMode && (
+                                <>
+                                    {isLoading && !hasData &&
+                                        <div className="d-flex align-items-center justify-content-center text-muted flex-grow-1">
+                                            <Spinner animation="border" size="sm" className="me-2" />
+                                            Loading chart...
+                                        </div>}
+                                    {!isLoading && !hasData && !error &&
+                                        <div className="d-flex align-items-center justify-content-center text-muted flex-grow-1">
+                                            Load data to visualize
+                                        </div>}
+                                    {!isLoading && hasData && (
+                                        <>
+                                            <div className="d-flex w-100 px-2 pb-1">
+                                                <div className="d-flex gap-3 w-100">
+                                                    <components.DateTimePicker
+                                                        label="Start"
+                                                        value={startDate}
+                                                        onChange={handleStartChange}
+                                                        minDate={defaultMinDate}
+                                                        maxDate={endDate ?? defaultMaxDate}
+                                                        openToDate={startDate ?? defaultMinDate} />
 
-                                                <components.DateTimePicker
-                                                    label="End"
-                                                    value={endDate}
-                                                    onChange={handleEndChange}
-                                                    minDate={startDate ?? defaultMinDate}
-                                                    maxDate={defaultMaxDate}
-                                                    openToDate={endDate ?? defaultMaxDate} />
+                                                    <components.DateTimePicker
+                                                        label="End"
+                                                        value={endDate}
+                                                        onChange={handleEndChange}
+                                                        minDate={startDate ?? defaultMinDate}
+                                                        maxDate={defaultMaxDate}
+                                                        openToDate={endDate ?? defaultMaxDate}
+                                                    />
 
-                                                <div className="d-flex align-items-center ms-2 pb-1">
-                                                    <Form.Check
-                                                        type="switch"
-                                                        id="date-filter-toggle"
-                                                        label={<span className="text-nowrap small text-muted">Calculate metrics on full date range</span>}
-                                                        checked={ignoreTimeRange}
-                                                        onChange={(e) => setIgnoreTimeRange(e.target.checked)}
-                                                        className="mb-0" />
-                                                </div>
-                                                <div className="d-flex ms-auto p-2">
-                                                    <div className="d-flex gap-2">
+                                                    <div className="d-flex align-items-center">
+                                                        <Form.Check
+                                                            type="switch"
+                                                            id="date-filter-toggle"
+                                                            label={<span className="text-nowrap small text-muted">Calculate metrics on full date range</span>}
+                                                            checked={ignoreTimeRange}
+                                                            onChange={(e) => setIgnoreTimeRange(e.target.checked)}
+                                                            className="mb-0" />
+                                                    </div>
+                                                    <div className="ms-auto d-flex align-items-center">
                                                         <Button
                                                             variant="outline-secondary"
                                                             size="sm"
                                                             onClick={() => Object.keys(manualData).length === 0 ? setShowManualModal(true) : setShowManualEdit(true)}
-                                                            className="ms-2 mb-1 text-nowrap"
                                                         >
                                                             Manual Measurements
                                                         </Button>
                                                     </div>
                                                 </div>
                                             </div>
-                                        </div>
-                                        <div className="chart-wrapper flex-grow-1" style={{ height: '100%' }}>
-                                            <components.MyChart
-                                                primaryData={filteredData.primary}
-                                                secondaryData={filteredData.secondary || undefined}
-                                                tertiaryData={filteredData.tertiary || undefined}
-                                                syncColorsByFile={syncColorsByFile}
-                                                syncColorsByGroup={syncColorsByGroup}
-                                                layoutMode={layoutMode}
-                                                manualData={filteredManualData}
-                                            />
-                                        </div>
-                                    </>
-                                )}
-                            </>
-                        )}
-                        {/* Difference Chart Mode */}
-                        {isInDifferenceMode && (
-                            <>
-                                {!hasData && !isLoading && !error && (
-                                    <div className="d-flex align-items-center justify-content-center text-muted flex-grow-1 flex-fill">
-                                        Load data to visualize differences
-                                    </div>
-                                )}
-                                {hasData && !hasEnoughFilesForDifference && (
-                                    <div className="d-flex align-items-center justify-content-center text-muted flex-grow-1 flex-fill">
-                                        <div>
-                                            <p className="mb-2">Difference chart requires at least 2 files in the same category.</p>
-                                            <p className="small mb-0">Currently loaded: {totalFilesLoaded} file{totalFilesLoaded !== 1 ? 's' : ''} across {Object.keys(filenamesPerCategory).length} categor{Object.keys(filenamesPerCategory).length !== 1 ? 'ies' : 'y'}.</p>
-                                        </div>
-                                    </div>
-                                )}
-                                {hasData && hasEnoughFilesForDifference && (
-                                    <>
-                                        {isDiffLoading && (
-                                            <div className="d-flex align-items-center justify-content-center text-muted flex-grow-1 flex-fill">
-                                                <Spinner animation="border" size="sm" className="me-2" />
-                                                Loading difference data...
-                                            </div>
-                                        )}
-                                        {!isDiffLoading && diffError && (
-                                            <div className="d-flex align-items-center justify-content-center text-muted flex-grow-1 flex-fill text-center">
-                                                <div>
-                                                    <p className="mb-2">Unable to render difference chart with current tolerance.</p>
-                                                    <p className="small mb-0">{diffError.includes('No overlapping timestamps') ? 'No overlapping timestamps within tolerance. Reset tolerance to see the chart.' : diffError}</p>
-                                                </div>
-                                            </div>
-                                        )}
-                                        {!isDiffLoading && !diffError && !hasDifferenceData && !error && (
-                                            <div className="d-flex align-items-center justify-content-center text-muted flex-grow-1 flex-fill">
-                                                Select differences to visualize
-                                            </div>
-                                        )}
-                                        {!isDiffLoading && !diffError && hasDifferenceData && (
                                             <div className="chart-wrapper flex-grow-1" style={{ height: '100%' }}>
                                                 <components.MyChart
-                                                    primaryData={differenceChartData}
+                                                    primaryData={filteredData.primary}
+                                                    secondaryData={filteredData.secondary || undefined}
+                                                    tertiaryData={filteredData.tertiary || undefined}
+                                                    syncColorsByFile={syncColorsByFile}
+                                                    syncColorsByGroup={syncColorsByGroup}
+                                                    layoutMode={layoutMode}
+                                                    manualData={filteredManualData}
+                                                    toggleChartMode={toggleChartMode}
+                                                    isInDifferenceMode={isInDifferenceMode}
                                                 />
                                             </div>
-                                        )}
-                                    </>
-                                )}
-                            </>
-                        )}
-                        {/* Switch Chart Mode Button */}
-                        {hasData && shouldShowMetric('difference_chart') && (
-                            <Button
-                                variant="outline-secondary"
-                                size="sm"
-                                onClick={toggleChartMode}
-                                className="position-absolute bottom-0 end-0 m-3"
-                            >
-                                {isInDifferenceMode ? 'Switch to Standard Chart' : 'Switch to Difference Chart'}
-                            </Button>
-                        )}
+                                        </>
+                                    )}
+                                </>
+                            )}
+                            {/* Difference Chart Mode */}
+                            {isInDifferenceMode && (
+                                <>
+                                    {!hasData && !isLoading && !error && (
+                                        <div className="d-flex align-items-center justify-content-center text-muted flex-grow-1 flex-fill">
+                                            Load data to visualize differences
+                                        </div>
+                                    )}
+                                    {hasData && !hasEnoughFilesForDifference && (
+                                        <div className="d-flex align-items-center justify-content-center text-muted flex-grow-1 flex-fill">
+                                            <div>
+                                                <p className="mb-2">Difference chart requires at least 2 files in the same category.</p>
+                                                <p className="small mb-0">Currently loaded: {totalFilesLoaded} file{totalFilesLoaded !== 1 ? 's' : ''} across {Object.keys(filenamesPerCategory).length} categor{Object.keys(filenamesPerCategory).length !== 1 ? 'ies' : 'y'}.</p>
+                                            </div>
+                                        </div>
+                                    )}
+                                    {hasData && hasEnoughFilesForDifference && (
+                                        <>
+                                            {isDiffLoading && (
+                                                <div className="d-flex align-items-center justify-content-center text-muted flex-grow-1 flex-fill">
+                                                    <Spinner animation="border" size="sm" className="me-2" />
+                                                    Loading difference data...
+                                                </div>
+                                            )}
+                                            {!isDiffLoading && diffError && (
+                                                <div className="d-flex align-items-center justify-content-center text-muted flex-grow-1 flex-fill text-center">
+                                                    <div>
+                                                        <p className="mb-2">Unable to render difference chart with current tolerance.</p>
+                                                        <p className="small mb-0">{diffError.includes('No overlapping timestamps') ? 'No overlapping timestamps within tolerance. Reset tolerance to see the chart.' : diffError}</p>
+                                                    </div>
+                                                </div>
+                                            )}
+                                            {!isDiffLoading && !diffError && !hasDifferenceData && !error && (
+                                                <div className="d-flex align-items-center justify-content-center text-muted flex-grow-1 flex-fill">
+                                                    Select differences to visualize
+                                                </div>
+                                            )}
+                                            {!isDiffLoading && !diffError && hasDifferenceData && (
+                                                <div className="chart-wrapper flex-grow-1" style={{ height: '100%' }}>
+                                                    <components.MyChart
+                                                        primaryData={differenceChartData}
+                                                        toggleChartMode={toggleChartMode}
+                                                        isInDifferenceMode={isInDifferenceMode}
+                                                    />
+                                                </div>
+                                            )}
+                                        </>
+                                    )}
+                                </>
+                            )}
+                        </div>
                     </div>
-                </div>
 
                     {/* Standard mode specific sections */}
                     {!isInDifferenceMode && (
