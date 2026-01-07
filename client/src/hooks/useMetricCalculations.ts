@@ -25,7 +25,13 @@ type PerCategoryCorrelationMetricEntry = {
 };
 
 export const useMetricCalculations = (
-filenamesPerCategory: Record<string, string[]>, selectedCategory: string | null, secondaryCategory: string | null, startDate: Date | null, endDate: Date | null) => {
+    filenamesPerCategory: Record<string, string[]>,
+    selectedCategory: string | null,
+    secondaryCategory: string | null,
+    tertiaryCategory: string | null,
+    startDate: Date | null,
+    endDate: Date | null
+) => {
     const [meanValues, setMeanValues] = useState<SingleMetricType>({});
     const [medianValues, setMedianValues] = useState<SingleMetricType>({});
     const [varianceValues, setVarianceValues] = useState<SingleMetricType>({});
@@ -79,13 +85,12 @@ filenamesPerCategory: Record<string, string[]>, selectedCategory: string | null,
     };
 
     useEffect(() => {
-        // Load all metrics with original conditional logic
         singleMetrics.forEach(({ key, setter }) => loadMetricFromStorage(key, setter));
         allCorrelationMetrics.forEach(({ key, setter }) => loadMetricFromStorage(key, setter));
         perCategoryCorrelationMetrics.forEach(({ key, setter }) => loadMetricFromStorage(key, setter));
     }, [singleMetrics, allCorrelationMetrics, perCategoryCorrelationMetrics]);
 
-   useEffect(() => {
+    useEffect(() => {
         if (Object.keys(filenamesPerCategory).length === 0) return;
 
         const fetchMetrics = async () => {
@@ -93,6 +98,7 @@ filenamesPerCategory: Record<string, string[]>, selectedCategory: string | null,
                 const start = startDate ? startDate.toISOString() : undefined;
                 const end = endDate ? endDate.toISOString() : undefined;
 
+                // Fetch single metrics in parallel
                 await Promise.all(
                     singleMetrics.map(async ({ fetch, setter }) => {
                         const data = await fetch(filenamesPerCategory, start, end);
@@ -130,10 +136,11 @@ filenamesPerCategory: Record<string, string[]>, selectedCategory: string | null,
 
         fetchMetrics();
     }, [filenamesPerCategory, singleMetrics, allCorrelationMetrics, perCategoryCorrelationMetrics, startDate, endDate]);
+
     useEffect(() => {
         const updatedGroupedMetrics: Record<string, CombinedMetric[]> = {};
 
-        const visibleCategories = [selectedCategory, secondaryCategory].filter(Boolean) as string[];
+        const visibleCategories = [selectedCategory, secondaryCategory, tertiaryCategory].filter(Boolean) as string[];
 
         visibleCategories.forEach((category) => {
             const meanMetricNames = Object.keys(meanValues[category] || {});
@@ -162,7 +169,7 @@ filenamesPerCategory: Record<string, string[]>, selectedCategory: string | null,
         });
 
         setGroupedMetrics(updatedGroupedMetrics);
-    }, [meanValues, medianValues, varianceValues, stdDevsValues, autoCorrelationValues, selectedCategory, secondaryCategory]);
+    }, [meanValues, medianValues, varianceValues, stdDevsValues, autoCorrelationValues, selectedCategory, secondaryCategory, tertiaryCategory]);
 
     useEffect(() => {
         const allMetrics = [...singleMetrics, ...allCorrelationMetrics, ...perCategoryCorrelationMetrics];

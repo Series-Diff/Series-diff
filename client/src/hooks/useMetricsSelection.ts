@@ -10,7 +10,16 @@ interface CombinedMetric {
   variance?: number;
   stdDev?: number;
   autoCorrelation?: number;
+  [key: string]: any;
 }
+
+const METRIC_KEY_MAPPING: Record<string, keyof CombinedMetric> = {
+  'mean': 'mean',
+  'median': 'median',
+  'variance': 'variance',
+  'std_dev': 'stdDev',
+  'autocorrelation': 'autoCorrelation'
+};
 
 export const useMetricsSelection = (
   groupedMetrics: Record<string, CombinedMetric[]>
@@ -144,52 +153,46 @@ export const useMetricsSelection = (
   // Filter metrics based on selected metrics
   const filteredGroupedMetrics = useMemo(() => {
     return Object.entries(groupedMetrics).reduce((acc, [category, metrics]) => {
+
+      // 1. If null, return everything (default state)
       if (selectedMetricsForDisplay === null) {
-        // null = no selection made yet, show all
         acc[category] = metrics;
-      } else if (selectedMetricsForDisplay.size === 0) {
-        // Empty Set = user explicitly deselected all, show nothing
-        // Don't add this category at all
-      } else {
-        // Filter metrics to show only selected statistic fields
-        acc[category] = metrics.map(metric => {
-          const filtered: typeof metric = {
-            id: metric.id,
-            name: metric.name
-          };
-          
-          // Map selected metric values to CombinedMetric fields
-          if (selectedMetricsForDisplay.has('mean') && metric.mean !== undefined) {
-            filtered.mean = metric.mean;
-          }
-          if (selectedMetricsForDisplay.has('median') && metric.median !== undefined) {
-            filtered.median = metric.median;
-          }
-          if (selectedMetricsForDisplay.has('variance') && metric.variance !== undefined) {
-            filtered.variance = metric.variance;
-          }
-          if (selectedMetricsForDisplay.has('std_dev') && metric.stdDev !== undefined) {
-            filtered.stdDev = metric.stdDev;
-          }
-          if (selectedMetricsForDisplay.has('autocorrelation') && metric.autoCorrelation !== undefined) {
-            filtered.autoCorrelation = metric.autoCorrelation;
-          }
-          
-          return filtered;
-        }).filter(metric => {
-          // Keep metric only if it has at least one statistic value
-          return metric.mean !== undefined || metric.median !== undefined || 
-                 metric.variance !== undefined || metric.stdDev !== undefined || 
-                 metric.autoCorrelation !== undefined;
-        });
-        
-        // Remove empty categories
-        if (acc[category].length === 0) {
-          delete acc[category];
-        }
+        return acc;
       }
+
+      // 2. If empty, return nothing (user deselected all)
+      if (selectedMetricsForDisplay.size === 0) {
+        return acc;
+      }
+
+      // 3. Filter specific fields
+      const filteredMetrics = metrics.map(metric => {
+        // Start with basic ID info
+        const filtered: CombinedMetric = {
+          id: metric.id,
+          name: metric.name
+        };
+
+        // Iterate through our explicit mapping
+        Object.entries(METRIC_KEY_MAPPING).forEach(([configId, dataKey]) => {
+          // If the metric is selected AND the data exists in the source
+          if (selectedMetricsForDisplay.has(configId) && metric[dataKey] !== undefined) {
+            filtered[dataKey] = metric[dataKey];
+          }
+        });
+
+        return filtered;
+      }).filter(metric => {
+        // Keep the metric only if at least one numeric statistic ended up in the object
+        return Object.values(METRIC_KEY_MAPPING).some(key => metric[key] !== undefined);
+      });
+
+      if (filteredMetrics.length > 0) {
+        acc[category] = filteredMetrics;
+      }
+
       return acc;
-    }, {} as Record<string, typeof groupedMetrics[keyof typeof groupedMetrics]>);
+    }, {} as Record<string, CombinedMetric[]>);
   }, [groupedMetrics, selectedMetricsForDisplay]);
 
   // Helper function to check if a metric should be displayed
