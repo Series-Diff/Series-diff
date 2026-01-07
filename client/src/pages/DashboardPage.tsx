@@ -27,7 +27,7 @@ function DashboardPage() {
 
     const { startDate, endDate, handleStartChange, handleEndChange, resetDates, defaultMinDate, defaultMaxDate, ignoreTimeRange, setIgnoreTimeRange, } = hooks.useDateRange(Object.entries(chartData).map(([_, entries]) => ({ entries })), manualData);
 
-    const { selectedCategory, secondaryCategory, tertiaryCategory, handleRangeChange, syncColorsByFile, colorSyncMode, setColorSyncMode, syncColorsByGroup, filteredData, handleDropdownChange, handleSecondaryDropdownChange, handleTertiaryDropdownChange, resetChartConfig } = hooks.useChartConfiguration(filenamesPerCategory, chartData, rollingMeanChartData, showMovingAverage, maWindow, ignoreTimeRange ? null : startDate, ignoreTimeRange ? null : endDate);
+    const { selectedCategory, secondaryCategory, tertiaryCategory, handleRangeChange, syncColorsByFile, colorSyncMode, setColorSyncMode, syncColorsByGroup, filteredData, filteredManualData, handleDropdownChange, handleSecondaryDropdownChange, handleTertiaryDropdownChange, resetChartConfig } = hooks.useChartConfiguration(filenamesPerCategory, chartData, rollingMeanChartData, showMovingAverage, maWindow, ignoreTimeRange ? null : startDate, ignoreTimeRange ? null : endDate, manualData);
 
     const { maeValues, rmseValues, PearsonCorrelationValues, DTWValues, EuclideanValues, CosineSimilarityValues, groupedMetrics, resetMetrics } = hooks.useMetricCalculations(
         filenamesPerCategory,
@@ -262,7 +262,7 @@ function DashboardPage() {
                                                 syncColorsByFile={syncColorsByFile}
                                                 syncColorsByGroup={syncColorsByGroup}
                                                 layoutMode={layoutMode}
-                                                manualData={manualData}
+                                                manualData={filteredManualData}
                                             />
                                         </div>
                                     </>
