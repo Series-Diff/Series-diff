@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { Button, Modal, Form, Spinner, Alert } from 'react-bootstrap';
 import './DashboardPage.css';
 import '../components/Chart/Chart.css';
@@ -13,7 +13,6 @@ import DifferenceSelectionPanel from './Dashboard/components/DifferenceSelection
 
 function DashboardPage() {
     const [chartMode, setChartMode] = useState<'standard' | 'difference'>('standard');
-    const chartContainerRef = useRef<HTMLDivElement>(null);
 
     const { chartData, error, setError, isLoading, setIsLoading, filenamesPerCategory, handleFetchData, handleReset: baseReset } = hooks.useDataFetching();
 
@@ -51,9 +50,6 @@ function DashboardPage() {
 
     // Filter enabled plugins by selection in modal
     const visiblePlugins = enabledPlugins.filter(p => shouldShowMetric(p.id));
-
-    // Dynamic height calculation for chart container
-    const chartDynamicHeight = hooks.useDynamicHeight(chartContainerRef, [hasData, isLoading, layoutMode]);
 
     const {
         pluginResults,
@@ -147,68 +143,74 @@ function DashboardPage() {
         <div className="d-flex" style={mainStyle}>
             <div className="App-main-content flex-grow-1 d-flex align-items-start w-100 rounded">
                 <div className={chartLayoutClass}>
-                    {/* Controls Panel */}
-                    {isInDifferenceMode ? (
-                        <ControlsPanel
-                            mode="difference"
-                            filenamesPerCategory={filenamesPerCategory}
-                            selectedDiffCategory={selectedDiffCategory}
-                            handleDiffCategoryChange={handleDiffCategoryChange}
-                            customToleranceValue={customToleranceValue}
-                            setCustomToleranceValue={setCustomToleranceValue}
-                            handleApplyTolerance={handleApplyTolerance}
-                            handleResetTolerance={handleResetTolerance}
-                            isDiffLoading={isDiffLoading}
-                            isLoading={isLoading}
-                            handleFileUpload={handleFileUpload}
-                            handleReset={handleReset}
-                        />
-                    ) : (
-                        <ControlsPanel
-                            mode="standard"
-                            selectedCategory={selectedCategory}
-                            secondaryCategory={secondaryCategory}
-                            tertiaryCategory={tertiaryCategory}
-                            filenamesPerCategory={filenamesPerCategory}
-                            handleDropdownChange={handleDropdownChange}
-                            handleSecondaryDropdownChange={handleSecondaryDropdownChange}
-                            handleTertiaryDropdownChange={handleTertiaryDropdownChange}
-                            showMovingAverage={shouldShowMetric('moving_average') ? showMovingAverage : undefined}
-                            handleToggleMovingAverage={shouldShowMetric('moving_average') ? handleToggleMovingAverage : undefined}
-                            isMaLoading={isMaLoading}
-                            maWindow={maWindow}
-                            setMaWindow={setMaWindow}
-                            handleApplyMaWindow={handleApplyMaWindow}
-                            colorSyncMode={colorSyncMode}
-                            setColorSyncMode={setColorSyncMode}
-                            isLoading={isLoading}
-                            handleFileUpload={handleFileUpload}
-                            handleReset={handleReset}
-                            layoutMode={layoutMode}
-                            setLayoutMode={setLayoutMode}
-                        />
-                    )}
+                    <div style={{ 
+                        display: 'flex', 
+                        flexDirection: 'column', 
+                        gap: '16px', 
+                        height: `calc(100vh - var(--nav-height) - 2 * var(--section-margin))`, 
+                        overflow: 'hidden' 
+                    }}>
+                        {/* Controls Panel */}
+                        {isInDifferenceMode ? (
+                            <ControlsPanel
+                                mode="difference"
+                                filenamesPerCategory={filenamesPerCategory}
+                                selectedDiffCategory={selectedDiffCategory}
+                                handleDiffCategoryChange={handleDiffCategoryChange}
+                                customToleranceValue={customToleranceValue}
+                                setCustomToleranceValue={setCustomToleranceValue}
+                                handleApplyTolerance={handleApplyTolerance}
+                                handleResetTolerance={handleResetTolerance}
+                                isDiffLoading={isDiffLoading}
+                                isLoading={isLoading}
+                                handleFileUpload={handleFileUpload}
+                                handleReset={handleReset}
+                            />
+                        ) : (
+                            <ControlsPanel
+                                mode="standard"
+                                selectedCategory={selectedCategory}
+                                secondaryCategory={secondaryCategory}
+                                tertiaryCategory={tertiaryCategory}
+                                filenamesPerCategory={filenamesPerCategory}
+                                handleDropdownChange={handleDropdownChange}
+                                handleSecondaryDropdownChange={handleSecondaryDropdownChange}
+                                handleTertiaryDropdownChange={handleTertiaryDropdownChange}
+                                showMovingAverage={shouldShowMetric('moving_average') ? showMovingAverage : undefined}
+                                handleToggleMovingAverage={shouldShowMetric('moving_average') ? handleToggleMovingAverage : undefined}
+                                isMaLoading={isMaLoading}
+                                maWindow={maWindow}
+                                setMaWindow={setMaWindow}
+                                handleApplyMaWindow={handleApplyMaWindow}
+                                colorSyncMode={colorSyncMode}
+                                setColorSyncMode={setColorSyncMode}
+                                isLoading={isLoading}
+                                handleFileUpload={handleFileUpload}
+                                handleReset={handleReset}
+                                layoutMode={layoutMode}
+                                setLayoutMode={setLayoutMode}
+                            />
+                        )}
 
-                    {/* Error Display */}
-                    {error && !error.includes('No overlapping timestamps') && !error.includes('tolerance') && !error.includes('no units specified') && (
-                        <p className="text-danger text-center mb-0">Error: {error}</p>
-                    )}
+                        {/* Error Display */}
+                        {error && !error.includes('No overlapping timestamps') && !error.includes('tolerance') && !error.includes('no units specified') && (
+                            <p className="text-danger text-center mb-0">Error: {error}</p>
+                        )}
 
-                    {/* Chart Container */}
-                    <div
-                        ref={chartContainerRef}
-                        className={chartContainerClass}
-                        style={chartDynamicHeight ? { minHeight: chartDynamicHeight } : undefined}
-                    >
+                        {/* Chart Container */}
+                        <div
+                            className={chartContainerClass}
+                            style={{ flex: 1, minHeight: 0 }}
+                        >
                         {!isInDifferenceMode && (
                             <>
                                 {isLoading && !hasData &&
-                                    <div className="d-flex align-items-center justify-content-center text-muted flex-grow-1" style={{ minHeight: chartDynamicHeight }}>
+                                    <div className="d-flex align-items-center justify-content-center text-muted flex-grow-1">
                                         <Spinner animation="border" size="sm" className="me-2" />
                                         Loading chart...
                                     </div>}
                                 {!isLoading && !hasData && !error &&
-                                    <div className="d-flex align-items-center justify-content-center text-muted flex-grow-1" style={{ minHeight: chartDynamicHeight }}>
+                                    <div className="d-flex align-items-center justify-content-center text-muted flex-grow-1">
                                         Load data to visualize
                                     </div>}
                                 {!isLoading && hasData && (
@@ -254,7 +256,7 @@ function DashboardPage() {
                                                 </div>
                                             </div>
                                         </div>
-                                        <div className="chart-wrapper" style={{ height: chartDynamicHeight }}>
+                                        <div className="chart-wrapper flex-grow-1" style={{ height: '100%' }}>
                                             <components.MyChart
                                                 primaryData={filteredData.primary}
                                                 secondaryData={filteredData.secondary || undefined}
@@ -273,12 +275,12 @@ function DashboardPage() {
                         {isInDifferenceMode && (
                             <>
                                 {!hasData && !isLoading && !error && (
-                                    <div className="d-flex align-items-center justify-content-center text-muted flex-grow-1" style={{ minHeight: chartDynamicHeight }}>
+                                    <div className="d-flex align-items-center justify-content-center text-muted flex-grow-1 flex-fill">
                                         Load data to visualize differences
                                     </div>
                                 )}
                                 {hasData && !hasEnoughFilesForDifference && (
-                                    <div className="d-flex align-items-center justify-content-center text-muted flex-grow-1" style={{ minHeight: chartDynamicHeight }}>
+                                    <div className="d-flex align-items-center justify-content-center text-muted flex-grow-1 flex-fill">
                                         <div>
                                             <p className="mb-2">Difference chart requires at least 2 files in the same category.</p>
                                             <p className="small mb-0">Currently loaded: {totalFilesLoaded} file{totalFilesLoaded !== 1 ? 's' : ''} across {Object.keys(filenamesPerCategory).length} categor{Object.keys(filenamesPerCategory).length !== 1 ? 'ies' : 'y'}.</p>
@@ -288,13 +290,13 @@ function DashboardPage() {
                                 {hasData && hasEnoughFilesForDifference && (
                                     <>
                                         {isDiffLoading && (
-                                            <div className="d-flex align-items-center justify-content-center text-muted flex-grow-1" style={{ minHeight: chartDynamicHeight }}>
+                                            <div className="d-flex align-items-center justify-content-center text-muted flex-grow-1 flex-fill">
                                                 <Spinner animation="border" size="sm" className="me-2" />
                                                 Loading difference data...
                                             </div>
                                         )}
                                         {!isDiffLoading && diffError && (
-                                            <div className="d-flex align-items-center justify-content-center text-muted flex-grow-1 text-center" style={{ minHeight: chartDynamicHeight }}>
+                                            <div className="d-flex align-items-center justify-content-center text-muted flex-grow-1 flex-fill text-center">
                                                 <div>
                                                     <p className="mb-2">Unable to render difference chart with current tolerance.</p>
                                                     <p className="small mb-0">{diffError.includes('No overlapping timestamps') ? 'No overlapping timestamps within tolerance. Reset tolerance to see the chart.' : diffError}</p>
@@ -302,12 +304,12 @@ function DashboardPage() {
                                             </div>
                                         )}
                                         {!isDiffLoading && !diffError && !hasDifferenceData && !error && (
-                                            <div className="d-flex align-items-center justify-content-center text-muted flex-grow-1" style={{ minHeight: chartDynamicHeight }}>
+                                            <div className="d-flex align-items-center justify-content-center text-muted flex-grow-1 flex-fill">
                                                 Select differences to visualize
                                             </div>
                                         )}
                                         {!isDiffLoading && !diffError && hasDifferenceData && (
-                                            <div className="chart-wrapper" style={{ height: chartDynamicHeight }}>
+                                            <div className="chart-wrapper flex-grow-1" style={{ height: '100%' }}>
                                                 <components.MyChart
                                                     primaryData={differenceChartData}
                                                 />
@@ -329,6 +331,8 @@ function DashboardPage() {
                             </Button>
                         )}
                     </div>
+                </div>
+
                     {/* Standard mode specific sections */}
                     {!isInDifferenceMode && (
                         <>
