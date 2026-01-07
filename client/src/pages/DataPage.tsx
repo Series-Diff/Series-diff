@@ -2,7 +2,7 @@
 import React, { useEffect, useState, useCallback } from 'react';
 import { fetchTimeSeriesData, TimeSeriesResponse } from '../services/fetchTimeSeries';
 import { DataTable } from '../components/DataTable/DataTable';
-import { Container, Col } from 'react-bootstrap';
+import { Container, Col, Button } from 'react-bootstrap';
 
 type MetaEntry = {
   originalFilename: string;
@@ -14,6 +14,7 @@ const DataPage: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
   const [selectedTable, setSelectedTable] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState<boolean>(false);
+  const [showOriginalNames, setShowOriginalNames] = useState<boolean>(false);
 
   const fetchData = useCallback(async () => {
     setError(null);
@@ -156,28 +157,43 @@ const DataPage: React.FC = () => {
         )}
 
         {!isLoading && hasData && selectedTable && (
-          <DataTable
-            data={selectedData}
-            title={selectedTable}
-            titleFormatter={(t) => {
-              const original = metadata[t]?.originalFilename || `${t}.csv`;
-              return `${t} (${original})`;
-            }}
-            columnLabelFormatter={(col) => {
-              if (col === 'x') {
-                const originalDateCol = metadata[selectedTable]?.columnMappings?.['Date'];
-                if (originalDateCol && originalDateCol !== 'Date') {
-                  return `Date (${originalDateCol})`;
-                }
-                return 'Date';
-              }
-              const originalCol = metadata[selectedTable]?.columnMappings?.[col];
-              if (originalCol && originalCol !== col) {
-                return `${col} (${originalCol})`;
-              }
-              return col;
-            }}
-          />
+          <div className="d-flex flex-column gap-3 h-100 overflow-hidden">
+            <div className="d-flex align-items-center justify-content-end flex-shrink-0">
+              <Button
+                variant="outline-secondary"
+                size="sm"
+                onClick={() => setShowOriginalNames(!showOriginalNames)}
+                title={showOriginalNames ? "Hide original names" : "Show original names"}
+              >
+                {showOriginalNames ? 'Hide original names' : 'Show original names'}
+              </Button>
+            </div>
+            <div className="flex-grow-1 overflow-hidden">
+              <DataTable
+                data={selectedData}
+                title={selectedTable}
+                rowsPerPage={10}
+                titleFormatter={(t) => {
+                  const original = metadata[t]?.originalFilename || `${t}.csv`;
+                  return showOriginalNames ? `${t} (${original})` : t;
+                }}
+                columnLabelFormatter={(col) => {
+                  if (col === 'x') {
+                    const originalDateCol = metadata[selectedTable]?.columnMappings?.['Date'];
+                    if (showOriginalNames && originalDateCol && originalDateCol !== 'Date') {
+                      return `Date (${originalDateCol})`;
+                    }
+                    return 'Date';
+                  }
+                  const originalCol = metadata[selectedTable]?.columnMappings?.[col];
+                  if (showOriginalNames && originalCol && originalCol !== col) {
+                    return `${col} (${originalCol})`;
+                  }
+                  return col;
+                }}
+              />
+            </div>
+          </div>
         )}
       </Col>
     </Container>
