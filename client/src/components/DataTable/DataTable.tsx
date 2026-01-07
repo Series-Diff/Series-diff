@@ -7,19 +7,36 @@ export interface DataTableProps {
   title: string;
   rowsOptions?: number[];
   showPagination?: boolean;
+  showRowsPerPageDropdown?: boolean;
+  showRowInfo?: boolean;
+  rowsPerPage?: number;
+  titleFormatter?: (title: string) => string;
+  columnLabelFormatter?: (columnKey: string) => string;
+  titleAlignment?: 'left' | 'center';
 }
 
 
-export const DataTable: React.FC<DataTableProps> = ({ data, title, rowsOptions = [5, 10, 20, 50, 100], showPagination = true }) => {
-  const [rowsNumber, setRowsNumber] = React.useState<number>(10);
-  const [currentPage, setCurrentPage] = React.useState<number>(Math.min(5, Math.max(1, data.length)));
+export const DataTable: React.FC<DataTableProps> = ({
+  data,
+  title,
+  rowsOptions = [5, 10, 20, 50, 100],
+  showPagination = true,
+  showRowsPerPageDropdown = true,
+  showRowInfo = true,
+  rowsPerPage = 10,
+  titleFormatter,
+  columnLabelFormatter,
+  titleAlignment = 'center',
+}) => {
+  const [rowsNumber, setRowsNumber] = React.useState<number>(rowsPerPage);
+  const [currentPage, setCurrentPage] = React.useState<number>(1);
 
   const totalPages = React.useMemo(() => Math.ceil((data?.length || 0) / rowsNumber), [data, rowsNumber]);
   
   const rows = React.useMemo(() => {
     const startIndex = (currentPage - 1) * rowsNumber;
     const endIndex = startIndex + rowsNumber;
-    return showPagination ? data?.slice(startIndex, endIndex) || [] : data || [];
+    return showPagination ? data?.slice(startIndex, endIndex) || [] : data?.slice(0, rowsNumber) || [];
   }, [data, currentPage, rowsNumber, showPagination]);
   
   const columns = React.useMemo(() => (rows.length > 0 ? Object.keys(rows[0]) : []), [rows]);
@@ -62,19 +79,33 @@ export const DataTable: React.FC<DataTableProps> = ({ data, title, rowsOptions =
     return String(idx);
   };
 
+  const formatColumnLabel = (col: string) => {
+    if (columnLabelFormatter) return columnLabelFormatter(col);
+    return columnHeaderNames[col] || col;
+  };
+
+  const formatTitle = titleFormatter ? titleFormatter(title) : title;
+
   return (
-    <div className="w-100">
-      <h3 className="mb-3">{title}</h3>
+    <div className="d-flex flex-column gap-3 h-100">
+      {/* Header */}
+      <div className={`d-flex align-items-center ${titleAlignment === 'left' ? 'justify-content-start' : 'justify-content-center'}`}>
+        <h3 className={`mb-0 ${titleAlignment === 'left' ? '' : 'text-center'}`}>{formatTitle}</h3>
+      </div>
+
+      {/* Body - Table with horizontal scroll */}
       {rows.length === 0 ? (
-        <div>No data to display</div>
+        <div className="d-flex align-items-center justify-content-center flex-grow-1">
+          <p className="text-muted mb-0">No data to display</p>
+        </div>
       ) : (
-        <div className="table-responsive">
-          <table className="table table-borderless table-hover align-middle" aria-label={`${title} data table`}>
-            <thead className="table-light">
+        <div className="flex-grow-1 overflow-auto">
+          <table className="table table-borderless table-hover align-middle mb-0" aria-label={`${formatTitle} data table`}>
+            <thead className="table-light sticky-top">
               <tr>
                 {columns.map((col) => (
-                  <th key={col} scope="col">
-                    {columnHeaderNames[col] || col}
+                  <th key={col} scope="col" className="text-nowrap" style={{ whiteSpace: 'nowrap' }}>
+                    {formatColumnLabel(col)}
                   </th>
                 ))}
               </tr>
@@ -83,7 +114,7 @@ export const DataTable: React.FC<DataTableProps> = ({ data, title, rowsOptions =
               {rows.map((entry, index) => (
                 <tr key={getRowKey(entry, index)}>
                   {columns.map((col) => (
-                    <td key={col} style={{ whiteSpace: 'nowrap', minWidth: '100px' }}>
+                    <td key={col} className="text-nowrap" style={{ minWidth: '100px', whiteSpace: 'nowrap' }}>
                       {renderCellContent(entry[col])}
                     </td>
                   ))}
@@ -93,11 +124,14 @@ export const DataTable: React.FC<DataTableProps> = ({ data, title, rowsOptions =
           </table>
         </div>
       )}
-      {/* Pagination controls */}
-      <div className="mt-4 d-flex align-items-center justify-content-between flex-wrap gap-3">
-        <div className="d-flex align-items-center">
+
+      {/* Footer - Pagination controls */}
+      {showPagination && rows.length > 0 && (
+      <div className="d-flex align-items-center justify-content-between flex-wrap gap-3 border-top pt-3">
+        <div className="d-flex align-items-center gap-2">
+          {showRowsPerPageDropdown && (
           <Dropdown>
-            <Dropdown.Toggle variant="light" id="dropdown-rows" size="sm" className="me-2">
+            <Dropdown.Toggle variant="light" id="dropdown-rows" size="sm">
               {rowsNumber} rows
             </Dropdown.Toggle>
 
@@ -109,11 +143,14 @@ export const DataTable: React.FC<DataTableProps> = ({ data, title, rowsOptions =
               ))}
             </Dropdown.Menu>
           </Dropdown>
+          )}
+          {showRowInfo && (
           <small className="text-muted">
             Showing {data.length > 0 ? (currentPage - 1) * rowsNumber + 1 : 0} to {Math.min(currentPage * rowsNumber, data.length)} of {data.length} rows
           </small>
+          )}
         </div>
-        
+
         {totalPages > 1 && (
           <nav aria-label="Table pagination">
             <ul className="pagination pagination-sm mb-0">
@@ -196,6 +233,7 @@ export const DataTable: React.FC<DataTableProps> = ({ data, title, rowsOptions =
           </nav>
         )}
       </div>
+      )}
     </div>
   );
 };

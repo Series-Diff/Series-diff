@@ -1026,6 +1026,35 @@ useEffect(() => {
     setCommittedRenamedFiles(renamedFiles);
 
     const groupedData = groupAndTransformData();
+
+    // Persist metadata: original filenames with extensions and original column mappings per group
+    try {
+      const existingMetaRaw = localStorage.getItem('timeseries_meta');
+      const meta: Record<string, { originalFilename: string; columnMappings: Record<string, string> }> = existingMetaRaw ? JSON.parse(existingMetaRaw) : {};
+
+      files.forEach((file) => {
+        const displayName = getFileKey(file); // user-defined or auto from filename (without extension)
+        const originalFilename = file.name; // full original filename with extension
+
+        const columnMappings: Record<string, string> = {};
+        groups.forEach(group => {
+          if (group.fileMappings[displayName]) {
+            const mappedCol = group.fileMappings[displayName];
+            columnMappings[group.name] = mappedCol;
+          }
+        });
+
+        meta[displayName] = {
+          originalFilename,
+          columnMappings,
+        };
+      });
+
+      localStorage.setItem('timeseries_meta', JSON.stringify(meta));
+    } catch (e) {
+      console.error('Failed to persist metadata for DataPage display:', e);
+    }
+
     onComplete(groupedData);
     onHide();
   };
