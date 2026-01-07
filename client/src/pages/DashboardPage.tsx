@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { Button, Modal, Form, Spinner, Alert } from 'react-bootstrap';
 import './DashboardPage.css';
 import '../components/Chart/Chart.css';
@@ -13,7 +13,6 @@ import DifferenceSelectionPanel from './Dashboard/components/DifferenceSelection
 
 function DashboardPage() {
     const [chartMode, setChartMode] = useState<'standard' | 'difference'>('standard');
-    const [layoutMode, setLayoutMode] = useState<'overlay' | 'stacked'>('overlay');
     const chartContainerRef = useRef<HTMLDivElement>(null);
 
     const { chartData, error, setError, isLoading, setIsLoading, filenamesPerCategory, handleFetchData, handleReset: baseReset } = hooks.useDataFetching();
@@ -26,31 +25,9 @@ function DashboardPage() {
 
     const { isPopupOpen, selectedFiles, handleFileUpload, handlePopupComplete, handlePopupClose, resetFileUpload } = hooks.useFileUpload(handleFetchData, setError, setIsLoading);
 
-    const { startDate, endDate, handleStartChange, handleEndChange, resetDates, defaultMinDate, defaultMaxDate, ignoreTimeRange, setIgnoreTimeRange } = hooks.useDateRange(Object.entries(chartData).map(([_, entries]) => ({ entries })), manualData);
+    const { startDate, endDate, handleStartChange, handleEndChange, resetDates, defaultMinDate, defaultMaxDate, ignoreTimeRange, setIgnoreTimeRange, } = hooks.useDateRange(Object.entries(chartData).map(([_, entries]) => ({ entries })), manualData);
 
-    const {
-        selectedCategory,
-        secondaryCategory,
-        tertiaryCategory,
-        handleRangeChange,
-        syncColorsByFile,
-        setSyncColorsByFile,
-        syncColorsByGroup,
-        setSyncColorsByGroup,
-        filteredData,
-        handleDropdownChange,
-        handleSecondaryDropdownChange,
-        handleTertiaryDropdownChange,
-        resetChartConfig
-    } = hooks.useChartConfiguration(
-        filenamesPerCategory,
-        chartData,
-        rollingMeanChartData,
-        showMovingAverage,
-        maWindow,
-        ignoreTimeRange ? null : startDate,
-        ignoreTimeRange ? null : endDate
-    );
+    const { selectedCategory, secondaryCategory, tertiaryCategory, handleRangeChange, syncColorsByFile, colorSyncMode, setColorSyncMode, syncColorsByGroup, filteredData, handleDropdownChange, handleSecondaryDropdownChange, handleTertiaryDropdownChange, resetChartConfig } = hooks.useChartConfiguration(filenamesPerCategory, chartData, rollingMeanChartData, showMovingAverage, maWindow, ignoreTimeRange ? null : startDate, ignoreTimeRange ? null : endDate);
 
     const { maeValues, rmseValues, PearsonCorrelationValues, DTWValues, EuclideanValues, CosineSimilarityValues, groupedMetrics, resetMetrics } = hooks.useMetricCalculations(
         filenamesPerCategory,
@@ -63,14 +40,19 @@ function DashboardPage() {
 
     const { scatterPoints, isScatterLoading, isScatterOpen, selectedPair, handleCloseScatter, handleCellClick } = hooks.useScatterPlot();
     const { showTitleModal, setShowTitleModal, reportTitle, setReportTitle, isExporting, handleExportClick, handleExportToPDF } = hooks.useExport(chartData);
+    const [layoutMode, setLayoutMode] = useState<'overlay' | 'stacked'>('overlay');
     const { dataImportPopupRef, resetAllData } = hooks.useDataImportPopup();
     const { userMetrics, selectedMetricsForDisplay, setSelectedMetricsForDisplay, showMetricsModal, setShowMetricsModal, filteredGroupedMetrics, shouldShowMetric } = hooks.useMetricsSelection(groupedMetrics);
 
     const { plugins } = hooks.useLocalPlugins();
+
     const hasData = Object.keys(chartData).length > 0;
     const enabledPlugins = plugins.filter(p => p.enabled);
+
+    // Filter enabled plugins by selection in modal
     const visiblePlugins = enabledPlugins.filter(p => shouldShowMetric(p.id));
 
+    // Dynamic height calculation for chart container
     const chartDynamicHeight = hooks.useDynamicHeight(chartContainerRef, [hasData, isLoading, layoutMode]);
 
     const {
@@ -86,6 +68,7 @@ function DashboardPage() {
         ignoreTimeRange ? null : (endDate ? endDate.toISOString() : undefined)
     );
 
+    // Difference chart hook
     const {
         selectedDiffCategory,
         selectedDifferences,
@@ -113,14 +96,15 @@ function DashboardPage() {
         resetMovingAverage();
         resetFileUpload();
         resetPluginResults();
+        resetDifferenceChart();
         resetDates();
         clearManualData();
-        resetDifferenceChart();
         resetAllData();
     };
 
     const hasDifferenceData = Object.keys(differenceChartData).length > 0;
     const isInDifferenceMode = chartMode === 'difference';
+
     const hasEnoughFilesForDifference = Object.values(filenamesPerCategory).some(files => files.length >= 2);
     const totalFilesLoaded = Object.values(filenamesPerCategory).reduce((sum, files) => sum + files.length, 0);
 
@@ -142,14 +126,18 @@ function DashboardPage() {
         setChartMode(prev => prev === 'standard' ? 'difference' : 'standard');
     };
 
+    // Compute metric visibility flags to avoid circular dependencies
     const canShowMovingAverage = shouldShowMetric('moving_average');
     const canShowDifferenceChart = shouldShowMetric('difference_chart');
 
-    // Auto-disable features
+    // Auto-disable features when deselected in modal
     useEffect(() => {
+        // If moving_average is deselected and currently active, turn it off
         if (!canShowMovingAverage && showMovingAverage) {
             handleToggleMovingAverage();
         }
+
+        // If difference_chart is deselected and in difference mode, switch to standard
         if (!canShowDifferenceChart && isInDifferenceMode) {
             setChartMode('standard');
         }
@@ -159,7 +147,7 @@ function DashboardPage() {
         <div className="d-flex" style={mainStyle}>
             <div className="App-main-content flex-grow-1 d-flex align-items-start w-100 rounded">
                 <div className={chartLayoutClass}>
-
+                    {/* Controls Panel */}
                     {isInDifferenceMode ? (
                         <ControlsPanel
                             mode="difference"
@@ -191,10 +179,8 @@ function DashboardPage() {
                             maWindow={maWindow}
                             setMaWindow={setMaWindow}
                             handleApplyMaWindow={handleApplyMaWindow}
-                            syncColorsByFile={syncColorsByFile}
-                            setSyncColorsByFile={setSyncColorsByFile}
-                            syncColorsByGroup={syncColorsByGroup}
-                            setSyncColorsByGroup={setSyncColorsByGroup}
+                            colorSyncMode={colorSyncMode}
+                            setColorSyncMode={setColorSyncMode}
                             isLoading={isLoading}
                             handleFileUpload={handleFileUpload}
                             handleReset={handleReset}
@@ -203,10 +189,12 @@ function DashboardPage() {
                         />
                     )}
 
+                    {/* Error Display */}
                     {error && !error.includes('No overlapping timestamps') && !error.includes('tolerance') && !error.includes('no units specified') && (
                         <p className="text-danger text-center mb-0">Error: {error}</p>
                     )}
 
+                    {/* Chart Container */}
                     <div
                         ref={chartContainerRef}
                         className={chartContainerClass}
@@ -223,10 +211,9 @@ function DashboardPage() {
                                     <div className="d-flex align-items-center justify-content-center text-muted flex-grow-1" style={{ minHeight: chartDynamicHeight }}>
                                         Load data to visualize
                                     </div>}
-
                                 {!isLoading && hasData && (
                                     <>
-                                        <div className="d-flex w-100 px-3 py-2 ">
+                                        <div className="d-flex w-100 px-3 py-2">
                                             <div className="d-flex gap-2 w-100">
                                                 <components.DateTimePicker
                                                     label="Start"
@@ -267,7 +254,6 @@ function DashboardPage() {
                                                 </div>
                                             </div>
                                         </div>
-
                                         <div className="chart-wrapper" style={{ height: chartDynamicHeight }}>
                                             <components.MyChart
                                                 primaryData={filteredData.primary}
@@ -283,7 +269,7 @@ function DashboardPage() {
                                 )}
                             </>
                         )}
-
+                        {/* Difference Chart Mode */}
                         {isInDifferenceMode && (
                             <>
                                 {!hasData && !isLoading && !error && (
@@ -321,7 +307,7 @@ function DashboardPage() {
                                             </div>
                                         )}
                                         {!isDiffLoading && !diffError && hasDifferenceData && (
-                                            <div className="chart-wrapper">
+                                            <div className="chart-wrapper" style={{ height: chartDynamicHeight }}>
                                                 <components.MyChart
                                                     primaryData={differenceChartData}
                                                 />
@@ -331,7 +317,7 @@ function DashboardPage() {
                                 )}
                             </>
                         )}
-
+                        {/* Switch Chart Mode Button */}
                         {hasData && shouldShowMetric('difference_chart') && (
                             <Button
                                 variant="outline-secondary"
@@ -343,7 +329,7 @@ function DashboardPage() {
                             </Button>
                         )}
                     </div>
-
+                    {/* Standard mode specific sections */}
                     {!isInDifferenceMode && (
                         <>
                             {(hasData && Object.keys(groupedMetrics).length > 0) && (
@@ -707,7 +693,15 @@ function DashboardPage() {
                         </>
                     )}
 
-                    <components.ScatterPlotModal show={isScatterOpen} onHide={handleCloseScatter} file1={selectedPair.file1} file2={selectedPair.file2} points={scatterPoints} isLoading={isScatterLoading} />
+                    <components.ScatterPlotModal
+                        show={isScatterOpen}
+                        onHide={handleCloseScatter}
+                        file1={selectedPair.file1}
+                        file2={selectedPair.file2}
+                        points={scatterPoints}
+                        isLoading={isScatterLoading}
+                    />
+
                     <components.DataImportPopup ref={dataImportPopupRef} show={isPopupOpen} onHide={handlePopupClose} files={selectedFiles} onComplete={handlePopupComplete} />
 
                     <components.ManualDataImport
@@ -736,10 +730,10 @@ function DashboardPage() {
                             setShowManualModal(true);
                         }}
                     />
-
                 </div>
             </div>
 
+            {/* Sidebar */}
             {isInDifferenceMode ? (
                 <DifferenceSelectionPanel
                     differenceOptions={differenceOptions}

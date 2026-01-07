@@ -9,13 +9,13 @@ type CorrelationMetricType = Record<string, Record<string, Record<string, number
 type SingleMetricEntry = {
     key: string;
     setter: React.Dispatch<React.SetStateAction<SingleMetricType>>;
-    fetch: (filenamesPerCategory: Record<string, string[]>) => Promise<SingleMetricType>;
+    fetch: (filenamesPerCategory: Record<string, string[]>, start?: string, end?: string) => Promise<SingleMetricType>;
 };
 
 type AllCorrelationMetricEntry = {
     key: string;
     setter: React.Dispatch<React.SetStateAction<CorrelationMetricType>>;
-    fetch: (filenamesPerCategory: Record<string, string[]>) => Promise<CorrelationMetricType>;
+    fetch: (filenamesPerCategory: Record<string, string[]>, start?: string, end?: string) => Promise<CorrelationMetricType>;
 };
 
 type PerCategoryCorrelationMetricEntry = {
@@ -85,7 +85,6 @@ export const useMetricCalculations = (
     };
 
     useEffect(() => {
-        // Load all metrics with original conditional logic
         singleMetrics.forEach(({ key, setter }) => loadMetricFromStorage(key, setter));
         allCorrelationMetrics.forEach(({ key, setter }) => loadMetricFromStorage(key, setter));
         perCategoryCorrelationMetrics.forEach(({ key, setter }) => loadMetricFromStorage(key, setter));
@@ -96,10 +95,13 @@ export const useMetricCalculations = (
 
         const fetchMetrics = async () => {
             try {
+                const start = startDate ? startDate.toISOString() : undefined;
+                const end = endDate ? endDate.toISOString() : undefined;
+
                 // Fetch single metrics in parallel
                 await Promise.all(
                     singleMetrics.map(async ({ fetch, setter }) => {
-                        const data = await fetch(filenamesPerCategory);
+                        const data = await fetch(filenamesPerCategory, start, end);
                         setter(data);
                     })
                 );
@@ -107,7 +109,7 @@ export const useMetricCalculations = (
                 // Fetch all-correlation metrics in parallel
                 await Promise.all(
                     allCorrelationMetrics.map(async ({ fetch, setter }) => {
-                        const data = await fetch(filenamesPerCategory);
+                        const data = await fetch(filenamesPerCategory, start, end);
                         setter(data);
                     })
                 );
@@ -117,12 +119,11 @@ export const useMetricCalculations = (
                     const data: CorrelationMetricType = {};
                     for (const category of Object.keys(filenamesPerCategory)) {
                         const files = filenamesPerCategory[category];
-                        // For Euclidean, it might need special params
                         let result;
                         if (key === 'EuclideanValues') {
-                            result = await fetch(files, null, category);
+                            result = await fetch(files, null, category, start, end);
                         } else {
-                            result = await fetch(files, category);
+                            result = await fetch(files, category, start, end);
                         }
                         data[category] = result;
                     }
@@ -134,12 +135,12 @@ export const useMetricCalculations = (
         };
 
         fetchMetrics();
-    }, [filenamesPerCategory, singleMetrics, allCorrelationMetrics, perCategoryCorrelationMetrics]);
+    }, [filenamesPerCategory, singleMetrics, allCorrelationMetrics, perCategoryCorrelationMetrics, startDate, endDate]);
 
     useEffect(() => {
         const updatedGroupedMetrics: Record<string, CombinedMetric[]> = {};
 
-        const visibleCategories = [selectedCategory, secondaryCategory].filter(Boolean) as string[];
+        const visibleCategories = [selectedCategory, secondaryCategory, tertiaryCategory].filter(Boolean) as string[];
 
         visibleCategories.forEach((category) => {
             const meanMetricNames = Object.keys(meanValues[category] || {});
@@ -168,7 +169,7 @@ export const useMetricCalculations = (
         });
 
         setGroupedMetrics(updatedGroupedMetrics);
-    }, [meanValues, medianValues, varianceValues, stdDevsValues, autoCorrelationValues, selectedCategory, secondaryCategory]);
+    }, [meanValues, medianValues, varianceValues, stdDevsValues, autoCorrelationValues, selectedCategory, secondaryCategory, tertiaryCategory]);
 
     useEffect(() => {
         const allMetrics = [...singleMetrics, ...allCorrelationMetrics, ...perCategoryCorrelationMetrics];

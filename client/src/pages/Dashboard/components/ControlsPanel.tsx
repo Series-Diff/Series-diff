@@ -9,9 +9,11 @@ interface StandardControlsProps {
     mode: 'standard';
     selectedCategory: string | null;
     secondaryCategory: string | null;
+    tertiaryCategory: string | null;
     filenamesPerCategory: Record<string, string[]>;
     handleDropdownChange: (event: React.ChangeEvent<HTMLSelectElement>) => void;
     handleSecondaryDropdownChange: (event: React.ChangeEvent<HTMLSelectElement>) => void;
+    handleTertiaryDropdownChange: (event: React.ChangeEvent<HTMLSelectElement>) => void;
     showMovingAverage?: boolean;
     handleToggleMovingAverage?: () => void;
     isMaLoading: boolean;
@@ -158,15 +160,17 @@ const ControlsPanel: React.FC<ControlsPanelProps> = (props) => {
 
                 {hasCategories && mode === 'difference' && (
                     <>
-                        <components.Select
+                    <div className="d-flex align-items-center gap-2 bg-white border rounded shadow-sm px-3 py-2">
+                    <components.Select
                             id="diff-category-select-controls"
                             label="Select Category"
                             selected={diffProps.selectedDiffCategory || allCategories[0]}
                             categories={allCategories}
                             onChange={diffProps.handleDiffCategoryChange}
                         />
+                    </div>
 
-                        <div className="d-flex align-items-center gap-2 ms-3">
+                        <div className="d-flex align-items-center gap-2 bg-white border rounded shadow-sm px-3 py-2">
                             <Form.Label
                                 className="mb-0 text-nowrap"
                                 title="Time tolerance for matching data points (in minutes). E.g., 5 = 5 minutes tolerance. Leave empty for auto."
@@ -207,13 +211,13 @@ const ControlsPanel: React.FC<ControlsPanelProps> = (props) => {
 
             <div className="d-flex align-items-end gap-3">
                 <label htmlFor="file-upload"
-                       className={`custom-file-upload btn btn-primary rounded p-2 px-3 text-center ${isLoading ? "disabled" : ""}`}>
+                       className={`btn btn-primary mb-0 ${isLoading ? "disabled" : ""}`}>
                     {isLoading ? "Loading..." : "Upload files"}
                 </label>
                 <input id="file-upload" type="file" multiple accept=".json,.csv"
                        onChange={handleFileUpload} className="d-none" disabled={isLoading} />
                 <Button onClick={handleReset}
-                        className="custom-file-upload btn btn-primary rounded p-2 px-3 text-center"
+                        variant="outline-danger"
                         disabled={isLoading}>
                     Reset data
                 </Button>
