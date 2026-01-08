@@ -28,12 +28,13 @@ interface ChartControlsProps {
     toggleChartMode?: () => void;
     isInDifferenceMode?: boolean;
     hasData?: boolean;
+    canShowDifferenceChart?: boolean;
 }
 
 const ChartControls: React.FC<ChartControlsProps> = ({
                                                         customYMin, setCustomYMin, customYMax, setCustomYMax, setCustomRange, customY2Min, setCustomY2Min,
                                                         customY2Max, setCustomY2Max, setCustomRange2, customY3Min, setCustomY3Min, customY3Max, setCustomY3Max, setCustomRange3, hasSecondary, hasTertiary, primaryDataBounds, secondaryDataBounds, tertiaryDataBounds,
-                                                        toggleChartMode, isInDifferenceMode, hasData
+                                                        toggleChartMode, isInDifferenceMode, hasData, canShowDifferenceChart
                                                     }) => {
 
 
@@ -233,7 +234,7 @@ const ChartControls: React.FC<ChartControlsProps> = ({
             )}
 
             {/* Switch Chart Mode Button */}
-            {hasData && toggleChartMode && (
+            {hasData && toggleChartMode && (!isInDifferenceMode ? canShowDifferenceChart !== false : true) && (
                 <Button
                     variant="outline-secondary"
                     size="sm"
