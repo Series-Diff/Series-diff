@@ -22,12 +22,10 @@ async function fetchVariance(
     category: category.trim(),
     filename: filename.trim(),
   });
-
-  if (start != null) {
+  if (start) {
     params.append('start', start);
   }
-
-  if (end != null) {
+  if (end) {
     params.append('end', end);
   }
 

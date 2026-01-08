@@ -95,7 +95,9 @@ export const DataImportPopup = forwardRef<DataImportPopupHandle, Props>(
       for (const key in obj) {
         if (!obj.hasOwnProperty(key)) continue;
         const value = obj[key];
-        const prefixedKey = prefix ? `${prefix}.${key}` : key;
+        // Trim keys to ensure consistency (handle CSV/JSON with leading/trailing spaces)
+        const trimmedKey = key.trim();
+        const prefixedKey = prefix ? `${prefix}.${trimmedKey}` : trimmedKey;
         if (value && typeof value === 'object' && !Array.isArray(value)) {
           const nested = flattenObject(value, prefixedKey);
           result = { ...result, ...nested };
@@ -195,7 +197,15 @@ export const DataImportPopup = forwardRef<DataImportPopupHandle, Props>(
                 if (result.errors.length > 0) {
                   throw new Error(`CSV Parsing Error: ${result.errors[0].message}`);
                 }
-                dataArray = result.data;
+                // Normalize column names by trimming whitespace (Papa.parse doesn't trim, but pd.read_csv does)
+                dataArray = result.data.map((row: any) => {
+                  const normalizedRow: any = {};
+                  for (const [key, value] of Object.entries(row)) {
+                    const trimmedKey = key.trim();
+                    normalizedRow[trimmedKey] = value;
+                  }
+                  return normalizedRow;
+                });
               } else if (file.name.toLowerCase().endsWith('.json')) {
                 const jsonData = JSON.parse(text);
                 dataArray = Array.isArray(jsonData) ? jsonData : (typeof jsonData === 'object' && jsonData !== null ? [jsonData] : []);
@@ -402,7 +412,15 @@ export const DataImportPopup = forwardRef<DataImportPopupHandle, Props>(
           if (result.errors.length > 0) {
             throw new Error(`CSV Parsing Error: ${result.errors[0].message}`);
           }
-          dataArray = result.data;
+          // Normalize column names by trimming whitespace (Papa.parse doesn't trim, but pd.read_csv does)
+          dataArray = result.data.map((row: any) => {
+            const normalizedRow: any = {};
+            for (const [key, value] of Object.entries(row)) {
+              const trimmedKey = key.trim();
+              normalizedRow[trimmedKey] = value;
+            }
+            return normalizedRow;
+          });
         } else if (file.name.toLowerCase().endsWith('.json')) {
           const jsonData = JSON.parse(text);
           dataArray = Array.isArray(jsonData) ? jsonData : (typeof jsonData === 'object' && jsonData !== null ? [jsonData] : []);

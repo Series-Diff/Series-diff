@@ -22,8 +22,8 @@ export async function fetchRollingMean(
   end?: string
 ): Promise<Record<string, TimeSeriesEntry[]>> {
   const params = new URLSearchParams({
-    category,
-    filename,
+    category: category.trim(),
+    filename: filename.trim(),
     window_size,
   });
   if (start !== undefined) {

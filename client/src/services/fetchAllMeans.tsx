@@ -21,8 +21,8 @@ async function fetchMean(
   end?: string
 ): Promise<number | null> {
   const params = new URLSearchParams({
-    category,
-    filename,
+    category: category.trim(),
+    filename: filename.trim(),
   });
   if (start) {
     params.append('start', start);

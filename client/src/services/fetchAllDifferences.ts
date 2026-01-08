@@ -21,13 +21,14 @@ async function fetchDifference(
   end?: string,
   tolerance?: string
 ): Promise<TimeSeriesEntry[] | null> {
-  const params = new URLSearchParams();
-  params.set('category', category.trim());
-  params.set('filename1', filename1.trim());
-  params.set('filename2', filename2.trim());
-  if (tolerance) params.set('tolerance', tolerance);
-  if (start) params.set('start', start);
-  if (end) params.set('end', end);
+  const params = new URLSearchParams({
+    category: category.trim(),
+    filename1: filename1.trim(),
+    filename2: filename2.trim(),
+  });
+  if (tolerance) params.append('tolerance', tolerance);
+  if (start) params.append('start', start);
+  if (end) params.append('end', end);
   const url = `${API_URL}/api/timeseries/difference?${params.toString()}`;
 
   const resp = await fetch(url, {

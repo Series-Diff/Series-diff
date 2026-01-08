@@ -1,5 +1,6 @@
 import sys
 import uuid
+import math
 from container import container
 import services.metric_service as metric_service
 from utils.data_utils import pivot_file
@@ -58,12 +59,25 @@ def _get_session_token():
 def _create_response(data, status_code=200, token=None):
     """
     Create a Flask response with optional session token.
+    Converts NaN values to null for valid JSON.
 
     :param data: Response data
     :param status_code: HTTP status code for the response
     :param token: Optional session token to include in the response headers
     """
-    response = jsonify(data)
+
+    # Convert NaN to None (null in JSON) recursively
+    def convert_nan(obj):
+        if isinstance(obj, float) and math.isnan(obj):
+            return None
+        elif isinstance(obj, dict):
+            return {k: convert_nan(v) for k, v in obj.items()}
+        elif isinstance(obj, list):
+            return [convert_nan(item) for item in obj]
+        return obj
+
+    cleaned_data = convert_nan(data)
+    response = jsonify(cleaned_data)
     response.status_code = status_code
     if token:
         response.headers["X-Session-ID"] = token
@@ -686,6 +700,11 @@ def get_pearson_correlation():
     start = request.args.get("start")
     end = request.args.get("end")
     tolerance = request.args.get("tolerance")
+
+    logger.info(
+        f"Pearson correlation request: {filename1} vs {filename2}, category={category}"
+    )
+
     try:
         data1 = timeseries_manager.get_timeseries(
             token=token,
@@ -693,6 +712,9 @@ def get_pearson_correlation():
             category=category,
             start=start,
             end=end,
+        )
+        logger.info(
+            f"Pearson: data1 keys count = {len(data1) if isinstance(data1, dict) else 'N/A'}"
         )
         serie1 = metric_service.extract_series_from_dict(data1, category, filename1)
         data2 = timeseries_manager.get_timeseries(
@@ -702,7 +724,13 @@ def get_pearson_correlation():
             start=start,
             end=end,
         )
+        logger.info(
+            f"Pearson: data2 keys count = {len(data2) if isinstance(data2, dict) else 'N/A'}"
+        )
         serie2 = metric_service.extract_series_from_dict(data2, category, filename2)
+
+        logger.info(f"Pearson: serie1_len={len(serie1)}, serie2_len={len(serie2)}")
+
         correlation = metric_service.calculate_pearson_correlation(
             serie1, serie2, tolerance
         )
@@ -724,10 +752,11 @@ def get_pearson_correlation():
         )
         return _create_response({"error": "No valid timeseries data provided"}, 400)
     logger.info(
-        "Successfully calculated Pearson correlation for provided timeseries data for filenames '%s' and '%s' in category '%s'",
+        "Successfully calculated Pearson correlation for provided timeseries data for filenames '%s' and '%s' in category '%s': result=%s",
         filename1,
         filename2,
         category,
+        correlation,
     )
     return _create_response({"pearson_correlation": correlation}, 200)
 
@@ -991,6 +1020,8 @@ def get_dtw():
     start = request.args.get("start")
     end = request.args.get("end")
 
+    logger.info(f"DTW request: {filename1} vs {filename2}, category={category}")
+
     try:
         data1 = timeseries_manager.get_timeseries(
             token=token,
@@ -1009,9 +1040,13 @@ def get_dtw():
         )
         series2 = metric_service.extract_series_from_dict(data2, category, filename2)
 
+        logger.info(f"DTW: series1_len={len(series1)}, series2_len={len(series2)}")
+
         dtw_distance = metric_service.calculate_dtw(series1, series2)
+        logger.info(f"DTW result: {dtw_distance}")
 
     except Exception as e:
+        logger.error(f"DTW error: {e}")
         return _create_response({"error": str(e)}, 400)
 
     return _create_response({"dtw_distance": dtw_distance}, 200)
@@ -1025,6 +1060,10 @@ def get_euclidean_distance():
     category = request.args.get("category")
     tolerance = request.args.get("tolerance")
 
+    logger.info(
+        f"Euclidean distance request: {filename1} vs {filename2}, category={category}"
+    )
+
     try:
         data1 = timeseries_manager.get_timeseries(
             token=token,
@@ -1040,13 +1079,19 @@ def get_euclidean_distance():
         )
         series2 = metric_service.extract_series_from_dict(data2, category, filename2)
 
+        logger.info(
+            f"Euclidean: series1_len={len(series1)}, series2_len={len(series2)}"
+        )
+
         euclidean_distances = metric_service.calculate_euclidean_distance(
             series1,
             series2,
             tolerance,
         )
+        logger.info(f"Euclidean result: {euclidean_distances}")
 
     except Exception as e:
+        logger.error(f"Euclidean error: {e}")
         return _create_response({"error": str(e)}, 400)
 
     return _create_response({"euclidean_distance": euclidean_distances}, 200)
@@ -1084,8 +1129,24 @@ def add_timeseries():
                     },
                     400,
                 )
-            timeseries_manager.add_timeseries(token, time, values)
-            current_timeseries[time] = values
+
+            # Normalize category and filename by trimming whitespace to handle CSV/JSON inconsistencies
+            normalized_values = {}
+            for category, category_data in values.items():
+                if isinstance(category_data, dict):
+                    normalized_category_key = category.strip()
+                    normalized_category_data = {}
+                    for filename, file_value in category_data.items():
+                        normalized_filename = filename.strip()
+                        normalized_category_data[normalized_filename] = file_value
+                    normalized_values[normalized_category_key] = (
+                        normalized_category_data
+                    )
+                else:
+                    normalized_values[category.strip()] = category_data
+
+            timeseries_manager.add_timeseries(token, time, normalized_values)
+            current_timeseries[time] = normalized_values
     except ValueError as e:
         logger.error("Error adding timeseries for time '%s': %s", time, e)
         timeseries_manager.sessions[token] = (

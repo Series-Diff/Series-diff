@@ -20,9 +20,14 @@ export async function fetchDTW(
   start?: string,
   end?: string
 ): Promise<number | null> {
-  let url = `${API_URL}/api/timeseries/dtw?filename1=${encodeURIComponent(encodeURIComponent(filename1.trim()))}&filename2=${encodeURIComponent(encodeURIComponent(filename2.trim()))}&category=${encodeURIComponent(encodeURIComponent(category.trim()))}`;
-  if (start) url += `&start=${encodeURIComponent(start)}`;
-  if (end) url += `&end=${encodeURIComponent(end)}`;
+  const params = new URLSearchParams({
+    filename1: filename1.trim(),
+    filename2: filename2.trim(),
+    category: category.trim(),
+  });
+  if (start) params.append('start', start);
+  if (end) params.append('end', end);
+  const url = `${API_URL}/api/timeseries/dtw?${params.toString()}`;
 
   try {
     const response = await fetch(url, {
@@ -34,14 +39,12 @@ export async function fetchDTW(
     handleSessionToken(response);
 
     if (!response.ok) {
-      console.error(`Failed to fetch DTW for ${filename1} vs ${filename2}:`, await response.text());
       return null;
     }
 
     const data = await response.json();
     return data.dtw_distance ?? 0;
   } catch (err) {
-    console.error(`Error fetching DTW for ${filename1} vs ${filename2}:`, err);
     return null;
   }
 }
