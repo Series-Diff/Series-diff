@@ -16,7 +16,7 @@ export const useChartState = (
     primaryData: Record<string, TimeSeriesEntry[]>,
     secondaryData?: Record<string, TimeSeriesEntry[]>,
     tertiaryData?: Record<string, TimeSeriesEntry[]>,
-    manualData: Record<string, TimeSeriesEntry[]> = {}
+    manualData?: Record<string, TimeSeriesEntry[]>
 ) => {
     const [xaxisRange, setXaxisRange] = useState<[string | null, string | null]>([null, null]);
     const [tickFormat, setTickFormat] = useState('%d.%m.%Y'); // Only day before zoom
@@ -32,15 +32,17 @@ export const useChartState = (
     const [customY3Max, setCustomY3Max] = useState<string>('');
     const [visibleMap, setVisibleMap] = useState<Record<string, boolean>>({});
 
+    const manualDataSafe = useMemo(() => manualData ?? {}, [manualData]);
+
     // Memoized allData to stabilize dependencies
     const allData = useMemo(
         () => ({
             ...primaryData,
             ...(secondaryData || {}),
             ...(tertiaryData || {}),
-            ...manualData,
+            ...manualDataSafe,
         }),
-        [primaryData, secondaryData, tertiaryData, manualData]
+        [primaryData, secondaryData, tertiaryData, manualDataSafe]
     );
 
     const averageStepHours = useMemo(() => {
@@ -91,12 +93,12 @@ export const useChartState = (
     // Set initial X-range based on data
     // This hook allows for dynamic X-axis range right after loading data, without it you need to refresh the page first
     useEffect(() => {
-        // Check if allData has any keys (is not empty object)
+        // Only attempt to set initial range when we have data
         if (Object.keys(allData).length === 0) return;
-        
         const allXStrings = Object.values(allData).flat().map(d => d.x);
         if (allXStrings.length === 0) return;
-                const stringsWithTimestamps = allXStrings.map(str => ({
+
+        const stringsWithTimestamps = allXStrings.map(str => ({
             str,
             ts: new Date(str).getTime()
         }));
@@ -105,13 +107,16 @@ export const useChartState = (
         const minXString = stringsWithTimestamps.find(item => item.ts === minTs)?.str || allXStrings[0];
         const maxXString = stringsWithTimestamps.find(item => item.ts === maxTs)?.str || allXStrings[allXStrings.length - 1];
 
+        // Avoid relayout loop when range is already aligned with data
+        if (xaxisRange[0] === minXString && xaxisRange[1] === maxXString) return;
+
         const fakeEvent = {
             'xaxis.range[0]': minXString,
             'xaxis.range[1]': maxXString,
         };
 
         handleRelayout(fakeEvent);
-    }, [allData]);
+    }, [allData, xaxisRange]);
 
     // Relayout handler for zoom and range updates
     const handleRelayout = (event: any) => {
@@ -120,6 +125,11 @@ export const useChartState = (
             const rangeEnd = new Date(event['xaxis.range[1]']);
             const diffMs = rangeEnd.getTime() - rangeStart.getTime();
             const diffHours = diffMs / (1000 * 60 * 60);
+
+            const nextRange: [string, string] = [event['xaxis.range[0]'], event['xaxis.range[1]']];
+            if (xaxisRange[0] === nextRange[0] && xaxisRange[1] === nextRange[1]) {
+                return; // No-op to prevent relayout-induced loops
+            }
 
             const estimatedPointsOnScreen = diffHours / (averageStepHours || 0.001);
 
@@ -133,8 +143,9 @@ export const useChartState = (
             } else {
                 setTickFormat('%d.%m.%Y');
             }
-            setXaxisRange([event['xaxis.range[0]'], event['xaxis.range[1]']]);
+            setXaxisRange(nextRange);
         } else if (event['xaxis.autorange'] === true) {
+            if (xaxisRange[0] === null && xaxisRange[1] === null) return; // already reset
             setXaxisRange([null, null]); // Resetting X-axis range
             setTickFormat('%d.%m.%Y'); // Restoring default format
             setShowMarkers(false); // Restoring default markers

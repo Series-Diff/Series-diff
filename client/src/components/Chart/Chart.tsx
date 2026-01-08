@@ -24,7 +24,7 @@ const MyChart: React.FC<MyChartProps> = ({
                                              primaryData,
                                              secondaryData,
                                              tertiaryData,
-                                             manualData = {},
+                                             manualData,
                                              title,
                                              syncColorsByFile = true,
                                              syncColorsByGroup = false,
@@ -33,6 +33,8 @@ const MyChart: React.FC<MyChartProps> = ({
                                              isInDifferenceMode
                                          }) => {
 
+    const manualDataSafe = useMemo(() => manualData ?? {}, [manualData]);
+
     const {
         xaxisRange, tickFormat, showMarkers,
         customRange, setCustomRange, customYMin, setCustomYMin, customYMax, setCustomYMax,
@@ -40,7 +42,7 @@ const MyChart: React.FC<MyChartProps> = ({
         customRange3, setCustomRange3, customY3Min, setCustomY3Min, customY3Max, setCustomY3Max,
         visibleMap, setVisibleMap, handleRelayout,
         primaryDataBounds, secondaryDataBounds, tertiaryDataBounds
-    } = useChartState(primaryData, secondaryData, tertiaryData, manualData);
+    } = useChartState(primaryData, secondaryData, tertiaryData, manualDataSafe);
 
     const {handleLegendClick, containerRef} = useChartInteractions(setVisibleMap);
 
@@ -48,8 +50,8 @@ const MyChart: React.FC<MyChartProps> = ({
         ...Object.keys(primaryData),
         ...(secondaryData ? Object.keys(secondaryData) : []),
         ...(tertiaryData ? Object.keys(tertiaryData) : []),
-        ...Object.keys(manualData)
-    ], [primaryData, secondaryData, tertiaryData, manualData]);
+        ...Object.keys(manualDataSafe)
+    ], [primaryData, secondaryData, tertiaryData, manualDataSafe]);
 
     const colorMap = useMemo(() =>
             getColorMap(allKeys, syncColorsByFile, syncColorsByGroup),
@@ -67,7 +69,7 @@ const MyChart: React.FC<MyChartProps> = ({
         primaryData,
         secondaryData,
         tertiaryData,
-        manualData,
+        manualDataSafe,
         visibleMap,
         showMarkers,
         syncColorsByFile,
