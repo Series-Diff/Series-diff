@@ -43,6 +43,42 @@ export function useDifferenceChart(
     const [isDiffLoading, setIsDiffLoading] = useState(false);
     const [diffError, setDiffError] = useState<string | null>(null);
 
+    // Track selected metrics for reactive clearing when difference_chart is deselected
+    // Note: stored as JSON array in localStorage, but converted to Set for consistent usage with useMetricsSelection
+    const [selectedMetricsForDisplay, setSelectedMetricsForDisplay] = useState<Set<string> | null>(() => {
+        const stored = localStorage.getItem('selectedMetricsForDisplay');
+        return stored ? new Set(JSON.parse(stored)) : null;
+    });
+
+    // Listen for changes to selectedMetricsForDisplay
+    useEffect(() => {
+        const handleStorageChange = (event: Event) => {
+            const customEvent = event as CustomEvent;
+            if (customEvent.detail?.key === 'selectedMetricsForDisplay') {
+                const selectedArray = customEvent.detail.value as string[];
+                setSelectedMetricsForDisplay(new Set(selectedArray)); // Convert array to Set for consistency
+            }
+        };
+
+        window.addEventListener('localStorageChange', handleStorageChange);
+        return () => window.removeEventListener('localStorageChange', handleStorageChange);
+    }, []);
+
+    // Clear data when difference_chart is deselected
+    useEffect(() => {
+        const shouldShowDifferences =
+            selectedMetricsForDisplay === null ||
+            selectedMetricsForDisplay.size === 0 ||
+            selectedMetricsForDisplay.has('difference_chart');
+
+        if (!shouldShowDifferences) {
+            // Clear all difference data when metric is deselected
+            setDifferenceValues({});
+            setSelectedDifferences([]);
+            setReversedDifferences({});
+        }
+    }, [selectedMetricsForDisplay]);
+
     // Initialize selected category when filenamesPerCategory changes
     useEffect(() => {
         const categories = Object.keys(filenamesPerCategory);
@@ -69,6 +105,19 @@ export function useDifferenceChart(
     // Fetch differences when category changes
     useEffect(() => {
         const fetchDifferencesForCategory = async (category: string, tolerance: number | null) => {
+            // Check if difference_chart is selected (null = default all; empty set = none; else check inclusion)
+            const selectedMetricsJson = localStorage.getItem('selectedMetricsForDisplay');
+            const selectedMetrics = selectedMetricsJson ? new Set<string>(JSON.parse(selectedMetricsJson)) : null;
+            const shouldFetchDifferences =
+                selectedMetrics === null ||
+                selectedMetrics.size === 0 ||
+                selectedMetrics.has('difference_chart');
+
+            if (!shouldFetchDifferences) {
+                // Clear data if difference_chart is not selected
+                return;
+            }
+
             const filesForCategory = filenamesPerCategory[category];
             if (!category || differenceValues[category] || !filesForCategory?.length) {
                 // If we already have selections stored for this category, restore them
@@ -131,6 +180,17 @@ export function useDifferenceChart(
 
     const handleDiffCategoryChange = useCallback(async (event: React.ChangeEvent<HTMLSelectElement>) => {
         const newCategory = event.target.value;
+
+        // Check if difference_chart is selected (null = default all; empty set = none; else check inclusion)
+        const shouldFetchDifferences =
+            selectedMetricsForDisplay === null ||
+            selectedMetricsForDisplay.size === 0 ||
+            selectedMetricsForDisplay.has('difference_chart');
+
+        if (!shouldFetchDifferences) {
+            // Don't fetch if difference_chart is not selected
+            return;
+        }
 
         // Persist current selections for current category
         if (selectedDiffCategory) {
@@ -196,7 +256,7 @@ export function useDifferenceChart(
                 setIsDiffLoading(false);
             }
         }
-    }, [selectedDiffCategory, selectedDifferences, reversedDifferences, filenamesPerCategory, differenceValues, activeTolerance, setError, selectionsByCategory, reversedByCategory, setSelectionsForCategory, setReversedForCategory, hasUserInteractedByCategory]);
+    }, [selectedDiffCategory, selectedDifferences, reversedDifferences, filenamesPerCategory, differenceValues, activeTolerance, setError, selectionsByCategory, reversedByCategory, setSelectionsForCategory, setReversedForCategory, hasUserInteractedByCategory, selectedMetricsForDisplay]);
 
     const handleDifferenceCheckboxChange = useCallback((diffFullName: string) => {
         if (!selectedDiffCategory) return;
@@ -266,6 +326,16 @@ export function useDifferenceChart(
     }, [getDifferenceOptions, selectedDifferences, selectedDiffCategory, setSelectionsForCategory, setReversedForCategory]);
 
     const handleApplyTolerance = useCallback(async () => {
+        // Check if difference_chart is selected (null = default all; empty set = none; else check inclusion)
+        const shouldFetchDifferences =
+            selectedMetricsForDisplay === null ||
+            selectedMetricsForDisplay.size === 0 ||
+            selectedMetricsForDisplay.has('difference_chart');
+
+        if (!shouldFetchDifferences) {
+            return;
+        }
+
         // Parse the tolerance value
         const numericValue = parseFloat(customToleranceValue);
         const tol = customToleranceValue === "" || isNaN(numericValue) ? null : Math.abs(numericValue);
@@ -308,9 +378,19 @@ export function useDifferenceChart(
                 setIsDiffLoading(false);
             }
         }
-    }, [customToleranceValue, activeTolerance, selectedDiffCategory, filenamesPerCategory, setError, selectionsByCategory, reversedByCategory, selectedDifferences, reversedDifferences, setSelectionsForCategory, setReversedForCategory]);
+    }, [customToleranceValue, activeTolerance, selectedDiffCategory, filenamesPerCategory, setError, selectionsByCategory, reversedByCategory, selectedDifferences, reversedDifferences, setSelectionsForCategory, setReversedForCategory, selectedMetricsForDisplay]);
 
     const handleResetTolerance = useCallback(async () => {
+        // Check if difference_chart is selected (null = default all; empty set = none; else check inclusion)
+        const shouldFetchDifferences =
+            selectedMetricsForDisplay === null ||
+            selectedMetricsForDisplay.size === 0 ||
+            selectedMetricsForDisplay.has('difference_chart');
+
+        if (!shouldFetchDifferences) {
+            return;
+        }
+
         // Clear any existing errors first
         setDiffError(null);
         setError?.(null);
@@ -352,7 +432,7 @@ export function useDifferenceChart(
                 setIsDiffLoading(false);
             }
         }
-    }, [activeTolerance, customToleranceValue, selectedDiffCategory, filenamesPerCategory, setError, selectionsByCategory, reversedByCategory, selectedDifferences, reversedDifferences, setSelectionsForCategory, setReversedForCategory]);
+    }, [activeTolerance, customToleranceValue, selectedDiffCategory, filenamesPerCategory, setError, selectionsByCategory, reversedByCategory, selectedDifferences, reversedDifferences, setSelectionsForCategory, setReversedForCategory, selectedMetricsForDisplay]);
 
     const resetDifferenceChart = useCallback(() => {
         setDifferenceValues({});

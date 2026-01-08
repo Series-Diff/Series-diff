@@ -18,6 +18,11 @@ const AVAILABLE_METRIC_VALUES = [
     'difference_chart', 'moving_average'
 ] as const;
 
+// Computationally expensive metrics - disabled by default
+// Ranking: DTW (O(n²)) > Autocorrelation (O(n log n))
+// Moving Average (O(n·w)) is enabled by default due to acceptable performance
+const EXPENSIVE_METRICS = new Set(['dtw', 'autocorrelation']);
+
 const MetricsSelectionModal: React.FC<MetricsSelectionModalProps> = ({
     show,
     onHide,
@@ -25,16 +30,22 @@ const MetricsSelectionModal: React.FC<MetricsSelectionModalProps> = ({
     selectedMetrics = null,
     onApply,
 }) => {
-    // When selectedMetrics is null (show all), initialize with all available metrics
+    // When selectedMetrics is null (show all), initialize with all available metrics EXCEPT expensive ones
     const allAvailableMetrics = useMemo(() => 
         [...PREDEFINED_METRICS.filter(m => 
             AVAILABLE_METRIC_VALUES.includes(m.value as any)
         ), ...userMetrics].map(m => m.value),
         [userMetrics]
     );
+
+    // Default selection: all metrics EXCEPT expensive ones
+    const defaultSelectedMetrics = useMemo(() => 
+        new Set(allAvailableMetrics.filter(m => !EXPENSIVE_METRICS.has(m))),
+        [allAvailableMetrics]
+    );
     
     const [localSelectedMetrics, setLocalSelectedMetrics] = useState<Set<string>>(
-        selectedMetrics === null ? new Set(allAvailableMetrics) : selectedMetrics
+        selectedMetrics === null ? defaultSelectedMetrics : selectedMetrics
     );
     const [activeTab, setActiveTab] = useState('predefined');
     const [selectedCategory, setSelectedCategory] = useState('All');
@@ -94,7 +105,7 @@ const MetricsSelectionModal: React.FC<MetricsSelectionModalProps> = ({
 
     const handleClose = () => {
         setLocalSelectedMetrics(
-            selectedMetrics === null ? new Set(allAvailableMetrics) : selectedMetrics
+            selectedMetrics === null ? defaultSelectedMetrics : selectedMetrics
         );
         onHide();
     };
@@ -122,18 +133,16 @@ const MetricsSelectionModal: React.FC<MetricsSelectionModalProps> = ({
     };
 
     // Update localSelectedMetrics when modal opens
-    // Note: allAvailableMetrics is intentionally NOT in the dependency array to avoid
-    // unnecessary re-renders when userMetrics changes. The modal state should only reset
-    // when it opens (show changes) or when external selectedMetrics prop changes.
+    // When selectedMetrics is null (first load), use defaultSelectedMetrics (expensive ones excluded)
+    // Otherwise use the passed selectedMetrics
     useEffect(() => {
         if (show) {
             const metricsToSet = selectedMetrics === null 
-                ? new Set(allAvailableMetrics) 
+                ? defaultSelectedMetrics 
                 : new Set(selectedMetrics);
             setLocalSelectedMetrics(metricsToSet);
         }
-        // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [show, selectedMetrics]);
+    }, [show, selectedMetrics, defaultSelectedMetrics]);
 
         // Reset filters and tab after the modal fully closes to avoid interfering with the closing lifecycle
         useEffect(() => {

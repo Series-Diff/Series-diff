@@ -12,7 +12,7 @@ export const useMovingAverage = (
 
     const fetchMaData = useCallback(async (window: string) => {
         if (Object.keys(filenamesPerCategory).length === 0) {
-            console.log("Cannot fetch MA, categories not loaded.");
+            console.log('Cannot fetch MA, categories not loaded.');
             return;
         }
         setIsMaLoading(true);
@@ -29,6 +29,21 @@ export const useMovingAverage = (
     }, [filenamesPerCategory, setError]);
 
     const handleToggleMovingAverage = () => {
+        // Check if moving_average is selected
+        const selectedMetricsJson = localStorage.getItem('selectedMetricsForDisplay');
+        const selectedMetrics = selectedMetricsJson
+            ? new Set<string>(JSON.parse(selectedMetricsJson))
+            // If there is no saved selection yet, default to moving_average being enabled
+            : new Set<string>(['moving_average']);
+        const isMovingAverageEnabled = selectedMetrics.has('moving_average');
+
+        if (!isMovingAverageEnabled) {
+            // Moving average is not enabled in metric selection - surface a user-facing error and log a warning
+            setError('Moving Average is not enabled in metric selection');
+            console.warn('Moving Average is not enabled in metric selection');
+            return;
+        }
+
         const newState = !showMovingAverage;
         setShowMovingAverage(newState);
 
