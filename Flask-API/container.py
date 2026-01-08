@@ -22,7 +22,7 @@ class Container:
             "db": 0,
             "max_connections": 50,
             "socket_connect_timeout": 5,
-            "socket_timeout": 5,
+            "socket_timeout": 10,
             "socket_keepalive": True,
             "retry_on_timeout": True,
             "health_check_interval": 30,
@@ -57,8 +57,8 @@ class Container:
         if not self._limiter:
             self._limiter = Limiter(
                 key_func=get_remote_address,
-                storage_uri=self.redis_url,  # Pobiera adres z kontenera (DRY)
-                default_limits=["5000 per day", "500 per hour"],
+                storage_uri=self.redis_url,
+                default_limits=["5000 per day", "1000 per hour"],
                 strategy="fixed-window",
             )
         return self._limiter

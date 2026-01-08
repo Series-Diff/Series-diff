@@ -115,9 +115,10 @@ class TestTimeSeriesManagerGetMethod(unittest.TestCase):
 
     def test_get_all_timeseries(self):
         # Arrange
-        mock_pipeline = MagicMock()
-        mock_pipeline.execute.return_value = [self.test_data, True]
-        self.mock_redis.pipeline.return_value = mock_pipeline
+        self.mock_redis.hscan_iter.return_value = iter(
+            [(k, v) for k, v in self.test_data.items()]
+        )
+        self.mock_redis.expire.return_value = True
 
         # Act
         result = self.manager.get_timeseries(self.token)
@@ -132,8 +133,8 @@ class TestTimeSeriesManagerGetMethod(unittest.TestCase):
         }
 
         self.assertEqual(result, expected)
-        mock_pipeline.hgetall.assert_called_once_with(f"session:{self.token}")
-        mock_pipeline.expire.assert_called_once()
+        self.mock_redis.hscan_iter.assert_called_with(f"session:{self.token}")
+        self.mock_redis.expire.assert_called_once()
 
     def test_get_timeseries_with_time(self):
         # Arrange
@@ -141,7 +142,10 @@ class TestTimeSeriesManagerGetMethod(unittest.TestCase):
         mock_pipeline = MagicMock()
         mock_pipeline.execute.return_value = [[self.test_data[timestamp]], True]
         self.mock_redis.pipeline.return_value = mock_pipeline
-        self.mock_redis.hkeys.return_value = list(self.test_data.keys())
+        # hscan_iter returns iterator of tuples (field, value)
+        self.mock_redis.hscan_iter.return_value = iter(
+            [(k, _json_dumps(v)) for k, v in self.test_data.items()]
+        )
 
         # Act
         result = self.manager.get_timeseries(self.token, timestamp=timestamp)
@@ -154,15 +158,16 @@ class TestTimeSeriesManagerGetMethod(unittest.TestCase):
             }
         }
         self.assertEqual(result, expected)
-        self.mock_redis.hkeys.assert_called_once()
+        self.mock_redis.hscan_iter.assert_called_once()
         mock_pipeline.hmget.assert_called_once()
         mock_pipeline.expire.assert_called_once()
 
     def test_get_timeseries_with_category(self):
         # Arrange
-        mock_pipeline = MagicMock()
-        mock_pipeline.execute.return_value = [self.test_data, True]
-        self.mock_redis.pipeline.return_value = mock_pipeline
+        self.mock_redis.hscan_iter.return_value = iter(
+            [(k, v) for k, v in self.test_data.items()]
+        )
+        self.mock_redis.expire.return_value = True
 
         # Act
         result = self.manager.get_timeseries(self.token, category="category1")
@@ -178,9 +183,10 @@ class TestTimeSeriesManagerGetMethod(unittest.TestCase):
 
     def test_get_timeseries_with_filename(self):
         # Arrange
-        mock_pipeline = MagicMock()
-        mock_pipeline.execute.return_value = [self.test_data, True]
-        self.mock_redis.pipeline.return_value = mock_pipeline
+        self.mock_redis.hscan_iter.return_value = iter(
+            [(k, v) for k, v in self.test_data.items()]
+        )
+        self.mock_redis.expire.return_value = True
 
         # Act
         result = self.manager.get_timeseries(self.token, filename="file1")
@@ -200,7 +206,10 @@ class TestTimeSeriesManagerGetMethod(unittest.TestCase):
         mock_pipeline = MagicMock()
         mock_pipeline.execute.return_value = [[self.test_data[timestamp]], True]
         self.mock_redis.pipeline.return_value = mock_pipeline
-        self.mock_redis.hkeys.return_value = list(self.test_data.keys())
+        # hscan_iter returns iterator of tuples (field, value)
+        self.mock_redis.hscan_iter.return_value = iter(
+            [(k, _json_dumps(v)) for k, v in self.test_data.items()]
+        )
 
         # Act
         result = self.manager.get_timeseries(
@@ -221,7 +230,10 @@ class TestTimeSeriesManagerGetMethod(unittest.TestCase):
         mock_pipeline = MagicMock()
         mock_pipeline.execute.return_value = [[self.test_data[timestamp]], True]
         self.mock_redis.pipeline.return_value = mock_pipeline
-        self.mock_redis.hkeys.return_value = list(self.test_data.keys())
+        # hscan_iter returns iterator of tuples (field, value)
+        self.mock_redis.hscan_iter.return_value = iter(
+            [(k, _json_dumps(v)) for k, v in self.test_data.items()]
+        )
 
         # Act
         result = self.manager.get_timeseries(
@@ -239,9 +251,10 @@ class TestTimeSeriesManagerGetMethod(unittest.TestCase):
 
     def test_get_timeseries_with_category_and_filename(self):
         # Arrange
-        mock_pipeline = MagicMock()
-        mock_pipeline.execute.return_value = [self.test_data, True]
-        self.mock_redis.pipeline.return_value = mock_pipeline
+        self.mock_redis.hscan_iter.return_value = iter(
+            [(k, v) for k, v in self.test_data.items()]
+        )
+        self.mock_redis.expire.return_value = True
 
         # Act
         result = self.manager.get_timeseries(
@@ -258,7 +271,10 @@ class TestTimeSeriesManagerGetMethod(unittest.TestCase):
         mock_pipeline = MagicMock()
         mock_pipeline.execute.return_value = [[self.test_data[timestamp]], True]
         self.mock_redis.pipeline.return_value = mock_pipeline
-        self.mock_redis.hkeys.return_value = list(self.test_data.keys())
+        # hscan_iter returns iterator of tuples (field, value)
+        self.mock_redis.hscan_iter.return_value = iter(
+            [(k, _json_dumps(v)) for k, v in self.test_data.items()]
+        )
 
         # Act
         result = self.manager.get_timeseries(
@@ -284,7 +300,10 @@ class TestTimeSeriesManagerGetMethod(unittest.TestCase):
         mock_pipeline = MagicMock()
         mock_pipeline.execute.return_value = [[], True]
         self.mock_redis.pipeline.return_value = mock_pipeline
-        self.mock_redis.hkeys.return_value = list(self.test_data.keys())
+        # hscan_iter returns iterator of tuples (field, value)
+        self.mock_redis.hscan_iter.return_value = iter(
+            [(k, _json_dumps(v)) for k, v in self.test_data.items()]
+        )
 
         # Act
         result = self.manager.get_timeseries(self.token, timestamp="invalid_time")
@@ -323,9 +342,10 @@ class TestTimeSeriesManagerGetMethod(unittest.TestCase):
 
     def test_get_timeseries_with_categories_list(self):
         # Arrange
-        mock_pipeline = MagicMock()
-        mock_pipeline.execute.return_value = [self.test_data, True]
-        self.mock_redis.pipeline.return_value = mock_pipeline
+        self.mock_redis.hscan_iter.return_value = iter(
+            [(k, v) for k, v in self.test_data.items()]
+        )
+        self.mock_redis.expire.return_value = True
 
         # Act
         result = self.manager.get_timeseries(
@@ -344,9 +364,10 @@ class TestTimeSeriesManagerGetMethod(unittest.TestCase):
 
     def test_get_timeseries_with_filenames_list(self):
         # Arrange
-        mock_pipeline = MagicMock()
-        mock_pipeline.execute.return_value = [self.test_data, True]
-        self.mock_redis.pipeline.return_value = mock_pipeline
+        self.mock_redis.hscan_iter.return_value = iter(
+            [(k, v) for k, v in self.test_data.items()]
+        )
+        self.mock_redis.expire.return_value = True
 
         # Act
         result = self.manager.get_timeseries(self.token, filenames=["file1", "file2"])
@@ -369,7 +390,10 @@ class TestTimeSeriesManagerGetMethod(unittest.TestCase):
             True,
         ]
         self.mock_redis.pipeline.return_value = mock_pipeline
-        self.mock_redis.hkeys.return_value = list(self.test_data.keys())
+        # hscan_iter returns iterator of tuples (field, value)
+        self.mock_redis.hscan_iter.return_value = iter(
+            [(k, _json_dumps(v)) for k, v in self.test_data.items()]
+        )
 
         # Act
         result = self.manager.get_timeseries(

@@ -1,9 +1,10 @@
 from datetime import datetime
+import time
+import redis.exceptions
 
 try:
     import orjson as json
 
-    # orjson returns bytes, so we need wrapper functions
     def _json_loads(x):
         return json.loads(x)
 
@@ -87,18 +88,77 @@ class TimeSeriesManager:
         if start and end and start > end:
             raise ValueError(f"Start date {start} is after end date {end}.")
 
+    def _retry_redis_operation(
+        self, operation, operation_name: str, max_retries: int = 3
+    ):
+        """Execute Redis operation with retry logic and exponential backoff."""
+        retry_delay = 0.1
+
+        for attempt in range(max_retries):
+            try:
+                return operation()
+            except (
+                redis.exceptions.ConnectionError,
+                redis.exceptions.TimeoutError,
+            ) as e:
+                if attempt < max_retries - 1:
+                    wait_time = retry_delay * (2**attempt)
+                    self.logger.warning(
+                        f"Redis connection error on attempt {attempt + 1}/{max_retries} "
+                        f"for {operation_name}: {e}. Retrying in {wait_time:.2f}s..."
+                    )
+                    time.sleep(wait_time)
+                else:
+                    self.logger.error(
+                        f"Error in {operation_name} after {max_retries} attempts: {e}"
+                    )
+                    raise e
+
     def _get_session_data(self, token: str) -> Dict[str, Any]:
         """Retrieve session data for a given token."""
         key = self._get_key(token)
+
+        def operation():
+            # Use hscan_iter for non-blocking iteration
+            session_data = {}
+            for field, value in self.redis.hscan_iter(key):
+                session_data[field] = value
+
+            # Refresh TTL
+            if session_data:
+                self.redis.expire(key, self._ttl_seconds)
+
+            return session_data
+
         try:
-            pipeline = self.redis.pipeline()
-            pipeline.hgetall(key)
-            pipeline.expire(key, self._ttl_seconds)
-            results = pipeline.execute()
-            return results[0] if results else {}
+            return self._retry_redis_operation(
+                operation, f"get_session_data for token {token}"
+            )
         except Exception as e:
             self.logger.error(f"Error retrieving session data for token {token}: {e}")
             raise e
+
+    def _fetch_chunked_data(
+        self, key: str, filtered_keys: List[str], chunk_size: int = 300
+    ) -> Dict[str, Any]:
+        """Fetch data from Redis in chunks to avoid connection resets."""
+        filtered_data = {}
+        for i in range(
+            0, len(filtered_keys), chunk_size
+        ):  # linter wciska spacje, a potem na nią narzeka :|
+            chunk = filtered_keys[i : i + chunk_size]  # noqa: E203
+
+            pipeline = self.redis.pipeline()
+            pipeline.hmget(key, chunk)
+            if i == 0:
+                pipeline.expire(key, self._ttl_seconds)
+            results = pipeline.execute()
+
+            values = results[0]
+            chunk_data = {ts: val for ts, val in zip(chunk, values) if val is not None}
+            filtered_data.update(chunk_data)
+
+        return filtered_data
 
     def _get_redis_subset(
         self,
@@ -117,33 +177,28 @@ class TimeSeriesManager:
             end (str, optional): End of the time interval
         """
         key = self._get_key(token)
-        try:
-            timestamps = self.redis.hkeys(key)
+
+        def operation():
             filtered_keys = []
             datetime_start, datetime_end = self._parse_dates(start, end)
 
-            for ts_key in timestamps:
+            # Use hscan_iter for non-blocking iteration
+            for field, _ in self.redis.hscan_iter(key):
                 if self._matches_time_filter(
-                    ts_key, timestamp, datetime_start, datetime_end
+                    field, timestamp, datetime_start, datetime_end
                 ):
-                    filtered_keys.append(ts_key)
+                    filtered_keys.append(field)
 
             if not filtered_keys:
                 self.logger.info(f"No data found for token {token} with given filters.")
                 return {}
 
-            # Use pipeline for batch operations
-            pipeline = self.redis.pipeline()
-            pipeline.hmget(key, filtered_keys)
-            pipeline.expire(key, self._ttl_seconds)
-            results = pipeline.execute()
+            return self._fetch_chunked_data(key, filtered_keys)
 
-            values = results[0]
-            filtered_data = {
-                ts: val for ts, val in zip(filtered_keys, values) if val is not None
-            }
-
-            return filtered_data
+        try:
+            return self._retry_redis_operation(
+                operation, f"get_redis_subset for token {token}"
+            )
         except Exception as e:
             self.logger.error(f"Error retrieving Redis subset for token {token}: {e}")
             raise e
