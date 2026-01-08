@@ -366,7 +366,7 @@ function DashboardPage() {
                                         data={PearsonCorrelationValues[selectedCategory]}
                                         category={selectedCategory}
                                         onCellClick={(file1, file2) =>
-                                            handleCellClick(file1, file2, selectedCategory)
+                                            handleCellClick(file1, file2, selectedCategory, startDate, endDate)
                                         }
                                         metric="Pearson Correlation"
                                         metricKey="pearson_correlation"
@@ -378,7 +378,7 @@ function DashboardPage() {
                                                 data={PearsonCorrelationValues[secondaryCategory]}
                                                 category={secondaryCategory}
                                                 onCellClick={(file1, file2) =>
-                                                    handleCellClick(file1, file2, secondaryCategory)
+                                                    handleCellClick(file1, file2, secondaryCategory, startDate, endDate)
                                                 }
                                                 metric="Pearson Correlation"
                                                 metricKey="pearson_correlation"
@@ -393,7 +393,7 @@ function DashboardPage() {
                                                 data={PearsonCorrelationValues[tertiaryCategory]}
                                                 category={tertiaryCategory}
                                                 onCellClick={(file1, file2) =>
-                                                    handleCellClick(file1, file2, tertiaryCategory)
+                                                    handleCellClick(file1, file2, tertiaryCategory, startDate, endDate)
                                                 }
                                                 metric="Pearson Correlation"
                                                 metricKey="pearson_correlation"
