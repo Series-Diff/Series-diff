@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import { Button, Modal, Form, Spinner, Alert } from 'react-bootstrap';
 import './DashboardPage.css';
 import '../components/Chart/Chart.css';
@@ -7,14 +7,33 @@ import '../components/Dropdown/Dropdown.css';
 import * as components from '../components';
 import * as hooks from '../hooks';
 import { useManualData } from '../hooks/useManualData';
+import { useGlobalCache } from '../contexts/CacheContext';
+import { cacheAPI } from '../utils/cacheApiWrapper';
 
 import ControlsPanel from './Dashboard/components/ControlsPanel';
 import DifferenceSelectionPanel from './Dashboard/components/DifferenceSelectionPanel';
 
 function DashboardPage() {
     const [chartMode, setChartMode] = useState<'standard' | 'difference'>('standard');
+    const globalCache = useGlobalCache();
 
     const { chartData, error, setError, isLoading, setIsLoading, filenamesPerCategory, handleFetchData, handleReset: baseReset } = hooks.useDataFetching();
+
+    // Load cached data on mount (same as DataPage)
+    useEffect(() => {
+        const storedData = localStorage.getItem('chartData');
+        const storedFilenames = localStorage.getItem('filenamesPerCategory');
+
+        if (storedData && storedFilenames) {
+            try {
+                JSON.parse(storedData);
+                JSON.parse(storedFilenames);
+                // Data is already loaded by useDataFetching hook
+            } catch (e) {
+                console.warn('Failed to parse cached data on DashboardPage', e);
+            }
+        }
+    }, []);
 
     const { manualData, addManualData, clearManualData, removeByFileId, removeTimestampFromGroup, updateManualPoint } = useManualData();
     const [showManualModal, setShowManualModal] = useState(false);
@@ -24,9 +43,16 @@ function DashboardPage() {
 
     const { isPopupOpen, selectedFiles, handleFileUpload, handlePopupComplete, handlePopupClose, resetFileUpload } = hooks.useFileUpload(handleFetchData, setError, setIsLoading);
 
-    const { startDate, endDate, handleStartChange, handleEndChange, resetDates, defaultMinDate, defaultMaxDate, ignoreTimeRange, setIgnoreTimeRange, } = hooks.useDateRange(Object.entries(chartData).map(([_, entries]) => ({ entries })), manualData);
+    const { startDate, endDate, pendingStartDate, pendingEndDate, handleStartChange, handleEndChange, applyPendingDates, resetDates, defaultMinDate, defaultMaxDate, ignoreTimeRange, setIgnoreTimeRange, } = hooks.useDateRange(Object.entries(chartData).map(([_, entries]) => ({ entries })), manualData);
 
     const { selectedCategory, secondaryCategory, tertiaryCategory, handleRangeChange, syncColorsByFile, colorSyncMode, setColorSyncMode, syncColorsByGroup, filteredData, filteredManualData, handleDropdownChange, handleSecondaryDropdownChange, handleTertiaryDropdownChange, resetChartConfig } = hooks.useChartConfiguration(filenamesPerCategory, chartData, rollingMeanChartData, showMovingAverage, maWindow, ignoreTimeRange ? null : startDate, ignoreTimeRange ? null : endDate, manualData);
+
+    // Determine if time range is pending (we want to avoid firing requests without start/end)
+    const startChanged = !!(pendingStartDate && startDate && pendingStartDate.getTime() !== startDate.getTime());
+    const endChanged =   !!(pendingEndDate && endDate && pendingEndDate.getTime() !== endDate.getTime());
+    const timeRangePending: boolean = !ignoreTimeRange && !!Object.keys(chartData).length && (
+        !startDate || !endDate || startChanged || endChanged
+    );
 
     const { maeValues, rmseValues, PearsonCorrelationValues, DTWValues, EuclideanValues, CosineSimilarityValues, groupedMetrics, resetMetrics } = hooks.useMetricCalculations(
         filenamesPerCategory,
@@ -34,7 +60,10 @@ function DashboardPage() {
         secondaryCategory,
         tertiaryCategory,
         ignoreTimeRange ? null : startDate,
-        ignoreTimeRange ? null : endDate
+        ignoreTimeRange ? null : endDate,
+        timeRangePending,
+        defaultMinDate,
+        defaultMaxDate
     );
 
     const { scatterPoints, isScatterLoading, isScatterOpen, selectedPair, handleCloseScatter, handleCellClick } = hooks.useScatterPlot();
@@ -46,11 +75,9 @@ function DashboardPage() {
     const { plugins } = hooks.useLocalPlugins();
 
     const hasData = Object.keys(chartData).length > 0;
-    const enabledPlugins = plugins.filter(p => p.enabled);
+    const enabledPlugins = useMemo(() => plugins.filter(p => p.enabled), [plugins]);
 
-    // Filter enabled plugins by selection in modal
-    const visiblePlugins = enabledPlugins.filter(p => shouldShowMetric(p.id));
-
+    // Execute plugins based on selection - filtering happens inside usePluginResults
     const {
         pluginResults,
         pluginErrors,
@@ -60,8 +87,18 @@ function DashboardPage() {
     } = hooks.usePluginResults(
         filenamesPerCategory,
         plugins,
-        ignoreTimeRange ? null : (startDate ? startDate.toISOString() : undefined),
-        ignoreTimeRange ? null : (endDate ? endDate.toISOString() : undefined)
+        selectedMetricsForDisplay,
+        ignoreTimeRange ? null : (startDate && endDate ? startDate.toISOString() : null),
+        ignoreTimeRange ? null : (startDate && endDate ? endDate.toISOString() : null),
+        timeRangePending,
+        defaultMinDate,
+        defaultMaxDate
+    );
+
+    // Filter plugins for display after execution
+    const visiblePlugins = useMemo(
+        () => enabledPlugins.filter(p => shouldShowMetric(p.id)),
+        [enabledPlugins, shouldShowMetric]
     );
 
     // Difference chart hook
@@ -82,10 +119,38 @@ function DashboardPage() {
         handleApplyTolerance,
         handleResetTolerance,
         resetDifferenceChart,
-    } = hooks.useDifferenceChart(filenamesPerCategory, setError);
+    } = hooks.useDifferenceChart(
+        filenamesPerCategory,
+        setError,
+        ignoreTimeRange ? null : (startDate && endDate ? startDate.toISOString() : null),
+        ignoreTimeRange ? null : (startDate && endDate ? endDate.toISOString() : null),
+        timeRangePending,
+        defaultMinDate,
+        defaultMaxDate
+    );
 
     const handleReset = async () => {
         setChartMode('standard');
+        
+        // Get cache stats before clearing
+        const metricsStats = globalCache.metricsCache.size;
+        const pluginStats = globalCache.pluginCache.size;
+        const scatterStats = globalCache.scatterCache.size;
+        const totalSize = metricsStats + pluginStats + scatterStats;
+
+        const cacheApiKeysBefore = (await cacheAPI.keys()).length;
+        
+        // Clear global cache (now async)
+        await globalCache.clearAllCaches();
+
+        const cacheApiKeysAfter = (await cacheAPI.keys()).length;
+        
+        // Log cleanup with cache API stats
+        console.log(
+            `Caches cleared: ${totalSize} entries removed (Metrics: ${metricsStats}, Plugin: ${pluginStats}, Scatter: ${scatterStats}); ` +
+            `CacheAPI entries: ${cacheApiKeysBefore} -> ${cacheApiKeysAfter}`
+        );
+        
         await baseReset();
         resetMetrics();
         resetChartConfig();
@@ -102,7 +167,9 @@ function DashboardPage() {
     const isInDifferenceMode = chartMode === 'difference';
 
     const hasEnoughFilesForDifference = Object.values(filenamesPerCategory).some(files => files.length >= 2);
-    const totalFilesLoaded = Object.values(filenamesPerCategory).reduce((sum, files) => sum + files.length, 0);
+    // Count unique files across all categories (don't duplicate count if same file appears in multiple categories)
+    const uniqueFileSet = new Set(Object.values(filenamesPerCategory).flat());
+    const totalFilesLoaded = uniqueFileSet.size;
 
     const needsFullHeight = isInDifferenceMode || !hasData;
 
@@ -118,9 +185,9 @@ function DashboardPage() {
     const chartLayoutClass = `d-flex flex-column gap-3 w-100 flex-grow-1${needsFullHeight ? ' h-100' : ''}`;
     const chartContainerClass = `Chart-container section-container position-relative flex-grow-1`;
 
-    const toggleChartMode = () => {
+    const toggleChartMode = useCallback(() => {
         setChartMode(prev => prev === 'standard' ? 'difference' : 'standard');
-    };
+    }, []);
 
     // Compute metric visibility flags to avoid circular dependencies
     const canShowMovingAverage = shouldShowMetric('moving_average');
@@ -202,6 +269,7 @@ function DashboardPage() {
                             className={chartContainerClass}
                             style={{ flex: 1, minHeight: 0 }}
                         >
+                            {/* Switch to Standard Chart button - always visible in difference mode */}
                             {isInDifferenceMode && canShowDifferenceChart && (
                                 <Button
                                     variant="outline-secondary"
@@ -216,7 +284,8 @@ function DashboardPage() {
                                 >
                                     Switch to Standard Chart
                                 </Button>
-                            )}{!isInDifferenceMode && (
+                            )}
+                            {!isInDifferenceMode && (
                                 <>
                                     {isLoading && !hasData &&
                                         <div className="d-flex align-items-center justify-content-center text-muted flex-grow-1">
@@ -233,31 +302,45 @@ function DashboardPage() {
                                                 <div className="d-flex gap-3 w-100">
                                                     <components.DateTimePicker
                                                         label="Start"
-                                                        value={startDate}
+                                                        value={pendingStartDate}
                                                         onChange={handleStartChange}
                                                         minDate={defaultMinDate}
-                                                        maxDate={endDate ?? defaultMaxDate}
-                                                        openToDate={startDate ?? defaultMinDate} />
+                                                        maxDate={(pendingEndDate ?? endDate) ?? defaultMaxDate}
+                                                        openToDate={pendingStartDate ?? defaultMinDate} />
 
                                                     <components.DateTimePicker
                                                         label="End"
-                                                        value={endDate}
+                                                        value={pendingEndDate}
                                                         onChange={handleEndChange}
-                                                        minDate={startDate ?? defaultMinDate}
+                                                        minDate={(pendingStartDate ?? startDate) ?? defaultMinDate}
                                                         maxDate={defaultMaxDate}
-                                                        openToDate={endDate ?? defaultMaxDate}
+                                                        openToDate={pendingEndDate ?? defaultMaxDate}
                                                     />
+
+                                                    {!ignoreTimeRange && (
+                                                        <div className="d-flex align-items-center">
+                                                            <Button
+                                                                variant="primary"
+                                                                size="sm"
+                                                                disabled={!pendingStartDate || !pendingEndDate}
+                                                                onClick={applyPendingDates}
+                                                            >
+                                                                Apply
+                                                            </Button>
+                                                        </div>
+                                                    )}
 
                                                     <div className="d-flex align-items-center">
                                                         <Form.Check
                                                             type="switch"
                                                             id="date-filter-toggle"
                                                             label={<span className="text-nowrap small text-muted">Calculate metrics on full date range</span>}
+                                                            title="Enabling this option will recalculate metrics and statistics based on all available data. Disabling it will allow calculations only based on the selected date range."
                                                             checked={ignoreTimeRange}
                                                             onChange={(e) => setIgnoreTimeRange(e.target.checked)}
                                                             className="mb-0" />
                                                     </div>
-                                                    <div className="ms-auto d-flex align-items-center">
+                                                    <div className="ms-auto d-flex align-items-center gap-2">
                                                         <Button
                                                             variant="outline-secondary"
                                                             size="sm"
@@ -279,6 +362,7 @@ function DashboardPage() {
                                                     manualData={filteredManualData}
                                                     toggleChartMode={toggleChartMode}
                                                     isInDifferenceMode={isInDifferenceMode}
+                                                    canShowDifferenceChart={canShowDifferenceChart}
                                                 />
                                             </div>
                                         </>
@@ -286,7 +370,7 @@ function DashboardPage() {
                                 </>
                             )}
                             {/* Difference Chart Mode */}
-                            {isInDifferenceMode && (
+                            {isInDifferenceMode && canShowDifferenceChart && (
                                 <>
                                     {!hasData && !isLoading && !error && (
                                         <div className="d-flex align-items-center justify-content-center text-muted flex-grow-1 flex-fill">
@@ -294,10 +378,12 @@ function DashboardPage() {
                                         </div>
                                     )}
                                     {hasData && !hasEnoughFilesForDifference && (
-                                        <div className="d-flex align-items-center justify-content-center text-muted flex-grow-1 flex-fill">
+                                        <div className="d-flex flex-column align-items-center justify-content-center text-muted flex-grow-1 flex-fill">
                                             <div>
                                                 <p className="mb-2">Difference chart requires at least 2 files in the same category.</p>
-                                                <p className="small mb-0">Currently loaded: {totalFilesLoaded} file{totalFilesLoaded !== 1 ? 's' : ''} across {Object.keys(filenamesPerCategory).length} categor{Object.keys(filenamesPerCategory).length !== 1 ? 'ies' : 'y'}.</p>
+                                            </div>
+                                            <div className="text-muted small">
+                                                {totalFilesLoaded} file{totalFilesLoaded !== 1 ? 's' : ''} across {Object.keys(filenamesPerCategory).length} categor{Object.keys(filenamesPerCategory).length !== 1 ? 'ies' : 'y'}
                                             </div>
                                         </div>
                                     )}
@@ -328,6 +414,7 @@ function DashboardPage() {
                                                         primaryData={differenceChartData}
                                                         toggleChartMode={toggleChartMode}
                                                         isInDifferenceMode={isInDifferenceMode}
+                                                        canShowDifferenceChart={canShowDifferenceChart}
                                                     />
                                                 </div>
                                             )}

@@ -81,10 +81,8 @@ export const useDataFetching = () => {
             } catch (e) {
                 localStorage.removeItem('chartData');
                 localStorage.removeItem('filenamesPerCategory');
-                handleFetchData();
+                // Do not auto-fetch if nothing cached and parsing failed; wait for user action (file upload)
             }
-        } else {
-            handleFetchData();
         }
     }, [handleFetchData]);
 

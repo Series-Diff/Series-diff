@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo, useRef } from 'react';
+import { useState, useEffect, useMemo, useRef, useCallback } from 'react';
 import { Metric } from '../constants/metricsConfig';
 import { LocalPlugin } from './useLocalPlugins';
 
@@ -134,17 +134,25 @@ export const useMetricsSelection = (
   }, [selectedMetricsForDisplay]);
 
   // Helper function to auto-add new plugin IDs to selectedMetricsForDisplay
-  const autoAddNewPlugins = (
+  const autoAddNewPlugins = useCallback((
     prevMetrics: Metric[], 
     newUserMetrics: Metric[]
   ): Metric[] => {
     const prevIds = new Set(prevMetrics.map(m => m.value));
     const newIds = newUserMetrics.filter(m => !prevIds.has(m.value)).map(m => m.value);
     
-    // Use ref to get current value without dependency on selectedMetricsForDisplay
-    if (newIds.length > 0 && selectedMetricsRef.current !== null) {
-      // Add new plugin IDs to selection
-      const updatedSelection = new Set([...Array.from(selectedMetricsRef.current), ...newIds]);
+    // If there are new plugin IDs, add them to selectedMetricsForDisplay
+    if (newIds.length > 0) {
+      let updatedSelection: Set<string>;
+      
+      if (selectedMetricsRef.current === null) {
+        // If selectedMetricsForDisplay is null, initialize with DEFAULT_METRICS + new IDs
+        updatedSelection = new Set([...DEFAULT_METRICS, ...newIds]);
+      } else {
+        // Otherwise, just add new IDs to current selection
+        updatedSelection = new Set([...Array.from(selectedMetricsRef.current), ...newIds]);
+      }
+      
       setSelectedMetricsForDisplay(updatedSelection);
       
       // Save to localStorage
@@ -152,7 +160,7 @@ export const useMetricsSelection = (
     }
     
     return newUserMetrics;
-  };
+  }, [DEFAULT_METRICS]);
 
   // Sync userMetrics whenever localStorage changes
   // Note: selectedMetricsForDisplay is intentionally NOT in the dependency array
@@ -210,7 +218,37 @@ export const useMetricsSelection = (
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []); // Empty dependency array - listeners are registered once and use ref for current state
 
-  // Filter metrics based on selected metrics
+  // Track previous userMetrics to detect new plugins
+  const prevUserMetricsRef = useRef<Metric[]>([]);
+
+  // Auto-add new plugins when userMetrics changes
+  useEffect(() => {
+    const prevIds = new Set(prevUserMetricsRef.current.map(m => m.value));
+    const currentIds = new Set(userMetrics.map(m => m.value));
+    
+    // Find new plugins
+    const newIds = Array.from(currentIds).filter(id => !prevIds.has(id));
+    
+    if (newIds.length > 0) {
+      // Add new plugin IDs to selectedMetricsForDisplay
+      setSelectedMetricsForDisplay(prev => {
+        if (prev === null) {
+          // If selectedMetricsForDisplay is null, initialize with DEFAULT_METRICS + new IDs
+          const updatedSelection = new Set([...DEFAULT_METRICS, ...newIds]);
+          localStorage.setItem('selectedMetricsForDisplay', JSON.stringify(Array.from(updatedSelection)));
+          return updatedSelection;
+        } else {
+          // Otherwise, just add new IDs to current selection
+          const updatedSelection = new Set([...Array.from(prev), ...newIds]);
+          localStorage.setItem('selectedMetricsForDisplay', JSON.stringify(Array.from(updatedSelection)));
+          return updatedSelection;
+        }
+      });
+    }
+    
+    // Update previous userMetrics reference
+    prevUserMetricsRef.current = userMetrics;
+  }, [userMetrics, DEFAULT_METRICS]);
   const filteredGroupedMetrics = useMemo(() => {
     return Object.entries(groupedMetrics).reduce((acc, [category, metrics]) => {
 

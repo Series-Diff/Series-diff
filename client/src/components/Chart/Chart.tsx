@@ -18,6 +18,7 @@ interface MyChartProps {
     layoutMode?: 'stacked' | 'overlay';
     toggleChartMode?: () => void;
     isInDifferenceMode?: boolean;
+    canShowDifferenceChart?: boolean;
 }
 
 const MyChart: React.FC<MyChartProps> = ({
@@ -30,7 +31,8 @@ const MyChart: React.FC<MyChartProps> = ({
                                              syncColorsByGroup = false,
                                              layoutMode = 'overlay',
                                              toggleChartMode,
-                                             isInDifferenceMode
+                                             isInDifferenceMode,
+                                             canShowDifferenceChart
                                          }) => {
 
     const manualDataSafe = useMemo(() => manualData ?? {}, [manualData]);
@@ -254,6 +256,7 @@ const MyChart: React.FC<MyChartProps> = ({
                 toggleChartMode={toggleChartMode}
                 isInDifferenceMode={isInDifferenceMode}
                 hasData={Object.keys(primaryData).length > 0}
+                canShowDifferenceChart={canShowDifferenceChart}
             />
         </div>
     );

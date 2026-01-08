@@ -84,9 +84,8 @@ const DateTimePicker: React.FC<DateTimePickerProps> = ({
   // Note: react-datepicker's onChangeRaw can receive KeyboardEvent, MouseEvent, or undefined.
   // Using optional parameter and explicit undefined check to handle all cases safely.
   const handleChangeRaw = (e?: React.KeyboardEvent<HTMLElement> | React.MouseEvent<HTMLElement>) => {
-    if (!e) {
-      return;
-    }
+    if (!e) return;
+    // Allow typing freely; commit happens on Enter or blur
   };
   const handleBlur = (e: React.FocusEvent<HTMLInputElement>) => {
     parseAndSetDate(e.target.value);

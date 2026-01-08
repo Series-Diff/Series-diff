@@ -4,6 +4,8 @@ import { TimeSeriesEntry } from "../services/fetchTimeSeries";
 export function useDateRange(loadedData: any[] = [], manualData: Record<string, TimeSeriesEntry[]> = {}) {
   const [startDate, setStartDate] = useState<Date | null>(null);
   const [endDate, setEndDate] = useState<Date | null>(null);
+  const [pendingStartDate, setPendingStartDate] = useState<Date | null>(null);
+  const [pendingEndDate, setPendingEndDate] = useState<Date | null>(null);
   const [ignoreTimeRange, setIgnoreTimeRange] = useState(false);
 
   const dataBounds = useMemo(() => {
@@ -48,8 +50,12 @@ export function useDateRange(loadedData: any[] = [], manualData: Record<string, 
 
   const prevBoundsRef = useRef<{ min: Date | null; max: Date | null }>({ min: null, max: null });
 
+  // Extract simple, statically-checkable dependencies for the effect
+  const minDate = dataBounds.min;
+  const maxDate = dataBounds.max;
+
   useEffect(() => {
-    if (!dataBounds.min || !dataBounds.max) {
+    if (!minDate || !maxDate) {
       prevBoundsRef.current = { min: null, max: null };
       return;
     }
@@ -57,41 +63,65 @@ export function useDateRange(loadedData: any[] = [], manualData: Record<string, 
     const prevMin = prevBoundsRef.current.min;
     const prevMax = prevBoundsRef.current.max;
     if (prevMin === null && prevMax === null) {
-      setStartDate(prev => prev ?? dataBounds.min);
-      setEndDate(prev => prev ?? dataBounds.max);
-      prevBoundsRef.current = { min: dataBounds.min, max: dataBounds.max };
+      const initialStart = minDate;
+      const initialEnd = maxDate;
+      setStartDate(prev => prev ?? initialStart);
+      setEndDate(prev => prev ?? initialEnd);
+      setPendingStartDate(prev => prev ?? initialStart);
+      setPendingEndDate(prev => prev ?? initialEnd);
+      prevBoundsRef.current = { min: minDate, max: maxDate };
       return;
     }
 
     const boundsChanged =
-      (prevMin && dataBounds.min && prevMin.getTime() !== dataBounds.min.getTime()) ||
-      (prevMax && dataBounds.max && prevMax.getTime() !== dataBounds.max.getTime());
+      (prevMin && minDate && prevMin.getTime() !== minDate.getTime()) ||
+      (prevMax && maxDate && prevMax.getTime() !== maxDate.getTime());
 
     if (boundsChanged) {
+      const nextStart = minDate;
+      const nextEnd = maxDate;
       setStartDate(prev =>
         prev === null || (prevMin && prev?.getTime() === prevMin.getTime())
-          ? dataBounds.min
+          ? nextStart
           : prev
       );
       setEndDate(prev =>
         prev === null || (prevMax && prev?.getTime() === prevMax.getTime())
-          ? dataBounds.max
+          ? nextEnd
           : prev
       );
-      prevBoundsRef.current = { min: dataBounds.min, max: dataBounds.max };
+      setPendingStartDate(prev =>
+        prev === null || (prevMin && prev?.getTime() === prevMin.getTime())
+          ? nextStart
+          : prev
+      );
+      setPendingEndDate(prev =>
+        prev === null || (prevMax && prev?.getTime() === prevMax.getTime())
+          ? nextEnd
+          : prev
+      );
+      prevBoundsRef.current = { min: minDate, max: maxDate };
     }
-  }, [dataBounds.min?.getTime(), dataBounds.max?.getTime()]);
+  }, [minDate, maxDate]);
 
   return {
     startDate,
     endDate,
+    pendingStartDate,
+    pendingEndDate,
     ignoreTimeRange,
     setIgnoreTimeRange,
-    handleStartChange: setStartDate,
-    handleEndChange: setEndDate,
+    handleStartChange: setPendingStartDate,
+    handleEndChange: setPendingEndDate,
+    applyPendingDates: () => {
+      setStartDate(pendingStartDate);
+      setEndDate(pendingEndDate);
+    },
     resetDates: () => {
       setStartDate(null);
       setEndDate(null);
+      setPendingStartDate(null);
+      setPendingEndDate(null);
       setIgnoreTimeRange(false);
     },
     defaultMinDate: dataBounds.min,

@@ -1,6 +1,9 @@
 import { useState, useEffect, useCallback } from 'react';
 import { fetchAllDifferences } from '../services/fetchAllDifferences';
 import { TimeSeriesEntry } from '../services/fetchTimeSeries';
+import { apiLogger } from '../utils/apiLogger';
+import { metricsCacheManager } from '../utils/metricsCacheManager';
+import type { CacheKey } from '../utils/metricsCacheManager';
 
 export interface DifferenceOption {
     value: string;
@@ -29,7 +32,12 @@ export interface UseDifferenceChartReturn {
 
 export function useDifferenceChart(
     filenamesPerCategory: Record<string, string[]>,
-    setError?: (error: string | null) => void
+    setError?: (error: string | null) => void,
+    start?: string | null,
+    end?: string | null,
+    timeRangePending?: boolean,
+    defaultMinDateForBounds?: Date | null,
+    defaultMaxDateForBounds?: Date | null
 ): UseDifferenceChartReturn {
     const [differenceValues, setDifferenceValues] = useState<Record<string, Record<string, TimeSeriesEntry[]>>>({});
     const [selectedDiffCategory, setSelectedDiffCategory] = useState<string | null>(null);
@@ -68,8 +76,7 @@ export function useDifferenceChart(
     useEffect(() => {
         const shouldShowDifferences =
             selectedMetricsForDisplay === null ||
-            selectedMetricsForDisplay.size === 0 ||
-            selectedMetricsForDisplay.has('difference_chart');
+            (selectedMetricsForDisplay.size > 0 && selectedMetricsForDisplay.has('difference_chart'));
 
         if (!shouldShowDifferences) {
             // Clear all difference data when metric is deselected
@@ -87,44 +94,85 @@ export function useDifferenceChart(
         }
     }, [filenamesPerCategory, selectedDiffCategory]);
 
-    // Helper to sync selection maps
-    const setSelectionsForCategory = useCallback((category: string, selections: string[]) => {
-        setSelectionsByCategory(prev => ({ ...prev, [category]: selections }));
-        if (category === selectedDiffCategory) {
-            setSelectedDifferences(selections);
-        }
-    }, [selectedDiffCategory]);
-
-    const setReversedForCategory = useCallback((category: string, reversed: Record<string, boolean>) => {
-        setReversedByCategory(prev => ({ ...prev, [category]: reversed }));
-        if (category === selectedDiffCategory) {
-            setReversedDifferences(reversed);
-        }
-    }, [selectedDiffCategory]);
-
-    // Fetch differences when category changes
+    // Fetch differences when category or tolerance changes
     useEffect(() => {
-        const fetchDifferencesForCategory = async (category: string, tolerance: number | null) => {
-            // Check if difference_chart is selected (null = default all; empty set = none; else check inclusion)
-            const selectedMetricsJson = localStorage.getItem('selectedMetricsForDisplay');
-            const selectedMetrics = selectedMetricsJson ? new Set<string>(JSON.parse(selectedMetricsJson)) : null;
-            const shouldFetchDifferences =
-                selectedMetrics === null ||
-                selectedMetrics.size === 0 ||
-                selectedMetrics.has('difference_chart');
+        // Check if difference_chart is selected FIRST (before any async operations)
+        // Note: selectedMetricsForDisplay === null means "show all" (modal not yet opened)
+        // selectedMetricsForDisplay.size === 0 means "hide all" (user deselected everything)
+        const shouldFetchDifferences =
+            selectedMetricsForDisplay === null ||
+            (selectedMetricsForDisplay.size > 0 && selectedMetricsForDisplay.has('difference_chart'));
 
-            if (!shouldFetchDifferences) {
-                // Clear data if difference_chart is not selected
-                return;
-            }
+        if (!shouldFetchDifferences) {
+            // Don't fetch if difference_chart is not selected
+            return;
+        }
+
+        // If date range required but not ready yet, wait until both start & end are available
+        if (timeRangePending) {
+            return;
+        }
+
+        const fetchDifferencesForCategory = async (category: string, tolerance: number | null) => {
 
             const filesForCategory = filenamesPerCategory[category];
-            if (!category || differenceValues[category] || !filesForCategory?.length) {
+            if (!category || !filesForCategory?.length) {
                 // If we already have selections stored for this category, restore them
                 if (category && selectionsByCategory[category]) {
                     setSelectedDifferences(selectionsByCategory[category]);
                     setReversedDifferences(reversedByCategory[category] || {});
                 }
+                return;
+            }
+
+            // Check cache BEFORE assuming we have data for this category
+            // Cache key includes tolerance and dateRange
+            const toleranceStr = tolerance !== null ? tolerance.toString() : 'no-tolerance';
+            // Normalize nulls to bounds for cache key stability across full-range toggle
+            const effectiveStartKey = (start === null)
+                ? (defaultMinDateForBounds ? defaultMinDateForBounds.toISOString() : null)
+                : start;
+            const effectiveEndKey = (end === null)
+                ? (defaultMaxDateForBounds ? defaultMaxDateForBounds.toISOString() : null)
+                : end;
+            const dateRangeKey = `${effectiveStartKey || 'no-start'}_to_${effectiveEndKey || 'no-end'}`;
+            const cacheParams: CacheKey = {
+                metricType: 'difference_chart',
+                category,
+                dateRange: dateRangeKey,
+                tolerance: toleranceStr,
+            };
+            const cachedData = metricsCacheManager.get<Record<string, TimeSeriesEntry[]>>(cacheParams);
+            
+            if (cachedData) {
+                // Data is cached - restore it and handle selections
+                setDifferenceValues(prev => ({ ...prev, [category]: cachedData }));
+                
+                const optionKeys = Object.keys(cachedData || {}).map(diffKey => `${category}.${diffKey}`);
+                const existingSelection = selectionsByCategory[category] || [];
+                const filteredExisting = existingSelection.filter(key => optionKeys.includes(key));
+                
+                // If no valid selections exist and user hasn't interacted, auto-select first series
+                const userHasInteracted = hasUserInteractedByCategory[category];
+                const finalSelection = !userHasInteracted && filteredExisting.length === 0 && optionKeys.length > 0
+                    ? [optionKeys[0]] // Auto-select first series
+                    : filteredExisting;
+                
+                setSelectionsByCategory(prev => ({ ...prev, [category]: finalSelection }));
+                if (category === selectedDiffCategory) {
+                    setSelectedDifferences(finalSelection);
+                }
+                
+                const existingReversed = reversedByCategory[category] || {};
+                const filteredReversed: Record<string, boolean> = {};
+                finalSelection.forEach(key => {
+                    filteredReversed[key] = existingReversed[key] || false;
+                });
+                setReversedByCategory(prev => ({ ...prev, [category]: filteredReversed }));
+                if (category === selectedDiffCategory) {
+                    setReversedDifferences(filteredReversed);
+                }
+                
                 return;
             }
 
@@ -137,33 +185,61 @@ export function useDifferenceChart(
                     return;
                 }
 
-                setSelectionsForCategory(category, []);
-                setReversedForCategory(category, {});
+                setSelectionsByCategory(prev => ({ ...prev, [category]: [] }));
+                setReversedByCategory(prev => ({ ...prev, [category]: {} }));
+                if (category === selectedDiffCategory) {
+                    setSelectedDifferences([]);
+                    setReversedDifferences({});
+                }
                 return;
             }
 
             setIsDiffLoading(true);
             try {
-                const diffs = await fetchAllDifferences({ [category]: filesForCategory }, tolerance);
+                // Fetch data (we already checked cache above and returned if found)
+                const startTime = performance.now();
+                apiLogger.logQuery(`/api/difference/${category}`, 'GET', {
+                    params: { tolerance, files: filesForCategory.length, start, end },
+                });
+                
+                const diffs = await fetchAllDifferences({ [category]: filesForCategory }, tolerance, start || undefined, end || undefined);
+                
+                const duration = Math.round(performance.now() - startTime);
+                apiLogger.logQuery(`/api/difference/${category}`, 'GET', {
+                    params: { tolerance, files: filesForCategory.length, start, end },
+                    duration,
+                    status: 200,
+                });
+                
+                // Cache the result
+                metricsCacheManager.set(cacheParams, diffs[category]);
+                
                 setDifferenceValues(prev => ({ ...prev, [category]: diffs[category] }));
 
                 const optionKeys = Object.keys(diffs[category] || {}).map(diffKey => `${category}.${diffKey}`);
                 const existingSelection = selectionsByCategory[category] || [];
                 const filteredExisting = existingSelection.filter(key => optionKeys.includes(key));
                 
-                // If user hasn't interacted with this category yet, auto-select first 2
+                // If user hasn't interacted with this category yet, auto-select first series
                 const userHasInteracted = hasUserInteractedByCategory[category];
-                const finalSelection = !userHasInteracted && filteredExisting.length === 0 
-                    ? optionKeys.slice(0, 2) 
+                const finalSelection = !userHasInteracted && filteredExisting.length === 0 && optionKeys.length > 0
+                    ? [optionKeys[0]] // Auto-select first series
                     : filteredExisting;
-                setSelectionsForCategory(category, finalSelection);
+                
+                setSelectionsByCategory(prev => ({ ...prev, [category]: finalSelection }));
+                if (category === selectedDiffCategory) {
+                    setSelectedDifferences(finalSelection);
+                }
 
                 const existingReversed = reversedByCategory[category] || {};
                 const filteredReversed: Record<string, boolean> = {};
                 finalSelection.forEach(key => {
                     filteredReversed[key] = existingReversed[key] || false;
                 });
-                setReversedForCategory(category, filteredReversed);
+                setReversedByCategory(prev => ({ ...prev, [category]: filteredReversed }));
+                if (category === selectedDiffCategory) {
+                    setReversedDifferences(filteredReversed);
+                }
             } catch (err: unknown) {
                 const errorMsg = (err instanceof Error ? err.message : 'Failed to fetch differences.');
                 setDiffError(errorMsg);
@@ -176,16 +252,16 @@ export function useDifferenceChart(
         if (selectedDiffCategory) {
             fetchDifferencesForCategory(selectedDiffCategory, activeTolerance);
         }
-    }, [selectedDiffCategory, differenceValues, filenamesPerCategory, activeTolerance, setError, selectionsByCategory, reversedByCategory, setSelectionsForCategory, setReversedForCategory, hasUserInteractedByCategory]);
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [selectedDiffCategory, filenamesPerCategory, activeTolerance, selectedMetricsForDisplay, start, end, timeRangePending]);
 
-    const handleDiffCategoryChange = useCallback(async (event: React.ChangeEvent<HTMLSelectElement>) => {
+    const handleDiffCategoryChange = useCallback((event: React.ChangeEvent<HTMLSelectElement>) => {
         const newCategory = event.target.value;
 
-        // Check if difference_chart is selected (null = default all; empty set = none; else check inclusion)
+        // Check if difference_chart is selected
         const shouldFetchDifferences =
             selectedMetricsForDisplay === null ||
-            selectedMetricsForDisplay.size === 0 ||
-            selectedMetricsForDisplay.has('difference_chart');
+            (selectedMetricsForDisplay.size > 0 && selectedMetricsForDisplay.has('difference_chart'));
 
         if (!shouldFetchDifferences) {
             // Don't fetch if difference_chart is not selected
@@ -194,69 +270,13 @@ export function useDifferenceChart(
 
         // Persist current selections for current category
         if (selectedDiffCategory) {
-            setSelectionsForCategory(selectedDiffCategory, selectedDifferences);
-            setReversedForCategory(selectedDiffCategory, reversedDifferences);
+            setSelectionsByCategory(prev => ({ ...prev, [selectedDiffCategory]: selectedDifferences }));
+            setReversedByCategory(prev => ({ ...prev, [selectedDiffCategory]: reversedDifferences }));
         }
 
+        // Just change the category - fetchDifferencesForCategory will be called by useEffect
         setSelectedDiffCategory(newCategory);
-
-        if (filenamesPerCategory[newCategory]?.length < 2) {
-            setSelectionsForCategory(newCategory, []);
-            setReversedForCategory(newCategory, {});
-            return;
-        }
-
-        // If we already have data for this category, restore stored selections if any
-        const storedSelection = selectionsByCategory[newCategory];
-        const storedReversed = reversedByCategory[newCategory];
-        const userHasInteracted = hasUserInteractedByCategory[newCategory];
-        
-        if (differenceValues[newCategory]) {
-            const optionKeys = Object.keys(differenceValues[newCategory]).map(diffKey => `${newCategory}.${diffKey}`);
-            const filteredStored = (storedSelection || []).filter(key => optionKeys.includes(key));
-            // If user hasn't interacted and no stored selection, auto-select first 2
-            const finalSelection = !userHasInteracted && filteredStored.length === 0
-                ? optionKeys.slice(0, 2)
-                : filteredStored;
-            setSelectionsForCategory(newCategory, finalSelection);
-
-            const filteredReversed: Record<string, boolean> = {};
-            finalSelection.forEach(key => {
-                filteredReversed[key] = storedReversed?.[key] || false;
-            });
-            setReversedForCategory(newCategory, filteredReversed);
-            return;
-        }
-
-        // If no data yet, fetch; selections will be set when fetch completes
-        if (!differenceValues[newCategory] && filenamesPerCategory[newCategory]) {
-            setIsDiffLoading(true);
-            try {
-                const diffs = await fetchAllDifferences({ [newCategory]: filenamesPerCategory[newCategory] }, activeTolerance);
-                setDifferenceValues(prev => ({ ...prev, [newCategory]: diffs[newCategory] }));
-
-                const optionKeys = Object.keys(diffs[newCategory] || {}).map(diffKey => `${newCategory}.${diffKey}`);
-                const filteredStored = (storedSelection || []).filter(key => optionKeys.includes(key));
-                // If user hasn't interacted and no stored selection, auto-select first 2
-                const finalSelection = !userHasInteracted && filteredStored.length === 0
-                    ? optionKeys.slice(0, 2)
-                    : filteredStored;
-                setSelectionsForCategory(newCategory, finalSelection);
-
-                const filteredReversed: Record<string, boolean> = {};
-                finalSelection.forEach(key => {
-                    filteredReversed[key] = storedReversed?.[key] || false;
-                });
-                setReversedForCategory(newCategory, filteredReversed);
-            } catch (err: unknown) {
-                const errorMsg = (err instanceof Error ? err.message : 'Failed to fetch differences.');
-                setDiffError(errorMsg);
-                setError?.(errorMsg);
-            } finally {
-                setIsDiffLoading(false);
-            }
-        }
-    }, [selectedDiffCategory, selectedDifferences, reversedDifferences, filenamesPerCategory, differenceValues, activeTolerance, setError, selectionsByCategory, reversedByCategory, setSelectionsForCategory, setReversedForCategory, hasUserInteractedByCategory, selectedMetricsForDisplay]);
+    }, [selectedDiffCategory, selectedDifferences, reversedDifferences, selectedMetricsForDisplay]);
 
     const handleDifferenceCheckboxChange = useCallback((diffFullName: string) => {
         if (!selectedDiffCategory) return;
@@ -267,7 +287,7 @@ export function useDifferenceChart(
                 ? prev.filter(d => d !== diffFullName)
                 : [...prev, diffFullName];
 
-            setSelectionsForCategory(selectedDiffCategory || '', newSelection);
+            setSelectionsByCategory(prevSel => ({ ...prevSel, [selectedDiffCategory]: newSelection }));
 
             setReversedDifferences(prevRev => {
                 const updated = { ...prevRev };
@@ -275,13 +295,13 @@ export function useDifferenceChart(
                 Object.keys(updated).forEach(key => {
                     if (!newSelection.includes(key)) delete updated[key];
                 });
-                setReversedForCategory(selectedDiffCategory || '', updated);
+                setReversedByCategory(prevRev => ({ ...prevRev, [selectedDiffCategory]: updated }));
                 return updated;
             });
 
             return newSelection;
         });
-    }, [selectedDiffCategory, setSelectionsForCategory, setReversedForCategory]);
+    }, [selectedDiffCategory]);
 
     const handleReverseToggle = useCallback((diffFullName: string) => {
         if (!selectedDiffCategory) return;
@@ -292,10 +312,10 @@ export function useDifferenceChart(
                 ...prev,
                 [diffFullName]: !prev[diffFullName]
             };
-            setReversedForCategory(selectedDiffCategory, updated);
+            setReversedByCategory(prevRev => ({ ...prevRev, [selectedDiffCategory]: updated }));
             return updated;
         });
-    }, [selectedDiffCategory, setReversedForCategory]);
+    }, [selectedDiffCategory]);
 
     const getDifferenceOptions = useCallback((): DifferenceOption[] => {
         if (!selectedDiffCategory || !differenceValues[selectedDiffCategory]) return [];
@@ -313,24 +333,27 @@ export function useDifferenceChart(
         const allSelected = options.every(opt => selectedDifferences.includes(opt.value));
 
         if (allSelected) {
-            setSelectionsForCategory(selectedDiffCategory || '', []);
-            setReversedForCategory(selectedDiffCategory || '', {});
+            setSelectionsByCategory(prev => ({ ...prev, [selectedDiffCategory]: [] }));
+            setSelectedDifferences([]);
+            setReversedByCategory(prev => ({ ...prev, [selectedDiffCategory]: {} }));
+            setReversedDifferences({});
         } else {
             const allKeys = options.map(opt => opt.value);
-            setSelectionsForCategory(selectedDiffCategory || '', allKeys);
+            setSelectionsByCategory(prev => ({ ...prev, [selectedDiffCategory]: allKeys }));
+            setSelectedDifferences(allKeys);
 
             const allReversed: Record<string, boolean> = {};
             allKeys.forEach(key => (allReversed[key] = false));
-            setReversedForCategory(selectedDiffCategory || '', allReversed);
+            setReversedByCategory(prev => ({ ...prev, [selectedDiffCategory]: allReversed }));
+            setReversedDifferences(allReversed);
         }
-    }, [getDifferenceOptions, selectedDifferences, selectedDiffCategory, setSelectionsForCategory, setReversedForCategory]);
+    }, [getDifferenceOptions, selectedDifferences, selectedDiffCategory]);
 
     const handleApplyTolerance = useCallback(async () => {
-        // Check if difference_chart is selected (null = default all; empty set = none; else check inclusion)
+        // Check if difference_chart is selected
         const shouldFetchDifferences =
             selectedMetricsForDisplay === null ||
-            selectedMetricsForDisplay.size === 0 ||
-            selectedMetricsForDisplay.has('difference_chart');
+            (selectedMetricsForDisplay.size > 0 && selectedMetricsForDisplay.has('difference_chart'));
 
         if (!shouldFetchDifferences) {
             return;
@@ -346,46 +369,15 @@ export function useDifferenceChart(
         if (tol === activeTolerance) return;
         if (customToleranceValue === "" && activeTolerance === null) return;
 
+        // Just update the tolerance - useEffect will handle the fetch
         setActiveTolerance(tol);
+    }, [customToleranceValue, activeTolerance, selectedMetricsForDisplay]);
 
-        // Refetch data with new tolerance, keep selections
-        if (selectedDiffCategory && filenamesPerCategory[selectedDiffCategory]?.length > 1) {
-            setIsDiffLoading(true);
-            try {
-                const diffs = await fetchAllDifferences(
-                    { [selectedDiffCategory]: filenamesPerCategory[selectedDiffCategory] },
-                    tol
-                );
-                setDifferenceValues(prev => ({ ...prev, [selectedDiffCategory]: diffs[selectedDiffCategory] }));
-                setDiffError(null);
-
-                const optionKeys = Object.keys(diffs[selectedDiffCategory] || {}).map(diffKey => `${selectedDiffCategory}.${diffKey}`);
-                const currentSelection = selectionsByCategory[selectedDiffCategory] || selectedDifferences;
-                const filteredSelection = currentSelection.filter(key => optionKeys.includes(key));
-                setSelectionsForCategory(selectedDiffCategory, filteredSelection);
-
-                const currentReversed = reversedByCategory[selectedDiffCategory] || reversedDifferences;
-                const filteredReversed: Record<string, boolean> = {};
-                filteredSelection.forEach(key => {
-                    filteredReversed[key] = currentReversed[key] || false;
-                });
-                setReversedForCategory(selectedDiffCategory, filteredReversed);
-            } catch (err: unknown) {
-                const errorMsg = (err instanceof Error ? err.message : 'Failed to fetch differences.');
-                setDiffError(errorMsg);
-                setError?.(errorMsg);
-            } finally {
-                setIsDiffLoading(false);
-            }
-        }
-    }, [customToleranceValue, activeTolerance, selectedDiffCategory, filenamesPerCategory, setError, selectionsByCategory, reversedByCategory, selectedDifferences, reversedDifferences, setSelectionsForCategory, setReversedForCategory, selectedMetricsForDisplay]);
-
-    const handleResetTolerance = useCallback(async () => {
-        // Check if difference_chart is selected (null = default all; empty set = none; else check inclusion)
+    const handleResetTolerance = useCallback(() => {
+        // Check if difference_chart is selected
         const shouldFetchDifferences =
             selectedMetricsForDisplay === null ||
-            selectedMetricsForDisplay.size === 0 ||
-            selectedMetricsForDisplay.has('difference_chart');
+            (selectedMetricsForDisplay.size > 0 && selectedMetricsForDisplay.has('difference_chart'));
 
         if (!shouldFetchDifferences) {
             return;
@@ -398,41 +390,11 @@ export function useDifferenceChart(
         // Only refetch if tolerance was actually set
         if (activeTolerance === null && customToleranceValue === "") return;
 
+        // Just reset tolerance - useEffect will handle the fetch
         setCustomToleranceValue("");
         setActiveTolerance(null);
-
-        // Refetch data for current category with no tolerance, but keep selections
-        if (selectedDiffCategory && filenamesPerCategory[selectedDiffCategory]?.length > 1) {
-            setIsDiffLoading(true);
-            try {
-                const diffs = await fetchAllDifferences(
-                    { [selectedDiffCategory]: filenamesPerCategory[selectedDiffCategory] },
-                    null
-                );
-                setDifferenceValues(prev => ({ ...prev, [selectedDiffCategory]: diffs[selectedDiffCategory] }));
-                setDiffError(null);
-                setError?.(null);
-
-                const optionKeys = Object.keys(diffs[selectedDiffCategory] || {}).map(diffKey => `${selectedDiffCategory}.${diffKey}`);
-                const currentSelection = selectionsByCategory[selectedDiffCategory] || selectedDifferences;
-                const filteredSelection = currentSelection.filter(key => optionKeys.includes(key));
-                setSelectionsForCategory(selectedDiffCategory, filteredSelection);
-
-                const currentReversed = reversedByCategory[selectedDiffCategory] || reversedDifferences;
-                const filteredReversed: Record<string, boolean> = {};
-                filteredSelection.forEach(key => {
-                    filteredReversed[key] = currentReversed[key] || false;
-                });
-                setReversedForCategory(selectedDiffCategory, filteredReversed);
-            } catch (err: unknown) {
-                const errorMsg = (err instanceof Error ? err.message : 'Failed to fetch differences.');
-                setDiffError(errorMsg);
-                setError?.(errorMsg);
-            } finally {
-                setIsDiffLoading(false);
-            }
-        }
-    }, [activeTolerance, customToleranceValue, selectedDiffCategory, filenamesPerCategory, setError, selectionsByCategory, reversedByCategory, selectedDifferences, reversedDifferences, setSelectionsForCategory, setReversedForCategory, selectedMetricsForDisplay]);
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [activeTolerance, customToleranceValue, selectedMetricsForDisplay]);
 
     const resetDifferenceChart = useCallback(() => {
         setDifferenceValues({});
