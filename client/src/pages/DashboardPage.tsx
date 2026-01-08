@@ -366,7 +366,7 @@ function DashboardPage() {
                                         data={PearsonCorrelationValues[selectedCategory]}
                                         category={selectedCategory}
                                         onCellClick={(file1, file2) =>
-                                            handleCellClick(file1, file2, selectedCategory, startDate, endDate)
+                                            handleCellClick(file1, file2, selectedCategory, ignoreTimeRange ? null : startDate, ignoreTimeRange ? null : endDate)
                                         }
                                         metric="Pearson Correlation"
                                         metricKey="pearson_correlation"
@@ -378,7 +378,7 @@ function DashboardPage() {
                                                 data={PearsonCorrelationValues[secondaryCategory]}
                                                 category={secondaryCategory}
                                                 onCellClick={(file1, file2) =>
-                                                    handleCellClick(file1, file2, secondaryCategory, startDate, endDate)
+                                                    handleCellClick(file1, file2, secondaryCategory, ignoreTimeRange ? null : startDate, ignoreTimeRange ? null : endDate)
                                                 }
                                                 metric="Pearson Correlation"
                                                 metricKey="pearson_correlation"
@@ -393,7 +393,7 @@ function DashboardPage() {
                                                 data={PearsonCorrelationValues[tertiaryCategory]}
                                                 category={tertiaryCategory}
                                                 onCellClick={(file1, file2) =>
-                                                    handleCellClick(file1, file2, tertiaryCategory, startDate, endDate)
+                                                    handleCellClick(file1, file2, tertiaryCategory, ignoreTimeRange ? null : startDate, ignoreTimeRange ? null : endDate)
                                                 }
                                                 metric="Pearson Correlation"
                                                 metricKey="pearson_correlation"
