@@ -36,39 +36,38 @@ const ScatterPlotModal: React.FC<ScatterPlotModalProps> = ({
           Scatter Plot: <strong>{file1}</strong> vs <strong>{file2}</strong>
         </Modal.Title>
       </Modal.Header>
-      <Modal.Body style={{ minHeight: "450px" }}>
+      <Modal.Body style={{ minHeight: "450px", display: "flex", alignItems: "center", justifyContent: "center" }}>
         {isLoading ? (
-          <div className="d-flex justify-content-center align-items-center h-100">
-             <Spinner animation="border" role="status" />
-             <span className="ms-2">Loading aligned data...</span>
+          <div className="w-100 h-100 d-flex justify-content-center align-items-center" style={{ minHeight: "450px" }}>
+        <Spinner animation="border" role="status" />
+        <span className="ms-2">Loading aligned data...</span>
           </div>
         ) : points.length === 0 ? (
-           <div className="text-center p-5">Brak wspólnych punktów (sprawdź tolerancję).</div>
+          <div className="text-center p-5 w-100">Brak wspólnych punktów (sprawdź tolerancję).</div>
         ) : (
           <Plot
-            data={[
-              {
-                x: points.map(p => p.x),
-                y: points.map(p => p.y),
-                mode: "markers",
-                type: "scatter",
-                marker: { size: 6, color: "blue", opacity: 0.6 },
-                // Tooltip z gotowych danych
-                text: points.map(p => {
-                    return `${file1}: ${p.x}<br>${file2}: ${p.y}<br>Time: ${new Date(p.time).toLocaleString()}`;
-                }),
-                hovertemplate: "%{text}<extra></extra>",
-              },
-            ]}
-            layout={{
-              title: { text: `Correlation View (Aligned)` },
-              xaxis: { title: { text: file1 } },
-              yaxis: { title: { text: file2 } },
-              autosize: true,
-              margin: { l: 50, r: 30, b: 50, t: 50 },
-            }}
-            style={{ width: "100%", height: "100%" }}
-            useResizeHandler={true}
+        data={[
+          {
+            x: points.map(p => p.x),
+            y: points.map(p => p.y),
+            mode: "markers",
+            type: "scatter",
+            marker: { size: 6, color: "blue", opacity: 0.6 },
+            text: points.map(p => {
+          return `${file1}: ${p.x}<br>${file2}: ${p.y}<br>Time: ${new Date(p.time).toLocaleString()}`;
+            }),
+            hovertemplate: "%{text}<extra></extra>",
+          },
+        ]}
+        layout={{
+          title: { text: `Correlation View (Aligned)` },
+          xaxis: { title: { text: file1 } },
+          yaxis: { title: { text: file2 } },
+          autosize: true,
+          margin: { l: 50, r: 30, b: 50, t: 50 },
+        }}
+        style={{ width: "100%", height: "100%" }}
+        useResizeHandler={true}
           />
         )}
       </Modal.Body>
