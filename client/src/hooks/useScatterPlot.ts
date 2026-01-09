@@ -30,7 +30,7 @@ export const useScatterPlot = () => {
         category: null,
     });
 
-    const handleCellClick = async (file1: string, file2: string, category: string) => {
+    const handleCellClick = async (file1: string, file2: string, category: string, startDate?: Date | null, endDate?: Date | null) => {
         setSelectedPair({file1, file2, category});
         setScatterPoints([]); // Clean old data
         setIsScatterLoading(true);
@@ -42,6 +42,12 @@ export const useScatterPlot = () => {
                 filename2: file2,
                 category: category,
             });
+            if (startDate) {
+                params.append('start_date', startDate.toISOString());
+            }
+            if (endDate) {
+                params.append('end_date', endDate.toISOString());
+            }
 
             const response = await fetch(`${API_URL}/api/timeseries/scatter_data?${params}`, {
                 headers: {

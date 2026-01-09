@@ -237,6 +237,8 @@ def get_scatter_data():
     filename2 = request.args.get("filename2")
     category = request.args.get("category")
     tolerance = request.args.get("tolerance")  # Opcjonalnie
+    start_date = request.args.get("start_date")
+    end_date = request.args.get("end_date")
 
     try:
         # Pobranie danych
@@ -244,6 +246,8 @@ def get_scatter_data():
             token=token,
             filename=filename1,
             category=category,
+            start=start_date,
+            end=end_date,
         )
         data1 = _apply_timezone_conversion(data1, "data1")
         serie1 = metric_service.extract_series_from_dict(data1, category, filename1)
@@ -251,6 +255,8 @@ def get_scatter_data():
             token=token,
             filename=filename2,
             category=category,
+            start=start_date,
+            end=end_date,
         )
         data2 = _apply_timezone_conversion(data2, "data2")
         serie2 = metric_service.extract_series_from_dict(data2, category, filename2)

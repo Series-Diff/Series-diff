@@ -10,7 +10,8 @@ export const useChartConfiguration = (
     showMovingAverage: boolean,
     maWindow: string,
     startDate?: Date | null,
-    endDate?: Date | null
+    endDate?: Date | null,
+    manualData: Record<string, services.TimeSeriesEntry[]> = {}
 ) => {
     const [selectedCategory, setSelectedCategory] = useState(() => {
         const savedCategory = localStorage.getItem('selectedCategory');
@@ -38,6 +39,7 @@ export const useChartConfiguration = (
         secondary: Record<string, services.TimeSeriesEntry[]> | null;
         tertiary: Record<string, services.TimeSeriesEntry[]> | null;
     }>({ primary: {}, secondary: null, tertiary: null });
+    const [filteredManualData, setFilteredManualData] = useState<Record<string, services.TimeSeriesEntry[]>>({});
 
     const handleDropdownChange = (event: React.ChangeEvent<HTMLSelectElement>) => {
         setSelectedCategory(event.target.value);
@@ -167,12 +169,24 @@ export const useChartConfiguration = (
         const secondary = processCategory(secondaryCategory);
         const tertiary = processCategory(tertiaryCategory);
 
+        // Filter manualData only by time range (start/end)
+        const newFilteredManualData: Record<string, services.TimeSeriesEntry[]> = {};
+        for (const [key, series] of Object.entries(manualData)) {
+            newFilteredManualData[key] = series.filter(item => {
+                const time = new Date(item.x).getTime();
+                const afterStart = !startDate || time >= startDate.getTime();
+                const beforeEnd = !endDate || time <= endDate.getTime();
+                return afterStart && beforeEnd;
+            });
+        }
+
         setFilteredData({
             primary,
             secondary: Object.keys(secondary).length > 0 ? secondary : null,
             tertiary: Object.keys(tertiary).length > 0 ? tertiary : null
         });
-    }, [chartData, selectedCategory, secondaryCategory, tertiaryCategory, rangePerCategory, showMovingAverage, rollingMeanChartData, maWindow, startDate, endDate]);
+        setFilteredManualData(newFilteredManualData);
+    }, [chartData, selectedCategory, secondaryCategory, tertiaryCategory, rangePerCategory, showMovingAverage, rollingMeanChartData, maWindow, startDate, endDate, manualData]);
 
     const resetChartConfig = () => {
         setSelectedCategory(null);
@@ -193,6 +207,7 @@ export const useChartConfiguration = (
         setColorSyncMode,
         syncColorsByGroup,
         filteredData,
+        filteredManualData,
         handleDropdownChange,
         handleSecondaryDropdownChange,
         handleTertiaryDropdownChange,

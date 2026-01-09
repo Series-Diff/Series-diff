@@ -95,8 +95,10 @@ const DateTimePicker: React.FC<DateTimePickerProps> = ({
   const handleKeyDown = (e: React.KeyboardEvent<HTMLElement>) => {
     if (e.key === 'Enter') {
       const target = e.target as HTMLInputElement;
-      if (parseAndSetDate(target.value)) {
-        target.blur();
+      if (target && target.value !== undefined) {
+        if (parseAndSetDate(target.value)) {
+          target.blur();
+        }
       }
       // Invalid input on Enter: keeps current value
     }

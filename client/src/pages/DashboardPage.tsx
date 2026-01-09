@@ -27,7 +27,7 @@ function DashboardPage() {
 
     const { startDate, endDate, handleStartChange, handleEndChange, resetDates, defaultMinDate, defaultMaxDate, ignoreTimeRange, setIgnoreTimeRange, } = hooks.useDateRange(Object.entries(chartData).map(([_, entries]) => ({ entries })), manualData);
 
-    const { selectedCategory, secondaryCategory, tertiaryCategory, handleRangeChange, syncColorsByFile, colorSyncMode, setColorSyncMode, syncColorsByGroup, filteredData, handleDropdownChange, handleSecondaryDropdownChange, handleTertiaryDropdownChange, resetChartConfig } = hooks.useChartConfiguration(filenamesPerCategory, chartData, rollingMeanChartData, showMovingAverage, maWindow, ignoreTimeRange ? null : startDate, ignoreTimeRange ? null : endDate);
+    const { selectedCategory, secondaryCategory, tertiaryCategory, handleRangeChange, syncColorsByFile, colorSyncMode, setColorSyncMode, syncColorsByGroup, filteredData, filteredManualData, handleDropdownChange, handleSecondaryDropdownChange, handleTertiaryDropdownChange, resetChartConfig } = hooks.useChartConfiguration(filenamesPerCategory, chartData, rollingMeanChartData, showMovingAverage, maWindow, ignoreTimeRange ? null : startDate, ignoreTimeRange ? null : endDate, manualData);
 
     const { maeValues, rmseValues, PearsonCorrelationValues, DTWValues, EuclideanValues, CosineSimilarityValues, groupedMetrics, resetMetrics } = hooks.useMetricCalculations(
         filenamesPerCategory,
@@ -262,7 +262,7 @@ function DashboardPage() {
                                                 syncColorsByFile={syncColorsByFile}
                                                 syncColorsByGroup={syncColorsByGroup}
                                                 layoutMode={layoutMode}
-                                                manualData={manualData}
+                                                manualData={filteredManualData}
                                             />
                                         </div>
                                     </>
@@ -366,7 +366,7 @@ function DashboardPage() {
                                         data={PearsonCorrelationValues[selectedCategory]}
                                         category={selectedCategory}
                                         onCellClick={(file1, file2) =>
-                                            handleCellClick(file1, file2, selectedCategory)
+                                            handleCellClick(file1, file2, selectedCategory, ignoreTimeRange ? null : startDate, ignoreTimeRange ? null : endDate)
                                         }
                                         metric="Pearson Correlation"
                                         metricKey="pearson_correlation"
@@ -378,7 +378,7 @@ function DashboardPage() {
                                                 data={PearsonCorrelationValues[secondaryCategory]}
                                                 category={secondaryCategory}
                                                 onCellClick={(file1, file2) =>
-                                                    handleCellClick(file1, file2, secondaryCategory)
+                                                    handleCellClick(file1, file2, secondaryCategory, ignoreTimeRange ? null : startDate, ignoreTimeRange ? null : endDate)
                                                 }
                                                 metric="Pearson Correlation"
                                                 metricKey="pearson_correlation"
@@ -393,7 +393,7 @@ function DashboardPage() {
                                                 data={PearsonCorrelationValues[tertiaryCategory]}
                                                 category={tertiaryCategory}
                                                 onCellClick={(file1, file2) =>
-                                                    handleCellClick(file1, file2, tertiaryCategory)
+                                                    handleCellClick(file1, file2, tertiaryCategory, ignoreTimeRange ? null : startDate, ignoreTimeRange ? null : endDate)
                                                 }
                                                 metric="Pearson Correlation"
                                                 metricKey="pearson_correlation"
