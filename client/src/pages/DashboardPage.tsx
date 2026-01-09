@@ -12,9 +12,11 @@ import { cacheAPI } from '../utils/cacheApiWrapper';
 
 import ControlsPanel from './Dashboard/components/ControlsPanel';
 import DifferenceSelectionPanel from './Dashboard/components/DifferenceSelectionPanel';
+import ErrorBoundary from '../components/ErrorBoundary';
 
 function DashboardPage() {
     const [chartMode, setChartMode] = useState<'standard' | 'difference'>('standard');
+    const [singleFileDismissed, setSingleFileDismissed] = useState(false);
     const globalCache = useGlobalCache();
 
     const { chartData, error, setError, isLoading, setIsLoading, filenamesPerCategory, handleFetchData, handleReset: baseReset } = hooks.useDataFetching();
@@ -43,7 +45,11 @@ function DashboardPage() {
 
     const { isPopupOpen, selectedFiles, handleFileUpload, handlePopupComplete, handlePopupClose, resetFileUpload } = hooks.useFileUpload(handleFetchData, setError, setIsLoading);
 
-    const { startDate, endDate, pendingStartDate, pendingEndDate, handleStartChange, handleEndChange, applyPendingDates, resetDates, defaultMinDate, defaultMaxDate, ignoreTimeRange, setIgnoreTimeRange, } = hooks.useDateRange(Object.entries(chartData).map(([_, entries]) => ({ entries })), manualData);
+    const { startDate, endDate, pendingStartDate, pendingEndDate, handleStartChange, handleEndChange, applyPendingDates, resetDates, defaultMinDate, defaultMaxDate, ignoreTimeRange, setIgnoreTimeRange, } = hooks.useDateRange(
+        Object.entries(chartData).map(([_, entries]) => ({ entries })),
+        manualData,
+        (msg: string) => setError(prev => (prev && prev.includes('Storage quota exceeded')) ? prev : msg)
+    );
 
     const { selectedCategory, secondaryCategory, tertiaryCategory, handleRangeChange, syncColorsByFile, colorSyncMode, setColorSyncMode, syncColorsByGroup, filteredData, filteredManualData, handleDropdownChange, handleSecondaryDropdownChange, handleTertiaryDropdownChange, resetChartConfig } = hooks.useChartConfiguration(filenamesPerCategory, chartData, rollingMeanChartData, showMovingAverage, maWindow, ignoreTimeRange ? null : startDate, ignoreTimeRange ? null : endDate, manualData);
 
@@ -170,6 +176,11 @@ function DashboardPage() {
     // Count unique files across all categories (don't duplicate count if same file appears in multiple categories)
     const uniqueFileSet = new Set(Object.values(filenamesPerCategory).flat());
     const totalFilesLoaded = uniqueFileSet.size;
+    const shouldShowSingleFileAlert = uniqueFileSet.size === 1 && !singleFileDismissed;
+
+    useEffect(() => {
+        setSingleFileDismissed(false);
+    }, [totalFilesLoaded]);
 
     const needsFullHeight = isInDifferenceMode || !hasData;
 
@@ -205,6 +216,25 @@ function DashboardPage() {
             setChartMode('standard');
         }
     }, [canShowMovingAverage, canShowDifferenceChart, showMovingAverage, isInDifferenceMode, handleToggleMovingAverage]);
+
+    // Global error capture: forward to Alert before chart
+    useEffect(() => {
+        const onWindowError = (event: ErrorEvent) => {
+            const message = event?.error?.message || event.message || 'Unexpected runtime error occurred.';
+            setError(`Runtime error: ${message}`);
+        };
+        const onUnhandledRejection = (event: PromiseRejectionEvent) => {
+            const reason: any = event?.reason;
+            const message = (reason && (reason.message || reason.toString())) || 'Unhandled promise rejection occurred.';
+            setError(`Runtime error: ${message}`);
+        };
+        window.addEventListener('error', onWindowError);
+        window.addEventListener('unhandledrejection', onUnhandledRejection);
+        return () => {
+            window.removeEventListener('error', onWindowError);
+            window.removeEventListener('unhandledrejection', onUnhandledRejection);
+        };
+    }, [setError]);
 
     return (
         <div className="d-flex" style={mainStyle}>
@@ -259,12 +289,39 @@ function DashboardPage() {
                             />
                         )}
 
-                        {/* Error Display */}
+                        {/* Show general errors, but not tolerance/diff-related errors (those are shown in chart area) */}
                         {error && !error.includes('No overlapping timestamps') && !error.includes('tolerance') && !error.includes('no units specified') && (
-                            <p className="text-danger text-center mb-0">Error: {error}</p>
+                            <Alert
+                                variant={error.includes('Storage quota exceeded') ? 'warning' : 'danger'}
+                                className="mb-0"
+                                dismissible
+                                onClose={() => setError(null)}
+                            >
+                                <strong>{error.includes('Storage quota exceeded') ? 'Storage Warning:' : 'Error:'}</strong> {error}
+                                {error.includes('Storage quota exceeded') && (
+                                    <>
+                                        <br />
+                                        <small className="mt-2 d-block">
+                                          You can still display your data on the chart, but metrics and statistics may not work, and the data might not be saved after refresh.
+                                        </small>
+                                    </>
+                                )}
+                            </Alert>
                         )}
 
-                        {/* Chart Container */}
+                        {shouldShowSingleFileAlert && (
+                            <Alert
+                              variant="warning"
+                              className="mb-0"
+                              dismissible
+                              onClose={() => setSingleFileDismissed(true)}
+                            >
+                              <strong>More files needed:</strong> Comparison metrics require at least two files in the same category. Upload another file to view metrics pairwise tables and difference charts.
+                            </Alert>
+                        )}
+
+                        {/* Chart Container wrapped in error boundary to surface runtime errors in Alert */}
+                        <ErrorBoundary onError={(msg) => setError(msg)}>
                         <div
                             className={chartContainerClass}
                             style={{ flex: 1, minHeight: 0 }}
@@ -423,12 +480,15 @@ function DashboardPage() {
                                 </>
                             )}
                         </div>
+                        </ErrorBoundary>
                     </div>
 
                     {/* Standard mode specific sections */}
+                    {/* Standard mode specific sections wrapped to catch runtime errors in metrics rendering */}
                     {!isInDifferenceMode && (
                         <>
-                            {(hasData && Object.keys(groupedMetrics).length > 0) && (
+                            <ErrorBoundary onError={(msg) => setError(msg)}>
+                            {(hasData && Object.keys(groupedMetrics).length > 0 && !shouldShowSingleFileAlert) && (
                                 <div className="section-container p-3 d-flex flex-column gap-3">
                                     <div className="d-flex justify-content-end align-items-center gap-2">
                                         <Button
@@ -456,7 +516,7 @@ function DashboardPage() {
                                 </div>
                             )}
 
-                            {shouldShowMetric('pearson_correlation') && selectedCategory && PearsonCorrelationValues[selectedCategory] && (
+                            {shouldShowMetric('pearson_correlation') && selectedCategory && PearsonCorrelationValues[selectedCategory] && !shouldShowSingleFileAlert && (
                                 <div className="section-container p-3 d-flex flex-column gap-3">
                                     <components.CorrelationTable
                                         data={PearsonCorrelationValues[selectedCategory]}
@@ -496,7 +556,7 @@ function DashboardPage() {
                                 </div>
                             )}
 
-                            {shouldShowMetric('cosine_similarity') && selectedCategory && CosineSimilarityValues[selectedCategory] && (
+                            {shouldShowMetric('cosine_similarity') && selectedCategory && CosineSimilarityValues[selectedCategory] && !shouldShowSingleFileAlert && (
                                 <div className="section-container p-3 d-flex flex-column gap-3">
                                     <components.CorrelationTable
                                         data={CosineSimilarityValues[selectedCategory]}
@@ -530,7 +590,7 @@ function DashboardPage() {
                                 </div>
                             )}
 
-                            {shouldShowMetric('mae') && selectedCategory && maeValues[selectedCategory] && (
+                            {shouldShowMetric('mae') && selectedCategory && maeValues[selectedCategory] && !shouldShowSingleFileAlert && (
                                 <div className="section-container p-3 d-flex flex-column gap-3">
                                     <components.StandardTable
                                         data={maeValues[selectedCategory]}
@@ -561,7 +621,7 @@ function DashboardPage() {
                                 </div>
                             )}
 
-                            {shouldShowMetric('rmse') && selectedCategory && rmseValues[selectedCategory] && (
+                            {shouldShowMetric('rmse') && selectedCategory && rmseValues[selectedCategory] && !shouldShowSingleFileAlert && (
                                 <div className="section-container p-3 d-flex flex-column gap-3">
                                     <components.StandardTable
                                         data={rmseValues[selectedCategory]}
@@ -592,7 +652,7 @@ function DashboardPage() {
                                 </div>
                             )}
 
-                            {shouldShowMetric('dtw') && selectedCategory && DTWValues[selectedCategory] && (
+                            {shouldShowMetric('dtw') && selectedCategory && DTWValues[selectedCategory] && !shouldShowSingleFileAlert && (
                                 <div className="section-container p-3 d-flex flex-column gap-3">
                                     <components.StandardTable
                                         data={DTWValues[selectedCategory]}
@@ -762,6 +822,7 @@ function DashboardPage() {
                                     })}
                                 </div>
                             )}
+                            </ErrorBoundary>
                         </>
                     )}
 

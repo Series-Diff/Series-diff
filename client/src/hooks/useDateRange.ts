@@ -1,51 +1,65 @@
 import { useEffect, useState, useMemo, useRef } from "react";
 import { TimeSeriesEntry } from "../services/fetchTimeSeries";
 
-export function useDateRange(loadedData: any[] = [], manualData: Record<string, TimeSeriesEntry[]> = {}) {
+export function useDateRange(
+  loadedData: any[] = [],
+  manualData: Record<string, TimeSeriesEntry[]> = {},
+  onError?: (message: string) => void
+) {
   const [startDate, setStartDate] = useState<Date | null>(null);
   const [endDate, setEndDate] = useState<Date | null>(null);
   const [pendingStartDate, setPendingStartDate] = useState<Date | null>(null);
   const [pendingEndDate, setPendingEndDate] = useState<Date | null>(null);
   const [ignoreTimeRange, setIgnoreTimeRange] = useState(false);
 
-  const dataBounds = useMemo(() => {
-    let minTime = Infinity;
-    let maxTime = -Infinity;
-    let hasData = false;
+  type Bounds = { min: Date | null; max: Date | null; errorMessage?: string };
 
-    if (loadedData?.length) {
-      for (const file of loadedData) {
-        const entries = file.entries ?? [];
-        for (const entry of entries) {
-          const time = new Date(entry.x).getTime();
-          if (!isNaN(time)) {
-            minTime = Math.min(minTime, time);
-            maxTime = Math.max(maxTime, time);
-            hasData = true;
+  const dataBounds: Bounds = useMemo(() => {
+    try {
+      let minTime = Infinity;
+      let maxTime = -Infinity;
+      let hasData = false;
+
+      if (loadedData?.length) {
+        for (const file of loadedData) {
+          const entries = file.entries ?? [];
+          for (const entry of entries) {
+            const time = new Date(entry.x).getTime();
+            if (!isNaN(time)) {
+              minTime = Math.min(minTime, time);
+              maxTime = Math.max(maxTime, time);
+              hasData = true;
+            }
           }
         }
       }
-    }
 
-    if (Object.keys(manualData).length > 0) {
-      for (const entries of Object.values(manualData)) {
-        for (const entry of entries) {
-          const time = new Date(entry.x).getTime();
-          if (!isNaN(time)) {
-            minTime = Math.min(minTime, time);
-            maxTime = Math.max(maxTime, time);
-            hasData = true;
+      if (Object.keys(manualData).length > 0) {
+        for (const entries of Object.values(manualData)) {
+          for (const entry of entries) {
+            const time = new Date(entry.x).getTime();
+            if (!isNaN(time)) {
+              minTime = Math.min(minTime, time);
+              maxTime = Math.max(maxTime, time);
+              hasData = true;
+            }
           }
         }
       }
+
+      if (!hasData) return { min: null, max: null };
+
+      return {
+        min: new Date(minTime),
+        max: new Date(maxTime),
+      };
+    } catch (err: any) {
+      return {
+        min: null,
+        max: null,
+        errorMessage: "Date range calculation error: please adjust the selected range or disable time filtering.",
+      };
     }
-
-    if (!hasData) return { min: null, max: null };
-
-    return {
-      min: new Date(minTime),
-      max: new Date(maxTime),
-    };
   }, [loadedData, manualData]);
 
   const prevBoundsRef = useRef<{ min: Date | null; max: Date | null }>({ min: null, max: null });
@@ -53,6 +67,13 @@ export function useDateRange(loadedData: any[] = [], manualData: Record<string, 
   // Extract simple, statically-checkable dependencies for the effect
   const minDate = dataBounds.min;
   const maxDate = dataBounds.max;
+
+  // Surface memo errors without setting state during render
+  useEffect(() => {
+    if (dataBounds.errorMessage) {
+      onError?.(dataBounds.errorMessage);
+    }
+  }, [dataBounds.errorMessage, onError]);
 
   useEffect(() => {
     if (!minDate || !maxDate) {
