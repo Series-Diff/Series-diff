@@ -60,6 +60,10 @@ const MyChart: React.FC<MyChartProps> = ({
         [allKeys, syncColorsByFile, syncColorsByGroup]
     );
 
+    const uiRevision = useMemo(() => {
+        return `${allKeys.join(',')}-${layoutMode}-${syncColorsByGroup ? 'group' : 'file'}`;
+    }, [allKeys, layoutMode, syncColorsByGroup]);
+
     const getAxisColor = (dataRecord?: Record<string, any>) => {
         if (!syncColorsByGroup || !dataRecord) return undefined;
         const firstKey = Object.keys(dataRecord)[0];
@@ -95,6 +99,7 @@ const MyChart: React.FC<MyChartProps> = ({
 
     const chartLayout: Partial<Layout> = {
         title: {text: title},
+        uirevision: uiRevision,
         plot_bgcolor: 'white',
         hovermode: "x unified",
         hoverlabel: {
@@ -223,10 +228,11 @@ const MyChart: React.FC<MyChartProps> = ({
 
     return (
         <div className="d-flex flex-column h-100 gap-2">
-            <div id='pdf-content-chart' ref={containerRef} style={{width: "100%", flex: 1, minHeight: 0}}>
+            <div id='pdf-content-chart' ref={containerRef} style={{width: "100%", height: "100%", minHeight: 0, flex: "1 1 auto"}}>
                 <Plot
                     data={traces}
                     layout={chartLayout}
+                    useResizeHandler={true}
                     style={{width: '100%', height: '100%'}}
                     config={{
                         responsive: true,

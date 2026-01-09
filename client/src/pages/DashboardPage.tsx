@@ -133,7 +133,7 @@ function DashboardPage() {
 
     const handleReset = async () => {
         setChartMode('standard');
-        
+
         // Get cache stats before clearing
         const metricsStats = globalCache.metricsCache.size;
         const pluginStats = globalCache.pluginCache.size;
@@ -141,18 +141,18 @@ function DashboardPage() {
         const totalSize = metricsStats + pluginStats + scatterStats;
 
         const cacheApiKeysBefore = (await cacheAPI.keys()).length;
-        
+
         // Clear global cache (now async)
         await globalCache.clearAllCaches();
 
         const cacheApiKeysAfter = (await cacheAPI.keys()).length;
-        
+
         // Log cleanup with cache API stats
         console.log(
             `Caches cleared: ${totalSize} entries removed (Metrics: ${metricsStats}, Plugin: ${pluginStats}, Scatter: ${scatterStats}); ` +
             `CacheAPI entries: ${cacheApiKeysBefore} -> ${cacheApiKeysAfter}`
         );
-        
+
         await baseReset();
         resetMetrics();
         resetChartConfig();
@@ -322,8 +322,8 @@ function DashboardPage() {
                                 dismissible
                                 onClose={() => setDiffError(null)}
                             >
-                                <strong>Difference Chart Error:</strong> {diffError.includes('No overlapping timestamps') 
-                                    ? 'No overlapping timestamps within tolerance. Try adjusting the tolerance value or resetting it.' 
+                                <strong>Difference Chart Error:</strong> {diffError.includes('No overlapping timestamps')
+                                    ? 'No overlapping timestamps within tolerance. Try adjusting the tolerance value or resetting it.'
                                     : diffError}
                             </Alert>
                         )}
@@ -519,7 +519,7 @@ function DashboardPage() {
                                     isExporting={isExporting}
                                     onRetryStatistic={retryMetric}
                                 />
-                            )}    
+                            )}
 
                             {/* Render metric matrices via helper which also enforces ">=2 files" rule */}
                             {(() => {

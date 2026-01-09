@@ -1,5 +1,5 @@
 import React, { useEffect } from "react";
-import { Form, Button, InputGroup } from 'react-bootstrap';
+import {Form, Button, InputGroup} from 'react-bootstrap';
 
 /**
  * Sub-component for Y-axis range controls.
@@ -231,18 +231,6 @@ const ChartControls: React.FC<ChartControlsProps> = ({
                         )}
                     </InputGroup>
                 </div>
-            )}
-
-            {/* Switch Chart Mode Button */}
-            {hasData && toggleChartMode && (!isInDifferenceMode ? canShowDifferenceChart !== false : true) && (
-                <Button
-                    variant="outline-secondary"
-                    size="sm"
-                    onClick={toggleChartMode}
-                    className="ms-auto"
-                >
-                    {isInDifferenceMode ? 'Switch to Standard Chart' : 'Switch to Difference Chart'}
-                </Button>
             )}
         </div>
     );

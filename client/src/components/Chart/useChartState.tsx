@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState, useCallback, useRef } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { TimeSeriesEntry } from "@/services/fetchTimeSeries";
 
 /**
@@ -16,7 +16,7 @@ export const useChartState = (
     primaryData: Record<string, TimeSeriesEntry[]>,
     secondaryData?: Record<string, TimeSeriesEntry[]>,
     tertiaryData?: Record<string, TimeSeriesEntry[]>,
-    manualData?: Record<string, TimeSeriesEntry[]>
+    manualData: Record<string, TimeSeriesEntry[]> = {}
 ) => {
     const [xaxisRange, setXaxisRange] = useState<[string | null, string | null]>([null, null]);
     const [tickFormat, setTickFormat] = useState('%d.%m.%Y'); // Only day before zoom
@@ -32,38 +32,28 @@ export const useChartState = (
     const [customY3Max, setCustomY3Max] = useState<string>('');
     const [visibleMap, setVisibleMap] = useState<Record<string, boolean>>({});
 
-    const manualDataSafe = useMemo(() => manualData ?? {}, [manualData]);
-
     // Memoized allData to stabilize dependencies
-    // Memoize allData with shallow compare to avoid unnecessary recomputation
-    const allData = useMemo(() => {
-        const result = {
+    const allData = useMemo(
+        () => ({
             ...primaryData,
             ...(secondaryData || {}),
             ...(tertiaryData || {}),
-            ...manualDataSafe,
-        };
-        return result;
-    }, [primaryData, secondaryData, tertiaryData, manualDataSafe]);
+            ...manualData,
+        }),
+        [primaryData, secondaryData, tertiaryData, manualData]
+    );
 
     const averageStepHours = useMemo(() => {
-        // Limit the number of points analyzed to avoid stack overflow
-        const MAX_POINTS = 10000;
-        const allSeries = Object.values(allData).flat();
-        if (allSeries.length < 2) return 0;
-        // Sample up to MAX_POINTS evenly from the data
-        const step = Math.max(1, Math.floor(allSeries.length / MAX_POINTS));
-        const sampled = [];
-        for (let i = 0; i < allSeries.length; i += step) {
-            sampled.push(new Date(allSeries[i].x).getTime());
-        }
-        if (sampled.length < 2) return 0;
-        const minTime = Math.min(...sampled);
-        const maxTime = Math.max(...sampled);
+        const allXValues = Object.values(allData).flat().map(d => new Date(d.x).getTime());
+        if (allXValues.length < 2) return 0;
+
+        // Szukamy min i max, aby obliczyć rozpiętość
+        const minTime = Math.min(...allXValues);
+        const maxTime = Math.max(...allXValues);
         const totalDurationHours = (maxTime - minTime) / (1000 * 60 * 60);
-        // Use original data length for correct average (not sampled length)
-        const avg = totalDurationHours / allSeries.length;
-        return avg;
+
+        // Średni odstęp = całkowity czas / liczbę punktów
+        return totalDurationHours / allXValues.length;
     }, [allData]);
 
     // Calculate data bounds for primary Y-axis
@@ -123,9 +113,8 @@ export const useChartState = (
             } else {
                 setTickFormat('%d.%m.%Y');
             }
-            setXaxisRange(nextRange);
+            setXaxisRange([event['xaxis.range[0]'], event['xaxis.range[1]']]);
         } else if (event['xaxis.autorange'] === true) {
-            if (xaxisRange[0] === null && xaxisRange[1] === null) return; // already reset
             setXaxisRange([null, null]); // Resetting X-axis range
             setTickFormat('%d.%m.%Y'); // Restoring default format
             setShowMarkers(false); // Restoring default markers

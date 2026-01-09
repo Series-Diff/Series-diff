@@ -54,9 +54,11 @@ const ControlsPanel: React.FC<ControlsPanelProps> = (props) => {
     const standardProps = props as StandardControlsProps;
     const diffProps = props as DifferenceControlsProps;
 
+    const isMaFeatureAvailable = standardProps.showMovingAverage !== undefined && standardProps.handleToggleMovingAverage;
+
     return (
         <div className="d-flex justify-content-between align-items-center w-100 ps-1">
-            <div className="d-flex align-items-center gap-3">
+            <div className="d-flex align-items-center gap-2">
                 {hasCategories && mode === 'standard' && (
                     <>
                         <div className="d-flex align-items-center gap-2 bg-white border rounded shadow-sm px-3 py-2 me-3">
@@ -91,13 +93,16 @@ const ControlsPanel: React.FC<ControlsPanelProps> = (props) => {
                             />
                         </div>
 
-                        {standardProps.showMovingAverage !== undefined && standardProps.handleToggleMovingAverage && (
-                            <div className="d-flex align-items-center gap-3 bg-white border rounded shadow-sm px-3 py-2">
-                                <div className="d-flex align-items-center gap-2">
+                        <div
+                            className="d-flex flex-column justify-content-center gap-2 bg-white border rounded shadow-sm px-3"
+                            style={{ height: '86px' }}
+                        >
+                            {isMaFeatureAvailable && (
+                                <div className="d-flex align-items-center gap-2" style={{ minHeight: '31px' }}>
                                     <Form.Check
                                         type="switch"
                                         id="ma-toggle"
-                                        label={standardProps.isMaLoading ? "Loading MA..." : "Moving Avg"}
+                                        label={standardProps.isMaLoading ? "Loading..." : "Moving Avg"}
                                         checked={standardProps.showMovingAverage}
                                         onChange={standardProps.handleToggleMovingAverage}
                                         disabled={standardProps.isMaLoading}
@@ -122,16 +127,16 @@ const ControlsPanel: React.FC<ControlsPanelProps> = (props) => {
                                         </InputGroup>
                                     )}
                                 </div>
+                            )}
 
-                                <div style={{ width: '1px', height: '24px', backgroundColor: '#dee2e6' }}></div>
-
+                            <div className="d-flex align-items-center gap-3" style={{ minHeight: '31px' }}>
                                 <div className="d-flex align-items-center gap-2">
-                                    <Form.Label className="mb-0 text-nowrap">Color Sync:</Form.Label>
+                                    <Form.Label className="mb-0 text-nowrap small text-muted">Color:</Form.Label>
                                     <Form.Select
                                         size="sm"
                                         value={standardProps.colorSyncMode}
                                         onChange={(e) => standardProps.setColorSyncMode(e.target.value as ColorSyncMode)}
-                                        style={{ width: 'auto', minWidth: '100px' }}
+                                        style={{ width: 'auto', minWidth: '90px' }}
                                     >
                                         <option value="default">Default</option>
                                         <option value="group">By Group</option>
@@ -139,22 +144,20 @@ const ControlsPanel: React.FC<ControlsPanelProps> = (props) => {
                                     </Form.Select>
                                 </div>
 
-                                <div style={{ width: '1px', height: '24px', backgroundColor: '#dee2e6' }}></div>
-
                                 <div className="d-flex align-items-center gap-2">
-                                    <Form.Label className="mb-0 text-nowrap">Layout:</Form.Label>
+                                    <Form.Label className="mb-0 text-nowrap small text-muted">Layout:</Form.Label>
                                     <Form.Select
                                         size="sm"
                                         value={standardProps.layoutMode}
                                         onChange={(e) => standardProps.setLayoutMode(e.target.value as LayoutMode)}
-                                        style={{ width: 'auto', minWidth: '100px' }}
+                                        style={{ width: 'auto', minWidth: '90px' }}
                                     >
                                         <option value="overlay">Overlay</option>
                                         <option value="stacked">Stacked</option>
                                     </Form.Select>
                                 </div>
                             </div>
-                        )}
+                        </div>
                     </>
                 )}
 
