@@ -91,6 +91,9 @@ export const useChartState = (
     // Set initial X-range based on data
     // This hook allows for dynamic X-axis range right after loading data, without it you need to refresh the page first
     useEffect(() => {
+        // Check if allData has any keys (is not empty object)
+        if (Object.keys(allData).length === 0) return;
+        
         const allXStrings = Object.values(allData).flat().map(d => d.x);
         if (allXStrings.length === 0) return;
                 const stringsWithTimestamps = allXStrings.map(str => ({

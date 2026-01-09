@@ -16,6 +16,8 @@ interface MyChartProps {
     syncColorsByFile?: boolean;
     syncColorsByGroup?: boolean;
     layoutMode?: 'stacked' | 'overlay';
+    toggleChartMode?: () => void;
+    isInDifferenceMode?: boolean;
 }
 
 const MyChart: React.FC<MyChartProps> = ({
@@ -26,7 +28,9 @@ const MyChart: React.FC<MyChartProps> = ({
                                              title,
                                              syncColorsByFile = true,
                                              syncColorsByGroup = false,
-                                             layoutMode = 'overlay'
+                                             layoutMode = 'overlay',
+                                             toggleChartMode,
+                                             isInDifferenceMode
                                          }) => {
 
     const {
@@ -245,6 +249,9 @@ const MyChart: React.FC<MyChartProps> = ({
                 primaryDataBounds={primaryDataBounds}
                 secondaryDataBounds={secondaryDataBounds}
                 tertiaryDataBounds={tertiaryDataBounds}
+                toggleChartMode={toggleChartMode}
+                isInDifferenceMode={isInDifferenceMode}
+                hasData={Object.keys(primaryData).length > 0}
             />
         </div>
     );

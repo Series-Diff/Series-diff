@@ -45,6 +45,27 @@ export const useMetricCalculations = (
     const [CosineSimilarityValues, setCosineSimilarityValues] = useState<CorrelationMetricType>({});
 
     const [groupedMetrics, setGroupedMetrics] = useState<Record<string, CombinedMetric[]>>({});
+    
+    // Track selected metrics for reactive re-fetching
+    // Note: stored as JSON array in localStorage, but converted to Set for consistent usage with useMetricsSelection
+    const [selectedMetricsForDisplay, setSelectedMetricsForDisplay] = useState<Set<string> | null>(() => {
+        const stored = localStorage.getItem('selectedMetricsForDisplay');
+        return stored ? new Set(JSON.parse(stored)) : null;
+    });
+
+    // Listen for changes to selectedMetricsForDisplay
+    useEffect(() => {
+        const handleStorageChange = (event: Event) => {
+            const customEvent = event as CustomEvent;
+            if (customEvent.detail?.key === 'selectedMetricsForDisplay') {
+                const selectedArray = customEvent.detail.value as string[];
+                setSelectedMetricsForDisplay(new Set(selectedArray)); // Convert array to Set for consistency
+            }
+        };
+
+        window.addEventListener('localStorageChange', handleStorageChange);
+        return () => window.removeEventListener('localStorageChange', handleStorageChange);
+    }, []);
 
     // Helper array for single metrics
     const singleMetrics = useMemo<SingleMetricEntry[]>(() => [
@@ -98,24 +119,67 @@ export const useMetricCalculations = (
                 const start = startDate ? startDate.toISOString() : undefined;
                 const end = endDate ? endDate.toISOString() : undefined;
 
-                // Fetch single metrics in parallel
-                await Promise.all(
-                    singleMetrics.map(async ({ fetch, setter }) => {
-                        const data = await fetch(filenamesPerCategory, start, end);
-                        setter(data);
-                    })
-                );
+                // Get selected metrics from localStorage
+                const selectedMetricsJson = localStorage.getItem('selectedMetricsForDisplay');
+                const selectedMetrics = selectedMetricsJson ? new Set<string>(JSON.parse(selectedMetricsJson)) : null;
 
-                // Fetch all-correlation metrics in parallel
-                await Promise.all(
-                    allCorrelationMetrics.map(async ({ fetch, setter }) => {
-                        const data = await fetch(filenamesPerCategory, start, end);
-                        setter(data);
-                    })
-                );
+                // Mapping: metric value → state key
+                const metricToStateKey: Record<string, string> = {
+                    'mean': 'meanValues',
+                    'median': 'medianValues',
+                    'variance': 'varianceValues',
+                    'std_dev': 'stdDevsValues',
+                    'autocorrelation': 'autoCorrelationValues',
+                    'mae': 'maeValues',
+                    'rmse': 'rmseValues',
+                    'pearson_correlation': 'PearsonCorrelationValues',
+                    'dtw': 'DTWValues',
+                    'euclidean': 'EuclideanValues',
+                    'cosine_similarity': 'CosineSimilarityValues'
+                };
 
-                // Fetch per-category correlation metrics
-                for (const { key, setter, fetch } of perCategoryCorrelationMetrics) {
+                // Helper: check if metric should be fetched
+                const shouldFetch = (metricValue: string) => {
+                    return selectedMetrics === null || selectedMetrics.has(metricValue);
+                };
+
+                // Fetch single metrics in parallel (only if selected)
+                const singleMetricsToFetch = singleMetrics.filter(({ key }) => {
+                    const metricValue = Object.keys(metricToStateKey).find(k => metricToStateKey[k] === key);
+                    return metricValue && shouldFetch(metricValue);
+                });
+
+                if (singleMetricsToFetch.length > 0) {
+                    await Promise.all(
+                        singleMetricsToFetch.map(async ({ fetch, setter }) => {
+                            const data = await fetch(filenamesPerCategory, start, end);
+                            setter(data);
+                        })
+                    );
+                }
+
+                // Fetch all-correlation metrics in parallel (only if selected)
+                const allCorrelationMetricsToFetch = allCorrelationMetrics.filter(({ key }) => {
+                    const metricValue = Object.keys(metricToStateKey).find(k => metricToStateKey[k] === key);
+                    return metricValue && shouldFetch(metricValue);
+                });
+
+                if (allCorrelationMetricsToFetch.length > 0) {
+                    await Promise.all(
+                        allCorrelationMetricsToFetch.map(async ({ fetch, setter }) => {
+                            const data = await fetch(filenamesPerCategory, start, end);
+                            setter(data);
+                        })
+                    );
+                }
+
+                // Fetch per-category correlation metrics (only if selected)
+                const perCategoryMetricsToFetch = perCategoryCorrelationMetrics.filter(({ key }) => {
+                    const metricValue = Object.keys(metricToStateKey).find(k => metricToStateKey[k] === key);
+                    return metricValue && shouldFetch(metricValue);
+                });
+
+                for (const { key, setter, fetch } of perCategoryMetricsToFetch) {
                     const data: CorrelationMetricType = {};
                     for (const category of Object.keys(filenamesPerCategory)) {
                         const files = filenamesPerCategory[category];
@@ -135,7 +199,7 @@ export const useMetricCalculations = (
         };
 
         fetchMetrics();
-    }, [filenamesPerCategory, singleMetrics, allCorrelationMetrics, perCategoryCorrelationMetrics, startDate, endDate]);
+    }, [filenamesPerCategory, singleMetrics, allCorrelationMetrics, perCategoryCorrelationMetrics, startDate, endDate, selectedMetricsForDisplay]);
 
     useEffect(() => {
         const updatedGroupedMetrics: Record<string, CombinedMetric[]> = {};

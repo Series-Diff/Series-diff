@@ -3,6 +3,9 @@ import pandas as pd
 from scipy.stats import pearsonr
 from statsmodels.tsa.stattools import acf
 from dtw import dtw
+import logging
+
+logger = logging.getLogger("FlaskAPI")
 
 
 def extract_series_from_dict(data: dict, category: str, filename: str) -> dict:
@@ -26,6 +29,13 @@ def extract_series_from_dict(data: dict, category: str, filename: str) -> dict:
         )
 
     series = {}
+    extracted_count = 0
+    skipped_count = 0
+
+    # Normalize filename and category by trimming whitespace to handle CSV/JSON inconsistencies
+    filename_normalized = filename.strip()
+    category_normalized = category.strip()
+
     for key in data.keys():
         # Error handling
         if not isinstance(data[key], dict):
@@ -33,28 +43,37 @@ def extract_series_from_dict(data: dict, category: str, filename: str) -> dict:
                 f"Invalid data structure at key '{key}': expected a dictionary"
             )
 
-        if category not in data[key] or not isinstance(data[key][category], dict):
-            raise ValueError(
-                f"Category '{category}' not found in data at key '{key}' or bad structure"
-            )
-
-        if filename not in data[key][category] or not isinstance(
-            data[key][category][filename], (int, float)
+        if category_normalized not in data[key] or not isinstance(
+            data[key][category_normalized], dict
         ):
+            skipped_count += 1
+            continue  # Category not found in this timestamp - skip silently
+
+        if filename_normalized not in data[key][category_normalized] or not isinstance(
+            data[key][category_normalized][filename_normalized], (int, float)
+        ):
+            skipped_count += 1
             continue  # not good solution, but gotta find out what to do when there's missing data for some timestamps
 
-        if not isinstance(data[key][category][filename], (int, float)):
+        if not isinstance(
+            data[key][category_normalized][filename_normalized], (int, float)
+        ):
             raise ValueError(
-                f"Unsupported data type for key '{key}': {type(data[key][category][filename])}"
+                f"Unsupported data type for key '{key}': {type(data[key][category_normalized][filename_normalized])}"
             )
 
         # extracting the value and converting it to float
         try:
-            series[key] = float(data[key][category][filename])
+            series[key] = float(data[key][category_normalized][filename_normalized])
+            extracted_count += 1
         except (ValueError, TypeError) as exc:
             raise ValueError(
-                f"Invalid value for key '{key}': {data[key][category][filename]}"
+                f"Invalid value for key '{key}': {data[key][category_normalized][filename_normalized]}"
             ) from exc
+
+    logger.info(
+        f"extract_series_from_dict: filename='{filename}', category='{category}' → extracted={extracted_count}, skipped={skipped_count}, series_len={len(series)}"
+    )
 
     return series
 
@@ -246,7 +265,14 @@ def calculate_pearson_correlation(
     if not isinstance(series1, dict) or not isinstance(series2, dict):
         return np.nan
     if not series1 or not series2:
+        logger.warning(
+            f"calculate_pearson_correlation: empty series detected (s1={len(series1)}, s2={len(series2)}) → returning NaN"
+        )
         return np.nan
+
+    logger.info(
+        f"calculate_pearson_correlation: series1_len={len(series1)}, series2_len={len(series2)}, tolerance={tolerance}"
+    )
 
     try:
         df_merged = get_aligned_data(series1, series2, tolerance)
@@ -279,10 +305,11 @@ def calculate_difference(
         tolerance (str): max time difference for matching points (pandas Timedelta, e.g. '1T')
 
     Returns:
-        dict: timestamp-to-difference series
+        dict: timestamp-to-difference series (empty dict if series are empty)
     """
     if not series1 or not series2:
-        raise ValueError("Both series must be non-empty dictionaries")
+        # Return empty dict instead of raising - graceful handling of empty series
+        return {}
 
     df_merged = get_aligned_data(series1, series2, tolerance)
 
@@ -322,12 +349,14 @@ def calculate_rolling_mean(series: dict, window_size: str = "1d") -> dict:
 
 def calculate_dtw(series1: dict, series2: dict) -> float:
     if not series1 or not series2:
-        raise ValueError("Both series must be non-empty dictionaries")
+        # Return None instead of raising - graceful handling of empty series
+        return None  # type: ignore
 
     if not isinstance(series1, dict) or not isinstance(series2, dict):
         raise ValueError("Both series must be dictionaries with timestamps as keys")
     if len(series1) == 0 or len(series2) == 0:
-        raise ValueError("Both series must be non-empty")
+        # Return None instead of raising - graceful handling
+        return None  # type: ignore
 
     s1 = pd.Series(series1)
     s1.index = pd.to_datetime(s1.index)
@@ -360,10 +389,11 @@ def calculate_euclidean_distance(
                                 automatically estimated from median sampling intervals.
 
     Returns:
-        float: Euclidean distance computed from the aligned points.
+        float: Euclidean distance computed from the aligned points, or None if series are empty.
     """
     if not series1 or not series2:
-        raise ValueError("Both series must be non-empty dictionaries")
+        # Return None instead of raising - graceful handling of empty series
+        return None  # type: ignore
 
     df_merged = get_aligned_data(series1, series2, tolerance)
 

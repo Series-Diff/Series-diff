@@ -18,14 +18,15 @@ async function fetchMedian(
   start?: string,
   end?: string
 ): Promise<number | null> {
- const params = new URLSearchParams();
-  params.set('category', category.trim());
-  params.set('filename', filename.trim());
+  const params = new URLSearchParams({
+    category: category.trim(),
+    filename: filename.trim(),
+  });
   if (start) {
-    params.set('start', start);
+    params.append('start', start);
   }
   if (end) {
-    params.set('end', end);
+    params.append('end', end);
   }
   const url = `${API_URL}/api/timeseries/median?${params.toString()}`;
 

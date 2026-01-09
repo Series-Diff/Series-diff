@@ -18,13 +18,14 @@ async function fetchStdDev(
   start?: string,
   end?: string
 ): Promise<number | null> {
-  const params = new URLSearchParams();
-  params.append('category', category);
-  params.append('filename', filename);
-  if (start !== undefined && start !== null) {
+  const params = new URLSearchParams({
+    category: category.trim(),
+    filename: filename.trim(),
+  });
+  if (start) {
     params.append('start', start);
   }
-  if (end !== undefined && end !== null) {
+  if (end) {
     params.append('end', end);
   }
 

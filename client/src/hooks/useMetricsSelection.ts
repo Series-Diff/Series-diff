@@ -44,10 +44,46 @@ export const useMetricsSelection = (
     return [];
   });
 
+  // Computationally expensive or less common metrics - disabled by default
+  // - DTW, Autocorrelation: expensive computation
+  // - MAE, Euclidean, Cosine Similarity: redundant/less useful for time series
+  // - Moving Average: included by default (acceptable performance O(n·w))
+  const EXPENSIVE_METRICS = useMemo(() => new Set(['dtw', 'autocorrelation', 'mae', 'euclidean', 'cosine_similarity']), []);
+
+  // All available metrics from groupedMetrics plus any user-defined metrics
+  const ALL_AVAILABLE_METRICS = useMemo(() => {
+    // Known statistical metrics (always available, regardless of data load state)
+    const statisticalMetrics = ['mean', 'median', 'variance', 'std_dev', 'autocorrelation'];
+    // Correlation/distance metrics (not in grouped metrics)
+    const correlationMetrics = ['mae', 'rmse', 'pearson_correlation', 'dtw', 'euclidean', 'cosine_similarity', 'difference_chart'];
+    // Temporal metrics (always available)
+    const temporalMetrics = ['moving_average'];
+    // Dynamic metrics from actual data (if available)
+    const metricsFromGroupedMetrics = Object.values(groupedMetrics).flatMap(metrics =>
+      metrics.flatMap(metric => Object.keys(METRIC_KEY_MAPPING).filter(key => metric[METRIC_KEY_MAPPING[key]] !== undefined))
+    );
+    // User-defined metrics
+    const userMetricValues = userMetrics.map(m => m.value);
+    return Array.from(new Set([
+      ...statisticalMetrics,
+      ...correlationMetrics,
+      ...temporalMetrics,
+      ...metricsFromGroupedMetrics,
+      ...userMetricValues,
+    ]));
+  }, [groupedMetrics, userMetrics]);
+
+  // Default selection: all metrics EXCEPT expensive ones
+  const DEFAULT_METRICS = useMemo(() => 
+    ALL_AVAILABLE_METRICS.filter(m => !EXPENSIVE_METRICS.has(m)),
+    [ALL_AVAILABLE_METRICS, EXPENSIVE_METRICS]
+  );
+
   // Load selected metrics from localStorage
-  // null = show all (no localStorage entry = first time user)
+  // null = show default set (no localStorage entry = first time user)
   // empty Set = show none (user explicitly deselected all)
   // Set with values = show only selected
+  // Default: all metrics EXCEPT computationally expensive ones (DTW, Autocorrelation, Moving Average)
   const [selectedMetricsForDisplay, setSelectedMetricsForDisplay] = useState<Set<string> | null>(() => {
     const storedSelectedMetrics = localStorage.getItem('selectedMetricsForDisplay');
     if (storedSelectedMetrics) {
@@ -56,11 +92,35 @@ export const useMetricsSelection = (
         return new Set(parsed);
       } catch (error) {
         console.error('Failed to parse selected metrics from localStorage:', error);
-        return null; // On error, default to showing all
+        return null; // On error, default to showing default set
       }
     }
-    return null; // No localStorage = show all
+    return null; // No localStorage = show default set (expensive metrics disabled)
   });
+
+  // Track whether we've already initialized default metrics in localStorage
+  const hasInitializedSelectedMetrics = useRef(false);
+
+  // Initialize localStorage with default metrics on first load
+  useEffect(() => {
+    if (hasInitializedSelectedMetrics.current) {
+      return;
+    }
+
+    hasInitializedSelectedMetrics.current = true;
+
+    if (selectedMetricsForDisplay === null) {
+      // First time user: initialize localStorage with default metrics (without expensive ones)
+      localStorage.setItem('selectedMetricsForDisplay', JSON.stringify(DEFAULT_METRICS));
+      // Also update state and notify listeners so the UI reflects defaults immediately
+      setSelectedMetricsForDisplay(new Set(DEFAULT_METRICS));
+      window.dispatchEvent(
+        new CustomEvent('localStorageChange', {
+          detail: { key: 'selectedMetricsForDisplay', value: DEFAULT_METRICS }
+        })
+      );
+    }
+  }, [selectedMetricsForDisplay, DEFAULT_METRICS]);
 
   // Modal visibility state
   const [showMetricsModal, setShowMetricsModal] = useState(false);
@@ -154,7 +214,7 @@ export const useMetricsSelection = (
   const filteredGroupedMetrics = useMemo(() => {
     return Object.entries(groupedMetrics).reduce((acc, [category, metrics]) => {
 
-      // 1. If null, return everything (default state)
+      // 1. If null, show default (all EXCEPT expensive metrics)
       if (selectedMetricsForDisplay === null) {
         acc[category] = metrics;
         return acc;
@@ -198,8 +258,8 @@ export const useMetricsSelection = (
   // Helper function to check if a metric should be displayed
   const shouldShowMetric = (metricValue: string): boolean => {
     if (selectedMetricsForDisplay === null) {
-      // null = no selection made yet, show all
-      return true;
+      // This shouldn't happen after initialization, but fallback to default behavior
+      return !EXPENSIVE_METRICS.has(metricValue);
     }
     if (selectedMetricsForDisplay.size === 0) {
       // Empty Set = user explicitly deselected all, show nothing

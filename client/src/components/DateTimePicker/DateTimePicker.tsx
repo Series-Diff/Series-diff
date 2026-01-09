@@ -7,7 +7,7 @@ interface DateTimePickerProps {
   onChange: (date: Date | null) => void;
   placeholder?: string;
   minWidth?: number;
-  openToDate?: Date | null; 
+  openToDate?: Date | null;
   minDate?: Date | null;
   maxDate?: Date | null;
 }
@@ -29,7 +29,7 @@ const DateTimePicker: React.FC<DateTimePickerProps> = ({
   }, [value, openToDate, label, minDate, maxDate]);
   const parseAndSetDate = (input: string) => {
     const trimmed = input.trim();
-    
+
     if (!trimmed) {
       // Empty input: reset to openToDate (date range start) if available, otherwise null
       onChange(openToDate || null);
@@ -51,7 +51,7 @@ const DateTimePicker: React.FC<DateTimePickerProps> = ({
         parseInt(hours),
         parseInt(minutes)
       );
-      
+
       if (!isNaN(date.getTime())) {
         onChange(date);
         return true;
@@ -68,13 +68,13 @@ const DateTimePicker: React.FC<DateTimePickerProps> = ({
         0,
         0
       );
-      
+
       if (!isNaN(date.getTime())) {
         onChange(date);
         return true;
       }
     }
-    
+
     return false;
   };
   const handleChange = (date: Date | null) => {

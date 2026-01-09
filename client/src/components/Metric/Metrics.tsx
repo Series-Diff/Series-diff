@@ -23,7 +23,7 @@ export const Metrics: React.FC<MetricsProps> = ({ groupedMetrics }) => {
   const hasAnyMetrics = Object.keys(groupedMetrics).length > 0;
 
   if (!hasAnyMetrics) {
-    return <p style={{ textAlign: 'center', padding: '10px' }}>No metrics available.</p>;
+    return <p className="metrics-empty">No metrics available.</p>;
   }
 
   return (
@@ -31,14 +31,14 @@ export const Metrics: React.FC<MetricsProps> = ({ groupedMetrics }) => {
       <div className="Metrics-container">
         {Object.entries(groupedMetrics).map(([groupName, metrics], index) => (
           <div key={groupName} className='Metric-group' id='pdf-content-statistics-horizontal'>
-            <div className="Metrics-header" style={{ position: 'relative' }}>
+            <div className="Metrics-header">
               <h3>{groupName} Statistics</h3>
               {index === 0 && (
                 <Button
                   variant="link"
                   size="sm"
                   onClick={() => setShowModal(true)}
-                  className="p-0 position-absolute top-50 end-0 translate-middle-y me-3"
+                  className="p-0 position-absolute top-50 end-0 translate-middle-y Metrics-info-btn"
                   title="Statistics information"
                   aria-label="Show statistics information"
                 >

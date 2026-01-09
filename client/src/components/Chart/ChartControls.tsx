@@ -1,5 +1,5 @@
 import React, { useEffect } from "react";
-import {Form, Button, InputGroup} from 'react-bootstrap';
+import { Form, Button, InputGroup } from 'react-bootstrap';
 
 /**
  * Sub-component for Y-axis range controls.
@@ -24,13 +24,18 @@ interface ChartControlsProps {
     hasTertiary: boolean;
     primaryDataBounds: { min: number; max: number };
     secondaryDataBounds: { min: number; max: number };
-    tertiaryDataBounds: { min: number; max: number }
+    tertiaryDataBounds: { min: number; max: number };
+    toggleChartMode?: () => void;
+    isInDifferenceMode?: boolean;
+    hasData?: boolean;
+    canShowDifferenceChart?: boolean;
 }
 
 const ChartControls: React.FC<ChartControlsProps> = ({
-                                                         customYMin, setCustomYMin, customYMax, setCustomYMax, setCustomRange, customY2Min, setCustomY2Min,
-                                                         customY2Max, setCustomY2Max, setCustomRange2, customY3Min, setCustomY3Min, customY3Max, setCustomY3Max, setCustomRange3, hasSecondary, hasTertiary, primaryDataBounds, secondaryDataBounds, tertiaryDataBounds
-                                                     }) => {
+                                                        customYMin, setCustomYMin, customYMax, setCustomYMax, setCustomRange, customY2Min, setCustomY2Min,
+                                                        customY2Max, setCustomY2Max, setCustomRange2, customY3Min, setCustomY3Min, customY3Max, setCustomY3Max, setCustomRange3, hasSecondary, hasTertiary, primaryDataBounds, secondaryDataBounds, tertiaryDataBounds,
+                                                        toggleChartMode, isInDifferenceMode, hasData, canShowDifferenceChart
+                                                    }) => {
 
 
     // Y1
@@ -226,6 +231,18 @@ const ChartControls: React.FC<ChartControlsProps> = ({
                         )}
                     </InputGroup>
                 </div>
+            )}
+
+            {/* Switch Chart Mode Button */}
+            {hasData && toggleChartMode && (!isInDifferenceMode ? canShowDifferenceChart !== false : true) && (
+                <Button
+                    variant="outline-secondary"
+                    size="sm"
+                    onClick={toggleChartMode}
+                    className="ms-auto"
+                >
+                    {isInDifferenceMode ? 'Switch to Standard Chart' : 'Switch to Difference Chart'}
+                </Button>
             )}
         </div>
     );

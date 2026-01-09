@@ -22,13 +22,14 @@ async function fetchRmse(
   end?: string,
   tolerance?: string
 ): Promise<number | null> {
-  const params = new URLSearchParams();
-  params.set('category', category.trim());
-  params.set('filename1', filename1.trim());
-  params.set('filename2', filename2.trim());
-  if (start) params.set('start', start);
-  if (end) params.set('end', end);
-  if (tolerance) params.set('tolerance', tolerance);
+  const params = new URLSearchParams({
+    category: category.trim(),
+    filename1: filename1.trim(),
+    filename2: filename2.trim(),
+  });
+  if (start) params.append('start', start);
+  if (end) params.append('end', end);
+  if (tolerance) params.append('tolerance', tolerance);
   const url = `${API_URL}/api/timeseries/rmse?${params.toString()}`;
 
   const resp = await fetch(url, {

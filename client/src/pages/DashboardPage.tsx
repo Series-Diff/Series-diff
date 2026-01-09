@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { Button, Modal, Form, Spinner, Alert } from 'react-bootstrap';
 import './DashboardPage.css';
 import '../components/Chart/Chart.css';
@@ -13,7 +13,6 @@ import DifferenceSelectionPanel from './Dashboard/components/DifferenceSelection
 
 function DashboardPage() {
     const [chartMode, setChartMode] = useState<'standard' | 'difference'>('standard');
-    const chartContainerRef = useRef<HTMLDivElement>(null);
 
     const { chartData, error, setError, isLoading, setIsLoading, filenamesPerCategory, handleFetchData, handleReset: baseReset } = hooks.useDataFetching();
 
@@ -51,9 +50,6 @@ function DashboardPage() {
 
     // Filter enabled plugins by selection in modal
     const visiblePlugins = enabledPlugins.filter(p => shouldShowMetric(p.id));
-
-    // Dynamic height calculation for chart container
-    const chartDynamicHeight = hooks.useDynamicHeight(chartContainerRef, [hasData, isLoading, layoutMode]);
 
     const {
         pluginResults,
@@ -147,201 +143,213 @@ function DashboardPage() {
         <div className="d-flex" style={mainStyle}>
             <div className="App-main-content flex-grow-1 d-flex align-items-start w-100 rounded">
                 <div className={chartLayoutClass}>
-                    {/* Controls Panel */}
-                    {isInDifferenceMode ? (
-                        <ControlsPanel
-                            mode="difference"
-                            filenamesPerCategory={filenamesPerCategory}
-                            selectedDiffCategory={selectedDiffCategory}
-                            handleDiffCategoryChange={handleDiffCategoryChange}
-                            customToleranceValue={customToleranceValue}
-                            setCustomToleranceValue={setCustomToleranceValue}
-                            handleApplyTolerance={handleApplyTolerance}
-                            handleResetTolerance={handleResetTolerance}
-                            isDiffLoading={isDiffLoading}
-                            isLoading={isLoading}
-                            handleFileUpload={handleFileUpload}
-                            handleReset={handleReset}
-                        />
-                    ) : (
-                        <ControlsPanel
-                            mode="standard"
-                            selectedCategory={selectedCategory}
-                            secondaryCategory={secondaryCategory}
-                            tertiaryCategory={tertiaryCategory}
-                            filenamesPerCategory={filenamesPerCategory}
-                            handleDropdownChange={handleDropdownChange}
-                            handleSecondaryDropdownChange={handleSecondaryDropdownChange}
-                            handleTertiaryDropdownChange={handleTertiaryDropdownChange}
-                            showMovingAverage={shouldShowMetric('moving_average') ? showMovingAverage : undefined}
-                            handleToggleMovingAverage={shouldShowMetric('moving_average') ? handleToggleMovingAverage : undefined}
-                            isMaLoading={isMaLoading}
-                            maWindow={maWindow}
-                            setMaWindow={setMaWindow}
-                            handleApplyMaWindow={handleApplyMaWindow}
-                            colorSyncMode={colorSyncMode}
-                            setColorSyncMode={setColorSyncMode}
-                            isLoading={isLoading}
-                            handleFileUpload={handleFileUpload}
-                            handleReset={handleReset}
-                            layoutMode={layoutMode}
-                            setLayoutMode={setLayoutMode}
-                        />
-                    )}
+                    <div style={{
+                        display: 'flex',
+                        flexDirection: 'column',
+                        gap: '16px',
+                        height: `calc(100vh - var(--nav-height) - 2 * var(--section-margin))`,
+                        overflow: 'hidden'
+                    }}>
+                        {/* Controls Panel */}
+                        {isInDifferenceMode ? (
+                            <ControlsPanel
+                                mode="difference"
+                                filenamesPerCategory={filenamesPerCategory}
+                                selectedDiffCategory={selectedDiffCategory}
+                                handleDiffCategoryChange={handleDiffCategoryChange}
+                                customToleranceValue={customToleranceValue}
+                                setCustomToleranceValue={setCustomToleranceValue}
+                                handleApplyTolerance={handleApplyTolerance}
+                                handleResetTolerance={handleResetTolerance}
+                                isDiffLoading={isDiffLoading}
+                                isLoading={isLoading}
+                                handleFileUpload={handleFileUpload}
+                                handleReset={handleReset}
+                            />
+                        ) : (
+                            <ControlsPanel
+                                mode="standard"
+                                selectedCategory={selectedCategory}
+                                secondaryCategory={secondaryCategory}
+                                tertiaryCategory={tertiaryCategory}
+                                filenamesPerCategory={filenamesPerCategory}
+                                handleDropdownChange={handleDropdownChange}
+                                handleSecondaryDropdownChange={handleSecondaryDropdownChange}
+                                handleTertiaryDropdownChange={handleTertiaryDropdownChange}
+                                showMovingAverage={shouldShowMetric('moving_average') ? showMovingAverage : undefined}
+                                handleToggleMovingAverage={shouldShowMetric('moving_average') ? handleToggleMovingAverage : undefined}
+                                isMaLoading={isMaLoading}
+                                maWindow={maWindow}
+                                setMaWindow={setMaWindow}
+                                handleApplyMaWindow={handleApplyMaWindow}
+                                colorSyncMode={colorSyncMode}
+                                setColorSyncMode={setColorSyncMode}
+                                isLoading={isLoading}
+                                handleFileUpload={handleFileUpload}
+                                handleReset={handleReset}
+                                layoutMode={layoutMode}
+                                setLayoutMode={setLayoutMode}
+                            />
+                        )}
 
-                    {/* Error Display */}
-                    {error && !error.includes('No overlapping timestamps') && !error.includes('tolerance') && !error.includes('no units specified') && (
-                        <p className="text-danger text-center mb-0">Error: {error}</p>
-                    )}
+                        {/* Error Display */}
+                        {error && !error.includes('No overlapping timestamps') && !error.includes('tolerance') && !error.includes('no units specified') && (
+                            <p className="text-danger text-center mb-0">Error: {error}</p>
+                        )}
 
-                    {/* Chart Container */}
-                    <div
-                        ref={chartContainerRef}
-                        className={chartContainerClass}
-                        style={chartDynamicHeight ? { minHeight: chartDynamicHeight } : undefined}
-                    >
-                        {!isInDifferenceMode && (
-                            <>
-                                {isLoading && !hasData &&
-                                    <div className="d-flex align-items-center justify-content-center text-muted flex-grow-1" style={{ minHeight: chartDynamicHeight }}>
-                                        <Spinner animation="border" size="sm" className="me-2" />
-                                        Loading chart...
-                                    </div>}
-                                {!isLoading && !hasData && !error &&
-                                    <div className="d-flex align-items-center justify-content-center text-muted flex-grow-1" style={{ minHeight: chartDynamicHeight }}>
-                                        Load data to visualize
-                                    </div>}
-                                {!isLoading && hasData && (
-                                    <>
-                                        <div className="d-flex w-100 px-3 py-2">
-                                            <div className="d-flex gap-2 w-100">
-                                                <components.DateTimePicker
-                                                    label="Start"
-                                                    value={startDate}
-                                                    onChange={handleStartChange}
-                                                    minDate={defaultMinDate}
-                                                    maxDate={endDate ?? defaultMaxDate}
-                                                    openToDate={startDate ?? defaultMinDate} />
+                        {/* Chart Container */}
+                        <div
+                            className={chartContainerClass}
+                            style={{ flex: 1, minHeight: 0 }}
+                        >
+                            {isInDifferenceMode && canShowDifferenceChart && (
+                                <Button
+                                    variant="outline-secondary"
+                                    size="sm"
+                                    onClick={toggleChartMode}
+                                    style={{
+                                        position: 'absolute',
+                                        bottom: '16px',
+                                        right: '16px',
+                                        zIndex: 10
+                                    }}
+                                >
+                                    Switch to Standard Chart
+                                </Button>
+                            )}{!isInDifferenceMode && (
+                                <>
+                                    {isLoading && !hasData &&
+                                        <div className="d-flex align-items-center justify-content-center text-muted flex-grow-1">
+                                            <Spinner animation="border" size="sm" className="me-2" />
+                                            Loading chart...
+                                        </div>}
+                                    {!isLoading && !hasData && !error &&
+                                        <div className="d-flex align-items-center justify-content-center text-muted flex-grow-1">
+                                            Load data to visualize
+                                        </div>}
+                                    {!isLoading && hasData && (
+                                        <>
+                                            <div className="d-flex w-100 px-2 pb-1">
+                                                <div className="d-flex gap-3 w-100">
+                                                    <components.DateTimePicker
+                                                        label="Start"
+                                                        value={startDate}
+                                                        onChange={handleStartChange}
+                                                        minDate={defaultMinDate}
+                                                        maxDate={endDate ?? defaultMaxDate}
+                                                        openToDate={startDate ?? defaultMinDate} />
 
-                                                <components.DateTimePicker
-                                                    label="End"
-                                                    value={endDate}
-                                                    onChange={handleEndChange}
-                                                    minDate={startDate ?? defaultMinDate}
-                                                    maxDate={defaultMaxDate}
-                                                    openToDate={endDate ?? defaultMaxDate} />
+                                                    <components.DateTimePicker
+                                                        label="End"
+                                                        value={endDate}
+                                                        onChange={handleEndChange}
+                                                        minDate={startDate ?? defaultMinDate}
+                                                        maxDate={defaultMaxDate}
+                                                        openToDate={endDate ?? defaultMaxDate}
+                                                    />
 
-                                                <div className="d-flex align-items-center ms-2 pb-1">
-                                                    <Form.Check
-                                                        type="switch"
-                                                        id="date-filter-toggle"
-                                                        label={<span className="text-nowrap small text-muted">Calculate metrics on full date range</span>}
-                                                        checked={ignoreTimeRange}
-                                                        onChange={(e) => setIgnoreTimeRange(e.target.checked)}
-                                                        className="mb-0" />
-                                                </div>
-                                                <div className="d-flex ms-auto p-2">
-                                                    <div className="d-flex gap-2">
+                                                    <div className="d-flex align-items-center">
+                                                        <Form.Check
+                                                            type="switch"
+                                                            id="date-filter-toggle"
+                                                            label={<span className="text-nowrap small text-muted">Calculate metrics on full date range</span>}
+                                                            checked={ignoreTimeRange}
+                                                            onChange={(e) => setIgnoreTimeRange(e.target.checked)}
+                                                            className="mb-0" />
+                                                    </div>
+                                                    <div className="ms-auto d-flex align-items-center">
                                                         <Button
                                                             variant="outline-secondary"
                                                             size="sm"
                                                             onClick={() => Object.keys(manualData).length === 0 ? setShowManualModal(true) : setShowManualEdit(true)}
-                                                            className="ms-2 mb-1 text-nowrap"
                                                         >
                                                             Manual Measurements
                                                         </Button>
                                                     </div>
                                                 </div>
                                             </div>
-                                        </div>
-                                        <div className="chart-wrapper" style={{ height: chartDynamicHeight }}>
-                                            <components.MyChart
-                                                primaryData={filteredData.primary}
-                                                secondaryData={filteredData.secondary || undefined}
-                                                tertiaryData={filteredData.tertiary || undefined}
-                                                syncColorsByFile={syncColorsByFile}
-                                                syncColorsByGroup={syncColorsByGroup}
-                                                layoutMode={layoutMode}
-                                                manualData={filteredManualData}
-                                            />
-                                        </div>
-                                    </>
-                                )}
-                            </>
-                        )}
-                        {/* Difference Chart Mode */}
-                        {isInDifferenceMode && (
-                            <>
-                                {!hasData && !isLoading && !error && (
-                                    <div className="d-flex align-items-center justify-content-center text-muted flex-grow-1" style={{ minHeight: chartDynamicHeight }}>
-                                        Load data to visualize differences
-                                    </div>
-                                )}
-                                {hasData && !hasEnoughFilesForDifference && (
-                                    <div className="d-flex align-items-center justify-content-center text-muted flex-grow-1" style={{ minHeight: chartDynamicHeight }}>
-                                        <div>
-                                            <p className="mb-2">Difference chart requires at least 2 files in the same category.</p>
-                                            <p className="small mb-0">Currently loaded: {totalFilesLoaded} file{totalFilesLoaded !== 1 ? 's' : ''} across {Object.keys(filenamesPerCategory).length} categor{Object.keys(filenamesPerCategory).length !== 1 ? 'ies' : 'y'}.</p>
-                                        </div>
-                                    </div>
-                                )}
-                                {hasData && hasEnoughFilesForDifference && (
-                                    <>
-                                        {isDiffLoading && (
-                                            <div className="d-flex align-items-center justify-content-center text-muted flex-grow-1" style={{ minHeight: chartDynamicHeight }}>
-                                                <Spinner animation="border" size="sm" className="me-2" />
-                                                Loading difference data...
-                                            </div>
-                                        )}
-                                        {!isDiffLoading && diffError && (
-                                            <div className="d-flex align-items-center justify-content-center text-muted flex-grow-1 text-center" style={{ minHeight: chartDynamicHeight }}>
-                                                <div>
-                                                    <p className="mb-2">Unable to render difference chart with current tolerance.</p>
-                                                    <p className="small mb-0">{diffError.includes('No overlapping timestamps') ? 'No overlapping timestamps within tolerance. Reset tolerance to see the chart.' : diffError}</p>
-                                                </div>
-                                            </div>
-                                        )}
-                                        {!isDiffLoading && !diffError && !hasDifferenceData && !error && (
-                                            <div className="d-flex align-items-center justify-content-center text-muted flex-grow-1" style={{ minHeight: chartDynamicHeight }}>
-                                                Select differences to visualize
-                                            </div>
-                                        )}
-                                        {!isDiffLoading && !diffError && hasDifferenceData && (
-                                            <div className="chart-wrapper" style={{ height: chartDynamicHeight }}>
+                                            <div className="chart-wrapper flex-grow-1" style={{ height: '100%' }}>
                                                 <components.MyChart
-                                                    primaryData={differenceChartData}
+                                                    primaryData={filteredData.primary}
+                                                    secondaryData={filteredData.secondary || undefined}
+                                                    tertiaryData={filteredData.tertiary || undefined}
+                                                    syncColorsByFile={syncColorsByFile}
+                                                    syncColorsByGroup={syncColorsByGroup}
+                                                    layoutMode={layoutMode}
+                                                    manualData={filteredManualData}
+                                                    toggleChartMode={toggleChartMode}
+                                                    isInDifferenceMode={isInDifferenceMode}
                                                 />
                                             </div>
-                                        )}
-                                    </>
-                                )}
-                            </>
-                        )}
-                        {/* Switch Chart Mode Button */}
-                        {hasData && shouldShowMetric('difference_chart') && (
-                            <Button
-                                variant="outline-secondary"
-                                size="sm"
-                                onClick={toggleChartMode}
-                                className="position-absolute bottom-0 end-0 m-3"
-                            >
-                                {isInDifferenceMode ? 'Switch to Standard Chart' : 'Switch to Difference Chart'}
-                            </Button>
-                        )}
+                                        </>
+                                    )}
+                                </>
+                            )}
+                            {/* Difference Chart Mode */}
+                            {isInDifferenceMode && (
+                                <>
+                                    {!hasData && !isLoading && !error && (
+                                        <div className="d-flex align-items-center justify-content-center text-muted flex-grow-1 flex-fill">
+                                            Load data to visualize differences
+                                        </div>
+                                    )}
+                                    {hasData && !hasEnoughFilesForDifference && (
+                                        <div className="d-flex align-items-center justify-content-center text-muted flex-grow-1 flex-fill">
+                                            <div>
+                                                <p className="mb-2">Difference chart requires at least 2 files in the same category.</p>
+                                                <p className="small mb-0">Currently loaded: {totalFilesLoaded} file{totalFilesLoaded !== 1 ? 's' : ''} across {Object.keys(filenamesPerCategory).length} categor{Object.keys(filenamesPerCategory).length !== 1 ? 'ies' : 'y'}.</p>
+                                            </div>
+                                        </div>
+                                    )}
+                                    {hasData && hasEnoughFilesForDifference && (
+                                        <>
+                                            {isDiffLoading && (
+                                                <div className="d-flex align-items-center justify-content-center text-muted flex-grow-1 flex-fill">
+                                                    <Spinner animation="border" size="sm" className="me-2" />
+                                                    Loading difference data...
+                                                </div>
+                                            )}
+                                            {!isDiffLoading && diffError && (
+                                                <div className="d-flex align-items-center justify-content-center text-muted flex-grow-1 flex-fill text-center">
+                                                    <div>
+                                                        <p className="mb-2">Unable to render difference chart with current tolerance.</p>
+                                                        <p className="small mb-0">{diffError.includes('No overlapping timestamps') ? 'No overlapping timestamps within tolerance. Reset tolerance to see the chart.' : diffError}</p>
+                                                    </div>
+                                                </div>
+                                            )}
+                                            {!isDiffLoading && !diffError && !hasDifferenceData && !error && (
+                                                <div className="d-flex align-items-center justify-content-center text-muted flex-grow-1 flex-fill">
+                                                    Select differences to visualize
+                                                </div>
+                                            )}
+                                            {!isDiffLoading && !diffError && hasDifferenceData && (
+                                                <div className="chart-wrapper flex-grow-1" style={{ height: '100%' }}>
+                                                    <components.MyChart
+                                                        primaryData={differenceChartData}
+                                                        toggleChartMode={toggleChartMode}
+                                                        isInDifferenceMode={isInDifferenceMode}
+                                                    />
+                                                </div>
+                                            )}
+                                        </>
+                                    )}
+                                </>
+                            )}
+                        </div>
                     </div>
+
                     {/* Standard mode specific sections */}
                     {!isInDifferenceMode && (
                         <>
                             {(hasData && Object.keys(groupedMetrics).length > 0) && (
-                                <div className="section-container p-3">
-                                    <div className="d-flex justify-content-end align-items-center gap-2 mb-3">
+                                <div className="section-container p-3 d-flex flex-column gap-3">
+                                    <div className="d-flex justify-content-end align-items-center gap-2">
                                         <Button
                                             variant="outline-secondary"
                                             onClick={() => setShowMetricsModal(true)}
                                         >
                                             Select Metrics
                                         </Button>
-                                        {isExporting && <Spinner animation="border" size="sm" className="me-2" />}
                                         <Button
                                             variant="secondary"
                                             onClick={handleExportClick}
@@ -349,6 +357,7 @@ function DashboardPage() {
                                         >
                                             {isExporting ? 'Exporting...' : 'Export to PDF'}
                                         </Button>
+                                        {isExporting && <Spinner animation="border" size="sm" />}
                                     </div>
                                     {Object.keys(filteredGroupedMetrics).length > 0 ? (
                                         <components.Metrics groupedMetrics={filteredGroupedMetrics} />
@@ -361,7 +370,7 @@ function DashboardPage() {
                             )}
 
                             {shouldShowMetric('pearson_correlation') && selectedCategory && PearsonCorrelationValues[selectedCategory] && (
-                                <div className="section-container p-3">
+                                <div className="section-container p-3 d-flex flex-column gap-3">
                                     <components.CorrelationTable
                                         data={PearsonCorrelationValues[selectedCategory]}
                                         category={selectedCategory}
@@ -373,39 +382,35 @@ function DashboardPage() {
                                     />
 
                                     {secondaryCategory && PearsonCorrelationValues[secondaryCategory] && (
-                                        <div className="mt-4">
-                                            <components.CorrelationTable
-                                                data={PearsonCorrelationValues[secondaryCategory]}
-                                                category={secondaryCategory}
-                                                onCellClick={(file1, file2) =>
-                                                    handleCellClick(file1, file2, secondaryCategory, ignoreTimeRange ? null : startDate, ignoreTimeRange ? null : endDate)
-                                                }
-                                                metric="Pearson Correlation"
-                                                metricKey="pearson_correlation"
-                                                showInfoIcon={false}
-                                            />
-                                        </div>
+                                          <components.CorrelationTable
+                                              data={PearsonCorrelationValues[secondaryCategory]}
+                                              category={secondaryCategory}
+                                              onCellClick={(file1, file2) =>
+                                                  handleCellClick(file1, file2, secondaryCategory, ignoreTimeRange ? null : startDate, ignoreTimeRange ? null : endDate)
+                                              }
+                                              metric="Pearson Correlation"
+                                              metricKey="pearson_correlation"
+                                              showInfoIcon={false}
+                                          />
                                     )}
 
                                     {tertiaryCategory && PearsonCorrelationValues[tertiaryCategory] && (
-                                        <div className="mt-4">
-                                            <components.CorrelationTable
-                                                data={PearsonCorrelationValues[tertiaryCategory]}
-                                                category={tertiaryCategory}
-                                                onCellClick={(file1, file2) =>
-                                                    handleCellClick(file1, file2, tertiaryCategory, ignoreTimeRange ? null : startDate, ignoreTimeRange ? null : endDate)
-                                                }
-                                                metric="Pearson Correlation"
-                                                metricKey="pearson_correlation"
-                                                showInfoIcon={false}
-                                            />
-                                        </div>
+                                          <components.CorrelationTable
+                                              data={PearsonCorrelationValues[tertiaryCategory]}
+                                              category={tertiaryCategory}
+                                              onCellClick={(file1, file2) =>
+                                                  handleCellClick(file1, file2, tertiaryCategory, ignoreTimeRange ? null : startDate, ignoreTimeRange ? null : endDate)
+                                              }
+                                              metric="Pearson Correlation"
+                                              metricKey="pearson_correlation"
+                                              showInfoIcon={false}
+                                          />
                                     )}
                                 </div>
                             )}
 
                             {shouldShowMetric('cosine_similarity') && selectedCategory && CosineSimilarityValues[selectedCategory] && (
-                                <div className="section-container p-3">
+                                <div className="section-container p-3 d-flex flex-column gap-3">
                                     <components.CorrelationTable
                                         data={CosineSimilarityValues[selectedCategory]}
                                         category={selectedCategory}
@@ -415,35 +420,31 @@ function DashboardPage() {
                                     />
 
                                     {secondaryCategory && CosineSimilarityValues[secondaryCategory] && (
-                                        <div className="mt-3">
-                                            <components.CorrelationTable
-                                                data={CosineSimilarityValues[secondaryCategory]}
-                                                category={secondaryCategory}
-                                                clickable={false}
-                                                metric="Cosine Similarity"
-                                                metricKey="cosine_similarity"
-                                                showInfoIcon={false}
-                                            />
-                                        </div>
+                                        <components.CorrelationTable
+                                            data={CosineSimilarityValues[secondaryCategory]}
+                                            category={secondaryCategory}
+                                            clickable={false}
+                                            metric="Cosine Similarity"
+                                            metricKey="cosine_similarity"
+                                            showInfoIcon={false}
+                                        />
                                     )}
 
                                     {tertiaryCategory && CosineSimilarityValues[tertiaryCategory] && (
-                                        <div className="mt-3">
-                                            <components.CorrelationTable
-                                                data={CosineSimilarityValues[tertiaryCategory]}
-                                                category={tertiaryCategory}
-                                                clickable={false}
-                                                metric="Cosine Similarity"
-                                                metricKey="cosine_similarity"
-                                                showInfoIcon={false}
-                                            />
-                                        </div>
+                                        <components.CorrelationTable
+                                            data={CosineSimilarityValues[tertiaryCategory]}
+                                            category={tertiaryCategory}
+                                            clickable={false}
+                                            metric="Cosine Similarity"
+                                            metricKey="cosine_similarity"
+                                            showInfoIcon={false}
+                                        />
                                     )}
                                 </div>
                             )}
 
                             {shouldShowMetric('mae') && selectedCategory && maeValues[selectedCategory] && (
-                                <div className="section-container p-3">
+                                <div className="section-container p-3 d-flex flex-column gap-3">
                                     <components.StandardTable
                                         data={maeValues[selectedCategory]}
                                         category={selectedCategory}
@@ -452,33 +453,29 @@ function DashboardPage() {
                                     />
 
                                     {secondaryCategory && maeValues[secondaryCategory] && (
-                                        <div className="mt-3">
-                                            <components.StandardTable
-                                                data={maeValues[secondaryCategory]}
-                                                category={secondaryCategory}
-                                                metric="MAE"
-                                                metricKey="mae"
-                                                showInfoIcon={false}
-                                            />
-                                        </div>
+                                        <components.StandardTable
+                                            data={maeValues[secondaryCategory]}
+                                            category={secondaryCategory}
+                                            metric="MAE"
+                                            metricKey="mae"
+                                            showInfoIcon={false}
+                                        />
                                     )}
 
                                     {tertiaryCategory && maeValues[tertiaryCategory] && (
-                                        <div className="mt-3">
-                                            <components.StandardTable
-                                                data={maeValues[tertiaryCategory]}
-                                                category={tertiaryCategory}
-                                                metric="MAE"
-                                                metricKey="mae"
-                                                showInfoIcon={false}
-                                            />
-                                        </div>
+                                        <components.StandardTable
+                                            data={maeValues[tertiaryCategory]}
+                                            category={tertiaryCategory}
+                                            metric="MAE"
+                                            metricKey="mae"
+                                            showInfoIcon={false}
+                                        />
                                     )}
                                 </div>
                             )}
 
                             {shouldShowMetric('rmse') && selectedCategory && rmseValues[selectedCategory] && (
-                                <div className="section-container p-3">
+                                <div className="section-container p-3 d-flex flex-column gap-3">
                                     <components.StandardTable
                                         data={rmseValues[selectedCategory]}
                                         category={selectedCategory}
@@ -487,33 +484,29 @@ function DashboardPage() {
                                     />
 
                                     {secondaryCategory && rmseValues[secondaryCategory] && (
-                                        <div className="mt-3">
-                                            <components.StandardTable
-                                                data={rmseValues[secondaryCategory]}
-                                                category={secondaryCategory}
-                                                metric="RMSE"
-                                                metricKey="rmse"
-                                                showInfoIcon={false}
-                                            />
-                                        </div>
+                                        <components.StandardTable
+                                            data={rmseValues[secondaryCategory]}
+                                            category={secondaryCategory}
+                                            metric="RMSE"
+                                            metricKey="rmse"
+                                            showInfoIcon={false}
+                                        />
                                     )}
 
                                     {tertiaryCategory && rmseValues[tertiaryCategory] && (
-                                        <div className="mt-3">
-                                            <components.StandardTable
-                                                data={rmseValues[tertiaryCategory]}
-                                                category={tertiaryCategory}
-                                                metric="RMSE"
-                                                metricKey="rmse"
-                                                showInfoIcon={false}
-                                            />
-                                        </div>
+                                        <components.StandardTable
+                                            data={rmseValues[tertiaryCategory]}
+                                            category={tertiaryCategory}
+                                            metric="RMSE"
+                                            metricKey="rmse"
+                                            showInfoIcon={false}
+                                        />
                                     )}
                                 </div>
                             )}
 
                             {shouldShowMetric('dtw') && selectedCategory && DTWValues[selectedCategory] && (
-                                <div className="section-container p-3">
+                                <div className="section-container p-3 d-flex flex-column gap-3">
                                     <components.StandardTable
                                         data={DTWValues[selectedCategory]}
                                         category={selectedCategory}
@@ -522,33 +515,29 @@ function DashboardPage() {
                                     />
 
                                     {secondaryCategory && DTWValues[secondaryCategory] && (
-                                        <div className="mt-4">
-                                            <components.StandardTable
-                                                data={DTWValues[secondaryCategory]}
-                                                category={secondaryCategory}
-                                                metric="DTW"
-                                                metricKey="dtw"
-                                                showInfoIcon={false}
-                                            />
-                                        </div>
+                                        <components.StandardTable
+                                            data={DTWValues[secondaryCategory]}
+                                            category={secondaryCategory}
+                                            metric="DTW"
+                                            metricKey="dtw"
+                                            showInfoIcon={false}
+                                        />
                                     )}
 
                                     {tertiaryCategory && DTWValues[tertiaryCategory] && (
-                                        <div className="mt-4">
-                                            <components.StandardTable
-                                                data={DTWValues[tertiaryCategory]}
-                                                category={tertiaryCategory}
-                                                metric="DTW"
-                                                metricKey="dtw"
-                                                showInfoIcon={false}
-                                            />
-                                        </div>
+                                        <components.StandardTable
+                                            data={DTWValues[tertiaryCategory]}
+                                            category={tertiaryCategory}
+                                            metric="DTW"
+                                            metricKey="dtw"
+                                            showInfoIcon={false}
+                                        />
                                     )}
                                 </div>
                             )}
 
                             {shouldShowMetric('euclidean') && selectedCategory && EuclideanValues[selectedCategory] && (
-                                <div className="section-container p-3">
+                                <div className="section-container p-3 d-flex flex-column gap-3">
                                     <components.StandardTable
                                         data={EuclideanValues[selectedCategory]}
                                         category={selectedCategory}
@@ -557,27 +546,23 @@ function DashboardPage() {
                                     />
 
                                     {secondaryCategory && EuclideanValues[secondaryCategory] && (
-                                        <div className="mt-4">
-                                            <components.StandardTable
-                                                data={EuclideanValues[secondaryCategory]}
-                                                category={secondaryCategory}
-                                                metric="Euclidean"
-                                                metricKey="euclidean"
-                                                showInfoIcon={false}
-                                            />
-                                        </div>
+                                        <components.StandardTable
+                                            data={EuclideanValues[secondaryCategory]}
+                                            category={secondaryCategory}
+                                            metric="Euclidean"
+                                            metricKey="euclidean"
+                                            showInfoIcon={false}
+                                        />
                                     )}
 
                                     {tertiaryCategory && EuclideanValues[tertiaryCategory] && (
-                                        <div className="mt-4">
-                                            <components.StandardTable
-                                                data={EuclideanValues[tertiaryCategory]}
-                                                category={tertiaryCategory}
-                                                metric="Euclidean"
-                                                metricKey="euclidean"
-                                                showInfoIcon={false}
-                                            />
-                                        </div>
+                                        <components.StandardTable
+                                            data={EuclideanValues[tertiaryCategory]}
+                                            category={tertiaryCategory}
+                                            metric="Euclidean"
+                                            metricKey="euclidean"
+                                            showInfoIcon={false}
+                                        />
                                     )}
                                 </div>
                             )}

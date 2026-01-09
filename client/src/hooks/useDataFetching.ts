@@ -47,6 +47,7 @@ export const useDataFetching = () => {
         localStorage.removeItem('filenamesPerCategory');
         localStorage.removeItem('selectedCategory');
         localStorage.removeItem('secondaryCategory');
+        localStorage.removeItem('timeseries_meta');
 
         try {
             

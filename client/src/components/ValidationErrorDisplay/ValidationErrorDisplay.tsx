@@ -14,7 +14,7 @@ export const ValidationErrorDisplay: React.FC<Props> = ({ validationResult, file
   // Handle error prop for simple error display
   if (error && !validationResult) {
     return (
-      <Alert variant="danger" className="validation-alert">
+      <Alert variant="danger" className="validation-alert mb-0">
         <Alert.Heading className="validation-heading">
           <strong>❌ Error {fileName && `in "${fileName}"`}</strong>
         </Alert.Heading>
@@ -47,10 +47,10 @@ export const ValidationErrorDisplay: React.FC<Props> = ({ validationResult, file
   }
 
   return (
-    <div className="validation-display">
+    <div className="validation-display d-flex flex-column gap-3">
       {/* File Preview Section - only show when there are errors */}
       {filePreview && errors.length > 0 && (
-        <Alert variant="info" className="validation-alert">
+        <Alert variant="info" className="validation-alert mb-0">
           <Alert.Heading className="validation-heading">
             <strong>📄 File Preview {fileName && `- "${fileName}"`}</strong>
           </Alert.Heading>
@@ -62,7 +62,7 @@ export const ValidationErrorDisplay: React.FC<Props> = ({ validationResult, file
       )}
       
       {errors.length > 0 && (
-        <Alert variant="danger" className="validation-alert">
+        <Alert variant="danger" className="validation-alert mb-0">
           <Alert.Heading className="validation-heading">
             <strong>❌ Validation Errors {fileName && `in "${fileName}"`}</strong>
           </Alert.Heading>
