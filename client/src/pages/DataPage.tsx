@@ -80,11 +80,11 @@ const DataPage: React.FC = () => {
         if (firstFile) setSelectedTable(firstFile);
         return; // use cached data, no need to hit backend
       } catch (e) {
-        console.warn('Failed to parse cached chartData; refetching from backend.', e);
+        console.warn('Failed to parse cached chartData; discarding invalid cache.', e);
         localStorage.removeItem('chartData');
       }
     }
-    // If nothing cached, do not auto-fetch; wait for upload/import to populate chartData
+    // If no usable cached data (absent or invalid), page remains empty until user uploads/imports data
   }, [fetchData]);
 
   const selectedData = selectedTable

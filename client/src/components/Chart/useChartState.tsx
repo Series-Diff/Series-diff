@@ -61,7 +61,8 @@ export const useChartState = (
         const minTime = Math.min(...sampled);
         const maxTime = Math.max(...sampled);
         const totalDurationHours = (maxTime - minTime) / (1000 * 60 * 60);
-        const avg = totalDurationHours / sampled.length;
+        // Use original data length for correct average (not sampled length)
+        const avg = totalDurationHours / allSeries.length;
         return avg;
     }, [allData]);
 

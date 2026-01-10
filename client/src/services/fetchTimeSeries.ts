@@ -34,7 +34,11 @@ export const clearTimeSeriesCache = async () => {
   const keys = await cacheAPI.keys();
   for (const key of keys) {
     if (key.startsWith('timeseries:')) {
-      await cacheAPI.delete(key);
+      try {
+        await cacheAPI.delete(key);
+      } catch (e) {
+        console.warn(`Failed to delete cache entry ${key}:`, e);
+      }
     }
   }
 };

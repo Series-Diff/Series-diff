@@ -25,15 +25,19 @@ export default class ErrorBoundary extends React.Component<Props, State> {
     if (this.props.onError) {
       this.props.onError(msg);
     }
-    // Optionally log to console for dev diagnostics
-    // console.error('ErrorBoundary caught:', error, info);
+    // Log to console for diagnostics
+    console.error('ErrorBoundary caught:', error, info);
   }
 
   render() {
     // Render children; if an error occurs, React will call getDerivedStateFromError -> componentDidCatch
-    // We could render a fallback here, but since the alert is outside the boundary, just render null on error.
+    // Show minimal fallback UI so user isn't left with blank area
     if (this.state.hasError) {
-      return null;
+      return (
+        <div role="alert" className="alert alert-danger p-2 rounded">
+          An unexpected error occurred while displaying this content.
+        </div>
+      );
     }
     return this.props.children;
   }
