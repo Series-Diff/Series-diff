@@ -1,5 +1,5 @@
 import React from 'react';
-import StandardTable from './StandardTable/StandardTable';
+import StandardMatrix from './MetricMatrix/StandardMatrix';
 
 interface Props {
   visiblePlugins: Array<any>;
@@ -54,7 +54,7 @@ const PluginResultsSection: React.FC<Props> = ({
             const showInfoIcon = categoryIndex === 0;
 
             return (
-              <StandardTable
+              <StandardMatrix
                 key={`${plugin.id}-${category}`}
                 data={categoryData || {}}
                 category={category}

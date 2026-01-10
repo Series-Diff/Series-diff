@@ -2,7 +2,7 @@ import { useState, useEffect, useMemo, useRef, useCallback } from 'react';
 import { Metric } from '../constants/metricsConfig';
 import { LocalPlugin } from './useLocalPlugins';
 
-interface CombinedMetric {
+interface CombinedStatistic {
   id: string;
   name: string;
   mean?: number;
@@ -13,7 +13,7 @@ interface CombinedMetric {
   [key: string]: any;
 }
 
-const METRIC_KEY_MAPPING: Record<string, keyof CombinedMetric> = {
+const METRIC_KEY_MAPPING: Record<string, keyof CombinedStatistic> = {
   'mean': 'mean',
   'median': 'median',
   'variance': 'variance',
@@ -22,7 +22,7 @@ const METRIC_KEY_MAPPING: Record<string, keyof CombinedMetric> = {
 };
 
 export const useMetricsSelection = (
-  groupedMetrics: Record<string, CombinedMetric[]>
+  groupedMetrics: Record<string, CombinedStatistic[]>
 ) => {
   // Load plugins from localStorage and map to Metric format
   const [userMetrics, setUserMetrics] = useState<Metric[]>(() => {
@@ -268,7 +268,7 @@ export const useMetricsSelection = (
       // 3. Filter specific fields
       const filteredMetrics = metrics.map(metric => {
         // Start with basic ID info
-        const filtered: CombinedMetric = {
+        const filtered: CombinedStatistic = {
           id: metric.id,
           name: metric.name
         };
@@ -292,7 +292,7 @@ export const useMetricsSelection = (
       }
 
       return acc;
-    }, {} as Record<string, CombinedMetric[]>);
+    }, {} as Record<string, CombinedStatistic[]>);
   }, [groupedMetrics, selectedMetricsForDisplay]);
 
   // Helper function to check if a metric should be displayed

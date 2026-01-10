@@ -528,7 +528,7 @@ function DashboardPage() {
                                     {/* Metric-Matrix-Wrapper */}
                                 <components.MetricMatrixWrapper
                                   metricId="pearson_correlation"
-                                  Comp={components.CorrelationTable}
+                                  Comp={components.CorrelationMatrix}
                                   dataMap={PearsonCorrelationValues}
                                   metricLabel="Pearson Correlation"
                                   metricKey="pearson_correlation"
@@ -545,7 +545,7 @@ function DashboardPage() {
                                 />
                                 <components.MetricMatrixWrapper
                                   metricId="cosine_similarity"
-                                  Comp={components.CorrelationTable}
+                                  Comp={components.CorrelationMatrix}
                                   dataMap={CosineSimilarityValues}
                                   metricLabel="Cosine Similarity"
                                   metricKey="cosine_similarity"
@@ -561,7 +561,7 @@ function DashboardPage() {
                                 />
                                 <components.MetricMatrixWrapper
                                   metricId="mae"
-                                  Comp={components.StandardTable}
+                                  Comp={components.StandardMatrix}
                                   dataMap={maeValues}
                                   metricLabel="MAE"
                                   metricKey="mae"
@@ -576,7 +576,7 @@ function DashboardPage() {
                                 />
                                 <components.MetricMatrixWrapper
                                   metricId="rmse"
-                                  Comp={components.StandardTable}
+                                  Comp={components.StandardMatrix}
                                   dataMap={rmseValues}
                                   metricLabel="RMSE"
                                   metricKey="rmse"
@@ -591,7 +591,7 @@ function DashboardPage() {
                                 />
                                 <components.MetricMatrixWrapper
                                   metricId="dtw"
-                                  Comp={components.StandardTable}
+                                  Comp={components.StandardMatrix}
                                   dataMap={DTWValues}
                                   metricLabel="DTW"
                                   metricKey="dtw"
@@ -607,7 +607,7 @@ function DashboardPage() {
                                 />
                                 <components.MetricMatrixWrapper
                                   metricId="euclidean"
-                                  Comp={components.StandardTable}
+                                  Comp={components.StandardMatrix}
                                   dataMap={EuclideanValues}
                                   metricLabel="Euclidean"
                                   metricKey="euclidean"

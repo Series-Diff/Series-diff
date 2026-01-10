@@ -1,6 +1,6 @@
 import React, { useRef, useEffect } from 'react';
 import { Button, Spinner } from 'react-bootstrap';
-import Statistics from './Metrics';
+import Statistics from './Statistics';
 
 interface Props {
   groupedStatistics: Record<string, any>;

@@ -5,7 +5,7 @@ import { metricsCacheManager } from '../utils/metricsCacheManager';
 import { errorSimulator } from '../utils/errorSimulator';
 import { useGlobalCache } from '../contexts/CacheContext';
 
-import type { CombinedMetric } from '../components';
+import type { CombinedStatistic } from '../components';
 import type { CacheKey } from '../utils/metricsCacheManager';
 
 type SingleMetricType = Record<string, Record<string, number>>;
@@ -71,7 +71,7 @@ export const useMetricCalculations = (
     });
     const [metricError, setMetricError] = useState<Record<string, string | null>>({});
 
-    const [groupedMetrics, setGroupedMetrics] = useState<Record<string, CombinedMetric[]>>({});
+    const [groupedMetrics, setGroupedMetrics] = useState<Record<string, CombinedStatistic[]>>({});
     
     // Track selected metrics for reactive re-fetching
     // Note: stored as JSON array in localStorage, but converted to Set for consistent usage with useMetricsSelection
@@ -782,7 +782,7 @@ export const useMetricCalculations = (
     ]);
 
     useEffect(() => {
-        const updatedGroupedMetrics: Record<string, CombinedMetric[]> = {};
+        const updatedGroupedMetrics: Record<string, CombinedStatistic[]> = {};
 
         const visibleCategories = [selectedCategory, secondaryCategory, tertiaryCategory].filter(Boolean) as string[];
 
