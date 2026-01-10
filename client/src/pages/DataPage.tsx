@@ -68,7 +68,23 @@ const DataPage: React.FC = () => {
   };
 
   useEffect(() => {
-    fetchData();
+    const storedData = localStorage.getItem('chartData');
+    if (storedData) {
+      try {
+        const parsed = JSON.parse(storedData) as TimeSeriesResponse;
+        setChartData(parsed);
+
+        const firstFile = Object.keys(parsed)
+          .map(name => name.split('.')[1])
+          .filter((value, index, self) => value && self.indexOf(value) === index)[0];
+        if (firstFile) setSelectedTable(firstFile);
+        return; // use cached data, no need to hit backend
+      } catch (e) {
+        console.warn('Failed to parse cached chartData; discarding invalid cache.', e);
+        localStorage.removeItem('chartData');
+      }
+    }
+    // If no usable cached data (absent or invalid), page remains empty until user uploads/imports data
   }, [fetchData]);
 
   const selectedData = selectedTable

@@ -1,3 +1,13 @@
+import { apiLogger } from '../utils/apiLogger';
+import { cacheAPI } from '../utils/cacheApiWrapper';
+
+type TimeSeriesCacheEntry = {
+  data: TimeSeriesResponse;
+  timestamp: number;
+};
+
+const TIME_SERIES_CACHE_DURATION = 60 * 60 * 1000; // 1 hour
+
 export type TimeSeriesEntry = {
   x: string; // ISO string timestamp
   y: number;
@@ -19,15 +29,53 @@ const handleSessionToken = (response: Response) => {
   }
 };
 
+export const clearTimeSeriesCache = async () => {
+  // Clear all time series entries from cacheAPI
+  const keys = await cacheAPI.keys();
+  for (const key of keys) {
+    if (key.startsWith('timeseries:')) {
+      try {
+        await cacheAPI.delete(key);
+      } catch (e) {
+        console.warn(`Failed to delete cache entry ${key}:`, e);
+      }
+    }
+  }
+};
+
 export const fetchTimeSeriesData = async (
   start?: string,
   end?: string
 ): Promise<TimeSeriesResponse> => {
+  const cacheKey = `timeseries:${start || 'no-start'}|${end || 'no-end'}`;
+  
+  // Check cacheAPI first
+  try {
+    const cached = await cacheAPI.get<TimeSeriesCacheEntry>(cacheKey);
+    if (cached) {
+      apiLogger.logQuery('/api/timeseries', 'GET', {
+        params: { start, end },
+        fromCache: true,
+        cacheKey,
+        duration: 0,
+        status: 200,
+      });
+      return cached.data;
+    }
+  } catch (e) {
+    console.warn('Failed to check timeseries cache:', e);
+  }
+
   let url = `${API_URL}/api/timeseries`;
   const params: string[] = [];
   if (start) params.push(`start=${encodeURIComponent(start)}`);
   if (end) params.push(`end=${encodeURIComponent(end)}`);
   if (params.length > 0) url += `?${params.join('&')}`;
+  const startTime = performance.now();
+
+  apiLogger.logQuery('/api/timeseries', 'GET', {
+    params: { start, end },
+  });
 
   const resp = await fetch(url, {
     headers: {
@@ -39,6 +87,12 @@ export const fetchTimeSeriesData = async (
   handleSessionToken(resp);
 
   if (!resp.ok) throw new Error(await resp.text());
+  const duration = Math.round(performance.now() - startTime);
+  apiLogger.logQuery('/api/timeseries', 'GET', {
+    params: { start, end },
+    duration,
+    status: resp.status,
+  });
 
   const json: Record<string, Record<string, Record<string, number>>> = await resp.json();
   const out: TimeSeriesResponse = {};
@@ -57,6 +111,14 @@ export const fetchTimeSeriesData = async (
         out[compositeKey].push({ x: timestamp, y: value });
       }
     }
+  }
+
+  // Cache the response using cacheAPI
+  const cacheEntry: TimeSeriesCacheEntry = { data: out, timestamp: Date.now() };
+  try {
+    await cacheAPI.set(cacheKey, cacheEntry, TIME_SERIES_CACHE_DURATION);
+  } catch (e) {
+    console.warn('Failed to cache time series data:', e);
   }
 
   return out;

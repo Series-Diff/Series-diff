@@ -1,5 +1,8 @@
 import { useState, useCallback } from 'react';
 import * as services from '../services';
+import { apiLogger } from '../utils/apiLogger';
+import { metricsCacheManager } from '../utils/metricsCacheManager';
+import type { CacheKey } from '../utils/metricsCacheManager';
 
 export const useMovingAverage = (
     filenamesPerCategory: Record<string, string[]>,
@@ -18,7 +21,47 @@ export const useMovingAverage = (
         setIsMaLoading(true);
         setError(null);
         try {
-            const rollingMeans = await services.fetchAllRollingMeans(filenamesPerCategory, window);
+            // Generate cache key for moving average
+            const cacheParams: CacheKey = {
+                metricType: 'moving_average',
+                category: 'global',
+                dateRange: 'all',
+                window,
+            };
+            
+            // Check cache first
+            let rollingMeans: Record<string, services.TimeSeriesEntry[]>;
+            const cached = metricsCacheManager.get<Record<string, services.TimeSeriesEntry[]>>(cacheParams);
+            
+            if (cached) {
+                rollingMeans = cached;
+                apiLogger.logQuery(`/api/moving-average`, 'GET', {
+                    params: { window },
+                    fromCache: true,
+                    cacheKey: `moving_average|global|all|${window}`,
+                    duration: 0,
+                    status: 200,
+                });
+            } else {
+                // Fetch if not cached
+                const startTime = performance.now();
+                apiLogger.logQuery(`/api/moving-average`, 'GET', {
+                    params: { window, categories: Object.keys(filenamesPerCategory).length },
+                });
+                
+                rollingMeans = await services.fetchAllRollingMeans(filenamesPerCategory, window);
+                
+                const duration = Math.round(performance.now() - startTime);
+                apiLogger.logQuery(`/api/moving-average`, 'GET', {
+                    params: { window, categories: Object.keys(filenamesPerCategory).length },
+                    duration,
+                    status: 200,
+                });
+                
+                // Cache the result
+                metricsCacheManager.set(cacheParams, rollingMeans);
+            }
+            
             setRollingMeanChartData(rollingMeans);
         } catch (err: unknown) {
             setError(`Failed to fetch moving average data: ${err instanceof Error ? err.message : 'Unknown error'}`);

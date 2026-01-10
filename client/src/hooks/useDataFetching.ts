@@ -81,10 +81,8 @@ export const useDataFetching = () => {
             } catch (e) {
                 localStorage.removeItem('chartData');
                 localStorage.removeItem('filenamesPerCategory');
-                handleFetchData();
+                // Do not auto-fetch if nothing cached and parsing failed; wait for user action (file upload)
             }
-        } else {
-            handleFetchData();
         }
     }, [handleFetchData]);
 
@@ -98,6 +96,8 @@ export const useDataFetching = () => {
                     console.warn('chartData too large for localStorage, clearing cache');
                     // Clear old data and skip saving this large dataset
                     localStorage.removeItem('chartData');
+                    // Surface a concise warning in UI (details provided by Alert hint)
+                    setError('Storage quota exceeded');
                 } else {
                     console.error('Error saving chartData to localStorage:', e);
                 }
@@ -110,6 +110,7 @@ export const useDataFetching = () => {
                 if (e instanceof DOMException && e.name === 'QuotaExceededError') {
                     console.warn('filenamesPerCategory too large for localStorage, clearing cache');
                     localStorage.removeItem('filenamesPerCategory');
+                    setError('Storage quota exceeded');
                 } else {
                     console.error('Error saving filenamesPerCategory to localStorage:', e);
                 }

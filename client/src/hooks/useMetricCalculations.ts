@@ -1,7 +1,11 @@
 import { useState, useEffect, useMemo } from 'react';
 import * as services from '../services';
+import { apiLogger } from '../utils/apiLogger';
+import { metricsCacheManager } from '../utils/metricsCacheManager';
+import { useGlobalCache } from '../contexts/CacheContext';
 
 import type { CombinedMetric } from '../components';
+import type { CacheKey } from '../utils/metricsCacheManager';
 
 type SingleMetricType = Record<string, Record<string, number>>;
 type CorrelationMetricType = Record<string, Record<string, Record<string, number>>>;
@@ -30,8 +34,18 @@ export const useMetricCalculations = (
     secondaryCategory: string | null,
     tertiaryCategory: string | null,
     startDate: Date | null,
-    endDate: Date | null
+    endDate: Date | null,
+    timeRangePending: boolean,
+    defaultMinDateForBounds?: Date | null,
+    defaultMaxDateForBounds?: Date | null
 ) => {
+    const globalCache = useGlobalCache();
+    
+    // Set global cache in metricsCacheManager on mount
+    useEffect(() => {
+        metricsCacheManager.setCache(globalCache.metricsCache);
+    }, [globalCache.metricsCache]);
+    
     const [meanValues, setMeanValues] = useState<SingleMetricType>({});
     const [medianValues, setMedianValues] = useState<SingleMetricType>({});
     const [varianceValues, setVarianceValues] = useState<SingleMetricType>({});
@@ -111,13 +125,34 @@ export const useMetricCalculations = (
         perCategoryCorrelationMetrics.forEach(({ key, setter }) => loadMetricFromStorage(key, setter));
     }, [singleMetrics, allCorrelationMetrics, perCategoryCorrelationMetrics]);
 
+    // Stable, memoized default bounds as ISO strings to avoid identity churn
+    const defaultMinIso = useMemo(() => (
+        defaultMinDateForBounds ? new Date(defaultMinDateForBounds.getTime()).toISOString() : null
+    ), [defaultMinDateForBounds ? defaultMinDateForBounds.getTime() : null]);
+    const defaultMaxIso = useMemo(() => (
+        defaultMaxDateForBounds ? new Date(defaultMaxDateForBounds.getTime()).toISOString() : null
+    ), [defaultMaxDateForBounds ? defaultMaxDateForBounds.getTime() : null]);
+
     useEffect(() => {
         if (Object.keys(filenamesPerCategory).length === 0) return;
+        // Ensure we always include start/end in requests by waiting until both are ready
+        if (timeRangePending) return;
 
         const fetchMetrics = async () => {
             try {
-                const start = startDate ? startDate.toISOString() : undefined;
-                const end = endDate ? endDate.toISOString() : undefined;
+            // Standardize full-range parameters as null (not undefined)
+            const start: string | null = startDate ? startDate.toISOString() : null;
+            const end: string | null = endDate ? endDate.toISOString() : null;
+                
+                // Generate cache key prefix for date range
+                // Normalize nulls to bounds to keep keys stable when toggling full range
+                const effectiveStartKey = (start === null)
+                    ? defaultMinIso
+                    : start;
+                const effectiveEndKey = (end === null)
+                    ? defaultMaxIso
+                    : end;
+                const dateRangeKey = `${effectiveStartKey || 'no-start'}_to_${effectiveEndKey || 'no-end'}`;
 
                 // Get selected metrics from localStorage
                 const selectedMetricsJson = localStorage.getItem('selectedMetricsForDisplay');
@@ -151,9 +186,81 @@ export const useMetricCalculations = (
 
                 if (singleMetricsToFetch.length > 0) {
                     await Promise.all(
-                        singleMetricsToFetch.map(async ({ fetch, setter }) => {
-                            const data = await fetch(filenamesPerCategory, start, end);
-                            setter(data);
+                        singleMetricsToFetch.map(async ({ key, fetch, setter }) => {
+                            // Map hook key to metric type name
+                            const metricTypeMap: Record<string, string> = {
+                                meanValues: 'mean',
+                                medianValues: 'median',
+                                varianceValues: 'variance',
+                                stdDevsValues: 'stdDev',
+                                autoCorrelationValues: 'autocorrelation',
+                            };
+                            const metricType = metricTypeMap[key] || key;
+                            
+                            // Check cache for each category
+                            let cachedData: SingleMetricType = {};
+                            let categoriesToFetch: string[] = [];
+                            
+                            for (const category of Object.keys(filenamesPerCategory)) {
+                                const cacheParams: CacheKey = {
+                                    metricType,
+                                    category,
+                                    dateRange: dateRangeKey,
+                                };
+                                
+                                const cached = metricsCacheManager.get<Record<string, number>>(cacheParams);
+                                if (cached) {
+                                    cachedData[category] = cached;
+                                    apiLogger.logQuery(`/api/metrics/${metricType}/${category}`, 'GET', {
+                                        params: { start, end },
+                                        fromCache: true,
+                                        cacheKey: `${metricType}|${category}|${dateRangeKey}`,
+                                        duration: 0,
+                                        status: 200,
+                                    });
+                                } else {
+                                    categoriesToFetch.push(category);
+                                }
+                            }
+                            
+                            // If all categories cached, use cached data
+                            if (categoriesToFetch.length === 0) {
+                                if (Object.keys(cachedData).length > 0) {
+                                    setter(cachedData);
+                                }
+                                return;
+                            }
+                            
+                            // Fetch data for categories not in cache
+                            const startTime = performance.now();
+                            apiLogger.logQuery(`/api/metrics/${metricType}`, 'GET', {
+                                params: { categories: categoriesToFetch.length, start, end },
+                            });
+                            
+                            const data = await fetch(filenamesPerCategory, start || undefined, end || undefined);
+                            const duration = Math.round(performance.now() - startTime);
+                            
+                            apiLogger.logQuery(`/api/metrics/${metricType}`, 'GET', {
+                                params: { categories: categoriesToFetch.length, start, end },
+                                duration,
+                                status: 200,
+                            });
+                            
+                            // Cache each category separately
+                            for (const category of Object.keys(data)) {
+                                if (categoriesToFetch.includes(category)) {
+                                    const cacheParams: CacheKey = {
+                                        metricType,
+                                        category,
+                                        dateRange: dateRangeKey,
+                                    };
+                                    metricsCacheManager.set(cacheParams, data[category]);
+                                }
+                            }
+                            
+                            // Merge cached and newly fetched data
+                            const mergedData = { ...cachedData, ...data };
+                            setter(mergedData);
                         })
                     );
                 }
@@ -166,9 +273,78 @@ export const useMetricCalculations = (
 
                 if (allCorrelationMetricsToFetch.length > 0) {
                     await Promise.all(
-                        allCorrelationMetricsToFetch.map(async ({ fetch, setter }) => {
-                            const data = await fetch(filenamesPerCategory, start, end);
-                            setter(data);
+                        allCorrelationMetricsToFetch.map(async ({ key, fetch, setter }) => {
+                            // Map hook key to metric type name
+                            const metricTypeMap: Record<string, string> = {
+                                maeValues: 'mae',
+                                rmseValues: 'rmse',
+                            };
+                            const metricType = metricTypeMap[key] || key;
+                            
+                            // Check cache for each category
+                            let cachedData: CorrelationMetricType = {};
+                            let categoriesToFetch: string[] = [];
+                            
+                            for (const category of Object.keys(filenamesPerCategory)) {
+                                const cacheParams: CacheKey = {
+                                    metricType,
+                                    category,
+                                    dateRange: dateRangeKey,
+                                };
+                                
+                                const cached = metricsCacheManager.get<Record<string, Record<string, number>>>(cacheParams);
+                                if (cached) {
+                                    cachedData[category] = cached;
+                                    apiLogger.logQuery(`/api/metrics/${metricType}/${category}`, 'GET', {
+                                        params: { start, end },
+                                        fromCache: true,
+                                        cacheKey: `${metricType}|${category}|${dateRangeKey}`,
+                                        duration: 0,
+                                        status: 200,
+                                    });
+                                } else {
+                                    categoriesToFetch.push(category);
+                                }
+                            }
+                            
+                            // If all categories cached, use cached data
+                            if (categoriesToFetch.length === 0) {
+                                if (Object.keys(cachedData).length > 0) {
+                                    setter(cachedData);
+                                }
+                                return;
+                            }
+                            
+                            // Fetch data for categories not in cache
+                            const startTime = performance.now();
+                            apiLogger.logQuery(`/api/metrics/${metricType}`, 'GET', {
+                                params: { categories: categoriesToFetch.length, start, end },
+                            });
+                            
+                            const data = await fetch(filenamesPerCategory, start || undefined, end || undefined);
+                            const duration = Math.round(performance.now() - startTime);
+                            
+                            apiLogger.logQuery(`/api/metrics/${metricType}`, 'GET', {
+                                params: { categories: categoriesToFetch.length, start, end },
+                                duration,
+                                status: 200,
+                            });
+                            
+                            // Cache each category separately
+                            for (const category of Object.keys(data)) {
+                                if (categoriesToFetch.includes(category)) {
+                                    const cacheParams: CacheKey = {
+                                        metricType,
+                                        category,
+                                        dateRange: dateRangeKey,
+                                    };
+                                    metricsCacheManager.set(cacheParams, data[category]);
+                                }
+                            }
+                            
+                            // Merge cached and newly fetched data
+                            const mergedData = { ...cachedData, ...data };
+                            setter(mergedData);
                         })
                     );
                 }
@@ -180,26 +356,100 @@ export const useMetricCalculations = (
                 });
 
                 for (const { key, setter, fetch } of perCategoryMetricsToFetch) {
+                    const metricTypeMap: Record<string, string> = {
+                        PearsonCorrelationValues: 'pearson_correlation',
+                        DTWValues: 'dtw',
+                        EuclideanValues: 'euclidean',
+                        CosineSimilarityValues: 'cosine_similarity',
+                    };
+                    const metricType = metricTypeMap[key] || key;
+                    
                     const data: CorrelationMetricType = {};
+                    
                     for (const category of Object.keys(filenamesPerCategory)) {
-                        const files = filenamesPerCategory[category];
-                        let result;
-                        if (key === 'EuclideanValues') {
-                            result = await fetch(files, null, category, start, end);
-                        } else {
-                            result = await fetch(files, category, start, end);
+                        const cacheParams: CacheKey = {
+                            metricType,
+                            category,
+                            dateRange: dateRangeKey,
+                        };
+                        
+                        // Check cache first
+                        const cached = metricsCacheManager.get<Record<string, Record<string, number>>>(cacheParams);
+                        if (cached) {
+                            data[category] = cached;
+                            apiLogger.logQuery(`/api/metrics/${metricType}/${category}`, 'GET', {
+                                params: { start, end },
+                                fromCache: true,
+                                cacheKey: `${metricType}|${category}|${dateRangeKey}`,
+                                duration: 0,
+                                status: 200,
+                            });
+                            continue;
                         }
-                        data[category] = result;
+                        
+                        // Fetch if not cached
+                        const startTime = performance.now();
+                        const files = filenamesPerCategory[category];
+                        
+                        apiLogger.logQuery(`/api/metrics/${metricType}/${category}`, 'GET', {
+                            params: { files: files.length, start, end },
+                        });
+                        
+                        let result;
+                        try {
+                            if (key === 'EuclideanValues') {
+                                result = await fetch(files, null, category, start || undefined, end || undefined);
+                            } else {
+                                result = await fetch(files, category, start || undefined, end || undefined);
+                            }
+                            
+                            const duration = Math.round(performance.now() - startTime);
+                            
+                            apiLogger.logQuery(`/api/metrics/${metricType}/${category}`, 'GET', {
+                                params: { files: files.length, start, end },
+                                duration,
+                                status: 200,
+                            });
+                            
+                            // Cache the result only on success
+                            metricsCacheManager.set(cacheParams, result);
+                            data[category] = result;
+                        } catch (fetchError) {
+                            const duration = Math.round(performance.now() - startTime);
+                            apiLogger.logQuery(`/api/metrics/${metricType}/${category}`, 'GET', {
+                                params: { files: files.length, start, end },
+                                duration,
+                                status: 500,
+                            });
+                            console.warn(`Failed to fetch ${metricType} for ${category}:`, fetchError);
+                            // Don't cache errors, skip this category
+                        }
                     }
+                    
                     setter(data);
                 }
             } catch (err) {
+                apiLogger.logQuery('/api/metrics', 'GET', {
+                    status: 500,
+                    duration: 0,
+                });
                 console.error('Error fetching metrics:', err);
             }
         };
 
         fetchMetrics();
-    }, [filenamesPerCategory, singleMetrics, allCorrelationMetrics, perCategoryCorrelationMetrics, startDate, endDate, selectedMetricsForDisplay]);
+    }, [
+        filenamesPerCategory,
+        singleMetrics,
+        allCorrelationMetrics,
+        perCategoryCorrelationMetrics,
+        startDate,
+        endDate,
+        selectedMetricsForDisplay,
+        timeRangePending,
+        defaultMinIso,
+        defaultMaxIso
+    ]);
 
     useEffect(() => {
         const updatedGroupedMetrics: Record<string, CombinedMetric[]> = {};

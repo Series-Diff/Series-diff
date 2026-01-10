@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, useCallback, useRef } from "react";
 import { TimeSeriesEntry } from "@/services/fetchTimeSeries";
 
 /**
@@ -16,7 +16,7 @@ export const useChartState = (
     primaryData: Record<string, TimeSeriesEntry[]>,
     secondaryData?: Record<string, TimeSeriesEntry[]>,
     tertiaryData?: Record<string, TimeSeriesEntry[]>,
-    manualData: Record<string, TimeSeriesEntry[]> = {}
+    manualData?: Record<string, TimeSeriesEntry[]>
 ) => {
     const [xaxisRange, setXaxisRange] = useState<[string | null, string | null]>([null, null]);
     const [tickFormat, setTickFormat] = useState('%d.%m.%Y'); // Only day before zoom
@@ -32,28 +32,38 @@ export const useChartState = (
     const [customY3Max, setCustomY3Max] = useState<string>('');
     const [visibleMap, setVisibleMap] = useState<Record<string, boolean>>({});
 
+    const manualDataSafe = useMemo(() => manualData ?? {}, [manualData]);
+
     // Memoized allData to stabilize dependencies
-    const allData = useMemo(
-        () => ({
+    // Memoize allData with shallow compare to avoid unnecessary recomputation
+    const allData = useMemo(() => {
+        const result = {
             ...primaryData,
             ...(secondaryData || {}),
             ...(tertiaryData || {}),
-            ...manualData,
-        }),
-        [primaryData, secondaryData, tertiaryData, manualData]
-    );
+            ...manualDataSafe,
+        };
+        return result;
+    }, [primaryData, secondaryData, tertiaryData, manualDataSafe]);
 
     const averageStepHours = useMemo(() => {
-        const allXValues = Object.values(allData).flat().map(d => new Date(d.x).getTime());
-        if (allXValues.length < 2) return 0;
-
-        // Szukamy min i max, aby obliczyć rozpiętość
-        const minTime = Math.min(...allXValues);
-        const maxTime = Math.max(...allXValues);
+        // Limit the number of points analyzed to avoid stack overflow
+        const MAX_POINTS = 10000;
+        const allSeries = Object.values(allData).flat();
+        if (allSeries.length < 2) return 0;
+        // Sample up to MAX_POINTS evenly from the data
+        const step = Math.max(1, Math.floor(allSeries.length / MAX_POINTS));
+        const sampled = [];
+        for (let i = 0; i < allSeries.length; i += step) {
+            sampled.push(new Date(allSeries[i].x).getTime());
+        }
+        if (sampled.length < 2) return 0;
+        const minTime = Math.min(...sampled);
+        const maxTime = Math.max(...sampled);
         const totalDurationHours = (maxTime - minTime) / (1000 * 60 * 60);
-
-        // Średni odstęp = całkowity czas / liczbę punktów
-        return totalDurationHours / allXValues.length;
+        // Use original data length for correct average (not sampled length)
+        const avg = totalDurationHours / allSeries.length;
+        return avg;
     }, [allData]);
 
     // Calculate data bounds for primary Y-axis
@@ -88,38 +98,18 @@ export const useChartState = (
         };
     }, [tertiaryData]);
 
-    // Set initial X-range based on data
-    // This hook allows for dynamic X-axis range right after loading data, without it you need to refresh the page first
-    useEffect(() => {
-        // Check if allData has any keys (is not empty object)
-        if (Object.keys(allData).length === 0) return;
-        
-        const allXStrings = Object.values(allData).flat().map(d => d.x);
-        if (allXStrings.length === 0) return;
-                const stringsWithTimestamps = allXStrings.map(str => ({
-            str,
-            ts: new Date(str).getTime()
-        }));
-        const minTs = Math.min(...stringsWithTimestamps.map(item => item.ts));
-        const maxTs = Math.max(...stringsWithTimestamps.map(item => item.ts));
-        const minXString = stringsWithTimestamps.find(item => item.ts === minTs)?.str || allXStrings[0];
-        const maxXString = stringsWithTimestamps.find(item => item.ts === maxTs)?.str || allXStrings[allXStrings.length - 1];
-
-        const fakeEvent = {
-            'xaxis.range[0]': minXString,
-            'xaxis.range[1]': maxXString,
-        };
-
-        handleRelayout(fakeEvent);
-    }, [allData]);
-
-    // Relayout handler for zoom and range updates
-    const handleRelayout = (event: any) => {
+    // Memoize relayout handler to avoid new reference on each render
+    const handleRelayout = useCallback((event: any) => {
         if (event['xaxis.range[0]'] && event['xaxis.range[1]']) {
             const rangeStart = new Date(event['xaxis.range[0]']);
             const rangeEnd = new Date(event['xaxis.range[1]']);
             const diffMs = rangeEnd.getTime() - rangeStart.getTime();
             const diffHours = diffMs / (1000 * 60 * 60);
+
+            const nextRange: [string, string] = [event['xaxis.range[0]'], event['xaxis.range[1]']];
+            if (xaxisRange[0] === nextRange[0] && xaxisRange[1] === nextRange[1]) {
+                return; // No-op to prevent relayout-induced loops
+            }
 
             const estimatedPointsOnScreen = diffHours / (averageStepHours || 0.001);
 
@@ -133,13 +123,52 @@ export const useChartState = (
             } else {
                 setTickFormat('%d.%m.%Y');
             }
-            setXaxisRange([event['xaxis.range[0]'], event['xaxis.range[1]']]);
+            setXaxisRange(nextRange);
         } else if (event['xaxis.autorange'] === true) {
+            if (xaxisRange[0] === null && xaxisRange[1] === null) return; // already reset
             setXaxisRange([null, null]); // Resetting X-axis range
             setTickFormat('%d.%m.%Y'); // Restoring default format
             setShowMarkers(false); // Restoring default markers
         }
-    };
+    }, [xaxisRange, averageStepHours]);
+
+    // Use a ref to avoid triggering effect on every xaxisRange change
+    const xaxisRangeRef = useRef<[string | null, string | null]>([null, null]);
+    useEffect(() => {
+        xaxisRangeRef.current = xaxisRange;
+    }, [xaxisRange]);
+
+    // Only run initial X-range setup when allData transitions from empty to non-empty
+    const prevAllDataCount = useRef(0);
+    useEffect(() => {
+        const keys = Object.keys(allData);
+        // Only run when allData transitions from empty to non-empty
+        if (prevAllDataCount.current === 0 && keys.length > 0) {
+            const allXStrings = Object.values(allData).flat().map(d => d.x);
+            if (allXStrings.length === 0) return;
+
+            const stringsWithTimestamps = allXStrings.map(str => ({
+                str,
+                ts: new Date(str).getTime()
+            }));
+            const minTs = Math.min(...stringsWithTimestamps.map(item => item.ts));
+            const maxTs = Math.max(...stringsWithTimestamps.map(item => item.ts));
+            const minXString = stringsWithTimestamps.find(item => item.ts === minTs)?.str || allXStrings[0];
+            const maxXString = stringsWithTimestamps.find(item => item.ts === maxTs)?.str || allXStrings[allXStrings.length - 1];
+
+            // Avoid relayout loop when range is already aligned with data
+            if (xaxisRangeRef.current[0] === minXString && xaxisRangeRef.current[1] === maxXString) return;
+
+            const fakeEvent = {
+                'xaxis.range[0]': minXString,
+                'xaxis.range[1]': maxXString,
+            };
+
+            handleRelayout(fakeEvent);
+        }
+        prevAllDataCount.current = keys.length;
+    }, [allData, handleRelayout]);
+
 
     return {
         xaxisRange, tickFormat, showMarkers, customRange, setCustomRange, customYMin, setCustomYMin, customYMax, setCustomYMax,

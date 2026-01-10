@@ -1,5 +1,10 @@
 // services/fetchAllDTWs.ts
 
+// DTW failure threshold: if more than 25% of pairs fail to compute,
+// throw an error to prevent caching potentially invalid results.
+// This typically indicates OOM issues or backend timeouts with large datasets.
+const DTW_FAILURE_THRESHOLD = 0.25;
+
 const API_URL = (process.env.REACT_APP_API_URL || '').replace(/\/$/, '');
 const getAuthHeaders = (): HeadersInit => {
   const token = localStorage.getItem('session_token');
@@ -67,6 +72,7 @@ export async function fetchAllDTWs(
   }
 
   // Obliczamy tylko górny trójkąt macierzy (unikalne pary)
+  let failedPairs = 0;
   for (let i = 0; i < numFiles; i++) {
     const file1 = filenames[i];
 
@@ -74,11 +80,25 @@ export async function fetchAllDTWs(
       const file2 = filenames[j];
 
       const value = await fetchDTW(file1, file2, category, start, end);
+      
+      // If fetch fails (null), don't cache 0 - it might be OOM
+      if (value === null) {
+        failedPairs++;
+        // Skip this pair - leave as 0 but don't treat as valid result
+        continue;
+      }
+      
       const dtwValue = value ?? 0;
 
       DTWs[file1][file2] = dtwValue;
       DTWs[file2][file1] = dtwValue;
     }
+  }
+  
+  // If more than DTW_FAILURE_THRESHOLD (25%) of pairs failed, throw error to prevent caching
+  const totalPairs = (numFiles * (numFiles - 1)) / 2;
+  if (failedPairs > 0 && failedPairs >= totalPairs * DTW_FAILURE_THRESHOLD) {
+    throw new Error(`DTW calculation failed for ${failedPairs} pairs (possible OOM or timeout)`);
   }
 
   return DTWs;
