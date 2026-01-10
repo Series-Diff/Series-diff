@@ -43,7 +43,7 @@ const ScatterPlotModal: React.FC<ScatterPlotModalProps> = ({
         <span className="ms-2">Loading aligned data...</span>
           </div>
         ) : points.length === 0 ? (
-          <div className="text-center p-5 w-100">Brak wspólnych punktów (sprawdź tolerancję).</div>
+          <div className="text-center p-5 w-100">No common points (check tolerance).</div>
         ) : (
           <Plot
         data={[
