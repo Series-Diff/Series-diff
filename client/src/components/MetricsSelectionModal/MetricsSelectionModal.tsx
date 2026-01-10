@@ -154,7 +154,7 @@ const MetricsSelectionModal: React.FC<MetricsSelectionModalProps> = ({
         }, [show]);
 
     return (
-        <Modal show={show} onHide={handleClose} size="lg" centered>
+        <Modal show={show} onHide={handleClose} size="lg" centered data-component="MetricsSelectionModal">
             <Modal.Header closeButton>
                 <Modal.Title>Select Metrics to Display</Modal.Title>
             </Modal.Header>

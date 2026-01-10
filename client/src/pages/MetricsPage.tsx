@@ -71,6 +71,7 @@ function MetricsPage() {
                 });
             } else {
                 // Creating a new metric
+                // Note: createPlugin auto-adds the new plugin to selectedMetricsForDisplay
                 createPlugin(
                     metricData.label,
                     metricData.description,

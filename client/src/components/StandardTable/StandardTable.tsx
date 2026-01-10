@@ -1,42 +1,82 @@
 import React, { useState } from "react";
-import { Button } from 'react-bootstrap';
+import { Alert, Spinner, Card, Table, Button } from "react-bootstrap";
 import { InfoCircle } from 'react-bootstrap-icons';
 import MetricInfoModal from "../MetricInfoModal/MetricInfoModal";
 import { getMetricDescription, hasMetricDescription, BasicMetricInfo } from "../../constants/metricsDescriptions";
 
 
 interface StandardTableProps {
-    data: Record<string, Record<string, number>>; // Metric data in format: file1 -> (file2 -> value)
-    category: string; // Category name
-    metric: string; // Metric name
-    metricKey?: string; // Metric key for description lookup
-    showInfoIcon?: boolean; // Whether to show the info icon (default: true)
-    customInfo?: BasicMetricInfo; // Custom info for plugins
+    data: Record<string, Record<string, number>>;
+    category: string;
+    metric: string;
+    metricKey?: string;
+    showInfoIcon?: boolean;
+    customInfo?: BasicMetricInfo;
+    error?: string;
+    isLoading?: boolean;
+    onRetry?: () => void;
 }
 
 
-const StandardTable: React.FC<StandardTableProps> = ({data, category, metric, metricKey, showInfoIcon = true, customInfo}) => {
-    const filenames = Object.keys(data); // List of filenames in the category
+const StandardTable: React.FC<StandardTableProps> = ({ data, category, metric, metricKey, showInfoIcon = true, customInfo, error, isLoading = false, onRetry }) => {
+    const filenames = Object.keys(data);
     const [showModal, setShowModal] = useState(false);
     const metricDescription = metricKey ? getMetricDescription(metricKey) : undefined;
-    
-    // Use customInfo for plugins or metricDescription for standard metrics
     const infoToShow = customInfo || metricDescription;
     const hasInfo = customInfo || (metricKey && hasMetricDescription(metricKey));
+    const isAllZeroMatrix = filenames.length > 0 && filenames.every((f1) =>
+        filenames.every((f2) => (data[f1]?.[f2] ?? 0) === 0)
+    );
 
-    // If no data — show message
+    if (isLoading) {
+        return (
+            <Card className="shadow-sm" id="pdf-content-metrics-vertical">
+                <Card.Header className="bg-light text-center">
+                    <h5 className="mb-0">{metric} Matrix ({category})</h5>
+                </Card.Header>
+                <Card.Body className="p-3 text-center">
+                    <Spinner animation="border" size="sm" className="me-2" />
+                    <span className="text-muted">Loading {metric}...</span>
+                </Card.Body>
+            </Card>
+        );
+    }
+
+    if (error || isAllZeroMatrix) {
+        const message = error || 'Metric data is all zeros, which indicates a calculation error.';
+        return (
+            <Card className="shadow-sm" id="pdf-content-metrics-vertical">
+                <Card.Header className="bg-light text-center">
+                    <h5 className="mb-0">{metric} Matrix ({category})</h5>
+                </Card.Header>
+                <Card.Body className="p-3">
+                    <Alert variant="danger" className="mb-0 d-flex align-items-center justify-content-center text-center">
+                        <div className="d-flex flex-column flex-sm-row align-items-center gap-2">
+                            <span><strong>Error calculating {metric}:</strong> {message}</span>
+                            {onRetry && error && (
+                                <Button variant="outline-danger" size="sm" onClick={onRetry} className="flex-shrink-0">
+                                    Retry
+                                </Button>
+                            )}
+                        </div>
+                    </Alert>
+                </Card.Body>
+            </Card>
+        );
+    }
+
     if (filenames.length === 0) {
         return (
-            <div className="alert alert-secondary text-center" role="alert">
+            <Alert variant="warning" className="text-center mb-0">
                 No {metric} data available for <strong>{category}</strong>.
-            </div>
+            </Alert>
         );
     }
 
     return (
         <>
-            <div className="card shadow-sm" id="pdf-content-metrics-vertical">
-                <div className="card-header bg-light text-center position-relative">
+            <Card className="shadow-sm" id="pdf-content-metrics-vertical">
+                <Card.Header className="bg-light text-center position-relative">
                     <h5 className="mb-0">
                         {metric} Matrix ({category})
                     </h5>
@@ -49,58 +89,59 @@ const StandardTable: React.FC<StandardTableProps> = ({data, category, metric, me
                             title="Statistics information"
                             aria-label="Show metric information"
                         >
-                        <InfoCircle size={20} />
+                            <InfoCircle size={20} />
                         </Button>
                     )}
-                </div>
-                <div className="card-body p-0">
+                </Card.Header>
+                <Card.Body className="p-0">
                     <div className="table-responsive">
                         {/* Metric matrix table */}
-                        <table className="table table-bordered mb-0 align-middle text-center">
+                        <Table bordered className="mb-0 align-middle text-center">
                             <thead className="table-light">
-                            <tr>
-                                <th scope="col">File</th>
-                                {/* Column headers with filenames */}
-                                {filenames.map((f) => (
-                                    <th key={`header-${f}`} scope="col">
-                                        {f}
-                                    </th>
-                                ))}
-                            </tr>
+                                <tr>
+                                    <th scope="col">File</th>
+                                    {/* Column headers with filenames */}
+                                    {filenames.map((f) => (
+                                        <th key={`header-${f}`} scope="col">
+                                            {f}
+                                        </th>
+                                    ))}
+                                </tr>
                             </thead>
                             <tbody>
-                            {/* Metric matrix rows */}
-                            {filenames.map((f1) => (
-                                <tr key={`row-${f1}`}>
-                                    <th scope="row" className="bg-light text-dark fw-semibold">
-                                        {f1}
-                                    </th>
-                                    {filenames.map((f2) => {
-                                        const value = data[f1]?.[f2] ?? 0;
-                                        const backgroundColor = `rgba(${value === 0 ? "204,204,204" : "255,255,255"})`;
+                                {/* Metric matrix rows */}
+                                {filenames.map((f1) => (
+                                    <tr key={`row-${f1}`}>
+                                        <th scope="row" className="bg-light text-dark fw-semibold">
+                                            {f1}
+                                        </th>
+                                        {filenames.map((f2) => {
+                                            const value = data[f1]?.[f2] ?? 0;
+                                            const safeValue = Number.isFinite(value) ? value : 0;
+                                            const backgroundColor = `rgba(${safeValue === 0 ? "204,204,204" : "255,255,255"})`;
 
-                                        return (
-                                            <td
-                                                key={`${f1}-${f2}`}
-                                                title={typeof value === 'number' ? value.toFixed(3) : String(value)}// Show exact value on hover
-                                                style={{
-                                                    backgroundColor,
-                                                    color: "#000",
-                                                    fontWeight: f1 === f2 ? "bold" : "normal", // Wyróżnij przekątną
-                                                }}
-                                            >
-                                                {typeof value === 'number' ? value.toFixed(3) : String(value)}
-                                            </td>
-                                        );
-                                    })}
-                                </tr>
-                            ))}
+                                            return (
+                                                <td
+                                                    key={`${f1}-${f2}`}
+                                                    title={safeValue.toFixed(3)} // Show exact value on hover
+                                                    style={{
+                                                        backgroundColor,
+                                                        color: "#000",
+                                                        fontWeight: f1 === f2 ? "bold" : "normal", // Wyróżnij przekątną
+                                                    }}
+                                                >
+                                                    {safeValue.toFixed(3)}
+                                                </td>
+                                            );
+                                        })}
+                                    </tr>
+                                ))}
                             </tbody>
-                        </table>
+                        </Table>
                     </div>
-                </div>
-            </div>
-            
+                </Card.Body>
+            </Card>
+
             {infoToShow && (
                 <MetricInfoModal
                     show={showModal}
@@ -110,6 +151,6 @@ const StandardTable: React.FC<StandardTableProps> = ({data, category, metric, me
             )}
         </>
     );
-}
+};
 
 export default StandardTable;

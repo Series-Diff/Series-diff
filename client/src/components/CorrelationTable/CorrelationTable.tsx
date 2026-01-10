@@ -1,38 +1,79 @@
-// src/components/CorrelationTable/CorrelationTable.tsx
 import React, { useState } from "react";
-import { Button } from 'react-bootstrap';
+import { Alert, Spinner, Card, Table, Button } from "react-bootstrap";
 import { InfoCircle } from 'react-bootstrap-icons';
 import MetricInfoModal from "../MetricInfoModal/MetricInfoModal";
 import { getMetricDescription, hasMetricDescription } from "../../constants/metricsDescriptions";
 
 interface CorrelationTableProps {
-  data: Record<string, Record<string, number>>; // Dane korelacji w formacie: plik1 -> (plik2 -> wartość)
-  category: string; // Nazwa kategorii
-  onCellClick?: (file1: string, file2: string) => void; // Funkcja wywoływana po kliknięciu komórki
-  clickable?: boolean; // Czy komórki tabeli mają być klikalne
-  metric: string; // Metric name
-  metricKey?: string; // Metric key for description lookup
-  showInfoIcon?: boolean; // Whether to show the info icon (default: true)
+  data: Record<string, Record<string, number>>;
+  category: string;
+  onCellClick?: (file1: string, file2: string) => void;
+  clickable?: boolean;
+  metric: string;
+  metricKey?: string;
+  showInfoIcon?: boolean;
+  error?: string;
+  isLoading?: boolean;
+  onRetry?: () => void;
 }
 
-const CorrelationTable: React.FC<CorrelationTableProps> = ({ data, category, onCellClick, clickable = true , metric, metricKey, showInfoIcon = true}) => {
-  const filenames = Object.keys(data); // Lista nazw plików z danej kategorii
+const CorrelationTable: React.FC<CorrelationTableProps> = ({ data, category, onCellClick, clickable = true, metric, metricKey, showInfoIcon = true, error, isLoading = false, onRetry }) => {
+  const filenames = Object.keys(data);
   const [showModal, setShowModal] = useState(false);
   const metricDescription = metricKey ? getMetricDescription(metricKey) : undefined;
+  const isAllZeroMatrix = filenames.length > 0 && filenames.every((f1) =>
+    filenames.every((f2) => (data[f1]?.[f2] ?? 0) === 0)
+  );
 
-  // Jeśli brak danych — wyświetl komunikat
+  if (isLoading) {
+    return (
+      <Card className="shadow-sm" id="pdf-content-metrics-vertical">
+        <Card.Header className="bg-light text-center">
+          <h5 className="mb-0">{metric} Matrix ({category})</h5>
+        </Card.Header>
+        <Card.Body className="p-3 text-center">
+          <Spinner animation="border" size="sm" className="me-2" />
+          <span className="text-muted">Loading {metric}...</span>
+        </Card.Body>
+      </Card>
+    );
+  }
+
+  if (error || isAllZeroMatrix) {
+    const message = error || 'Correlation data is all zeros, which indicates a calculation error.';
+    return (
+      <Card className="shadow-sm" id="pdf-content-metrics-vertical">
+        <Card.Header className="bg-light text-center">
+          <h5 className="mb-0">{metric} Matrix ({category})</h5>
+        </Card.Header>
+        <Card.Body className="p-3">
+          <Alert variant="danger" className="mb-0 d-flex align-items-center justify-content-center text-center">
+            <div className="d-flex flex-column flex-sm-row align-items-center gap-2">
+              <span><strong>Error calculating {metric}:</strong> {message}</span>
+              {onRetry && error && (
+                <Button variant="outline-danger" size="sm" onClick={onRetry} className="flex-shrink-0">
+                  Retry
+                </Button>
+              )}
+            </div>
+          </Alert>
+        </Card.Body>
+      </Card>
+    );
+  }
+
   if (filenames.length === 0) {
     return (
-      <div className="alert alert-secondary text-center" role="alert">
+      <Alert variant="warning" className="text-center mb-0">
         No correlation data available for <strong>{category}</strong>.
-      </div>
+      </Alert>
     );
   }
 
   return (
     <>
-      <div className="card shadow-sm" id='pdf-content-metrics-vertical'>
-        <div className="card-header bg-light text-center position-relative">
+      <Card className="shadow-sm" id='pdf-content-metrics-vertical'>
+        <Card.Header className="bg-light text-center position-relative">
           <h5 className="mb-0">
             {metric} Matrix ({category})
           </h5>
@@ -48,11 +89,11 @@ const CorrelationTable: React.FC<CorrelationTableProps> = ({ data, category, onC
               <InfoCircle size={20} />
             </Button>
           )}
-        </div>
-        <div className="card-body p-0">
+        </Card.Header>
+        <Card.Body className="p-0">
           <div className="table-responsive">
             {/* Tabela macierzy korelacji */}
-            <table className="table table-bordered mb-0 align-middle text-center">
+            <Table bordered className="mb-0 align-middle text-center">
               <thead className="table-light">
                 <tr>
                   <th scope="col">File</th>
@@ -73,13 +114,14 @@ const CorrelationTable: React.FC<CorrelationTableProps> = ({ data, category, onC
                     </th>
                     {filenames.map((f2) => {
                       const value = data[f1]?.[f2] ?? 0;
-                      const colorIntensity = Math.abs(value);
-                      const backgroundColor = `rgba(${value > 0 ? "0,128,0" : "255,0,0"}, ${colorIntensity})`;
+                      const safeValue = Number.isFinite(value) ? value : 0;
+                      const colorIntensity = Math.abs(safeValue);
+                      const backgroundColor = `rgba(${safeValue > 0 ? "0,128,0" : "255,0,0"}, ${colorIntensity})`;
 
                       return (
                         <td
                           key={`${f1}-${f2}`}
-                          title={value.toFixed(3)} // Pokazuj dokładną wartość po najechaniu
+                          title={safeValue.toFixed(3)} // Pokazuj dokładną wartość po najechaniu
                           onClick={() => {
                             if (clickable && onCellClick) {
                               onCellClick(f1, f2);
@@ -92,17 +134,17 @@ const CorrelationTable: React.FC<CorrelationTableProps> = ({ data, category, onC
                             cursor: clickable ? "pointer" : "default", // Zmień kursor, jeśli klikalne
                           }}
                         >
-                          {value.toFixed(3)} {/* Zaokrąglona wartość korelacji */}
+                          {safeValue.toFixed(2)} {/* Zaokrąglona wartość korelacji */}
                         </td>
                       );
                     })}
                   </tr>
                 ))}
               </tbody>
-            </table>
+            </Table>
           </div>
-        </div>
-      </div>
+        </Card.Body>
+      </Card>
 
       {metricDescription && (
         <MetricInfoModal

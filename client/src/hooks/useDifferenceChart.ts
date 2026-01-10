@@ -4,6 +4,7 @@ import { TimeSeriesEntry } from '../services/fetchTimeSeries';
 import { apiLogger } from '../utils/apiLogger';
 import { metricsCacheManager } from '../utils/metricsCacheManager';
 import type { CacheKey } from '../utils/metricsCacheManager';
+import { errorSimulator } from '../utils/errorSimulator';
 
 export interface DifferenceOption {
     value: string;
@@ -18,6 +19,7 @@ export interface UseDifferenceChartReturn {
     customToleranceValue: string;
     isDiffLoading: boolean;
     diffError: string | null;
+    setDiffError: React.Dispatch<React.SetStateAction<string | null>>;
     differenceChartData: Record<string, TimeSeriesEntry[]>;
     differenceOptions: DifferenceOption[];
     handleDiffCategoryChange: (event: React.ChangeEvent<HTMLSelectElement>) => void;
@@ -114,7 +116,6 @@ export function useDifferenceChart(
         }
 
         const fetchDifferencesForCategory = async (category: string, tolerance: number | null) => {
-
             const filesForCategory = filenamesPerCategory[category];
             if (!category || !filesForCategory?.length) {
                 // If we already have selections stored for this category, restore them
@@ -196,6 +197,9 @@ export function useDifferenceChart(
 
             setIsDiffLoading(true);
             try {
+                // Check for simulated error first (inside try-catch to prevent uncaught error overlay)
+                errorSimulator.checkAndThrow('difference_chart');
+                
                 // Fetch data (we already checked cache above and returned if found)
                 const startTime = performance.now();
                 apiLogger.logQuery(`/api/difference/${category}`, 'GET', {
@@ -243,7 +247,7 @@ export function useDifferenceChart(
             } catch (err: unknown) {
                 const errorMsg = (err instanceof Error ? err.message : 'Failed to fetch differences.');
                 setDiffError(errorMsg);
-                setError?.(errorMsg);
+                // Note: Don't propagate to global setError - diff errors are shown in diff view only
             } finally {
                 setIsDiffLoading(false);
             }
@@ -431,6 +435,7 @@ export function useDifferenceChart(
         customToleranceValue,
         isDiffLoading,
         diffError,
+        setDiffError,
         differenceChartData,
         differenceOptions: getDifferenceOptions(),
         handleDiffCategoryChange,

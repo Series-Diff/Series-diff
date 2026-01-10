@@ -3,6 +3,7 @@ import * as services from '../services';
 import { apiLogger } from '../utils/apiLogger';
 import { metricsCacheManager } from '../utils/metricsCacheManager';
 import type { CacheKey } from '../utils/metricsCacheManager';
+import { errorSimulator } from '../utils/errorSimulator';
 
 export const useMovingAverage = (
     filenamesPerCategory: Record<string, string[]>,
@@ -21,6 +22,9 @@ export const useMovingAverage = (
         setIsMaLoading(true);
         setError(null);
         try {
+            // Check for simulated error first
+            errorSimulator.checkAndThrow('moving_average');
+            
             // Generate cache key for moving average
             const cacheParams: CacheKey = {
                 metricType: 'moving_average',
@@ -64,7 +68,17 @@ export const useMovingAverage = (
             
             setRollingMeanChartData(rollingMeans);
         } catch (err: unknown) {
-            setError(`Failed to fetch moving average data: ${err instanceof Error ? err.message : 'Unknown error'}`);
+            const rawMessage = err instanceof Error ? err.message : 'Unknown error';
+            // Make error messages more user-friendly
+            let userMessage: string;
+            if (rawMessage.includes('invalid unit abbreviation')) {
+                userMessage = `Invalid window format "${window}". Use formats like: 1d (day), 2h (hours), 30m (minutes), 1w (week). You can change the number before the unit.`;
+            } else if (rawMessage.includes('SIMULATED ERROR')) {
+                userMessage = rawMessage;
+            } else {
+                userMessage = `Moving Average error: ${rawMessage}`;
+            }
+            setError(userMessage);
             setRollingMeanChartData({});
         } finally {
             setIsMaLoading(false);

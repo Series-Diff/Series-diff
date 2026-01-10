@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 
 export interface LocalPlugin {
     id: string;
@@ -51,10 +51,16 @@ export function useLocalPlugins() {
         setIsLoading(false);
     }, []);
 
+    // Skip the initial save that runs immediately after loading from localStorage
+    // to avoid dispatching a `localStorageChange` event with unchanged data on boot.
+    const hasSavedOnceRef = useRef(false);
     useEffect(() => {
-        if (!isLoading) {
-            savePluginsToStorage(plugins);
+        if (isLoading) return;
+        if (!hasSavedOnceRef.current) {
+            hasSavedOnceRef.current = true;
+            return;
         }
+        savePluginsToStorage(plugins);
     }, [plugins, isLoading]);
 
     const createPlugin = useCallback((
@@ -73,6 +79,25 @@ export function useLocalPlugins() {
         };
 
         setPlugins(prev => [...prev, newPlugin]);
+        
+        // Auto-add new plugin to selectedMetricsForDisplay
+        try {
+            const storedSelection = localStorage.getItem('selectedMetricsForDisplay');
+            if (storedSelection) {
+                const currentSelection: string[] = JSON.parse(storedSelection);
+                if (!currentSelection.includes(newPlugin.id)) {
+                    const updatedSelection = [...currentSelection, newPlugin.id];
+                    localStorage.setItem('selectedMetricsForDisplay', JSON.stringify(updatedSelection));
+                    // Dispatch event to notify other components
+                    window.dispatchEvent(new CustomEvent('localStorageChange', {
+                        detail: { key: 'selectedMetricsForDisplay', value: updatedSelection }
+                    }));
+                }
+            }
+        } catch (error) {
+            console.error('Failed to auto-add plugin to selectedMetricsForDisplay:', error);
+        }
+        
         return newPlugin;
     }, []);
 

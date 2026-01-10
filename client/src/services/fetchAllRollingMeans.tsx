@@ -71,6 +71,7 @@ export async function fetchAllRollingMeans(
   end?: string
 ): Promise<Record<string, TimeSeriesEntry[]>> {
   const rollingMeanValues: Record<string, TimeSeriesEntry[]> = {};
+  const errors: string[] = [];
 
   for (const category of Object.keys(filenamesPerCategory)) {
     const files = filenamesPerCategory[category];
@@ -95,9 +96,33 @@ export async function fetchAllRollingMeans(
           console.warn(`Unexpected data structure for ${keyPrefix}. Expected an object, received:`, seriesMap);
         }
       } catch (err) {
+        const errorMsg = err instanceof Error ? err.message : String(err);
         console.warn(`Error processing rolling mean series for ${keyPrefix}:`, err);
+        // Parse API error message if it's JSON
+        try {
+          const parsed = JSON.parse(errorMsg);
+          if (parsed.error) {
+            errors.push(parsed.error);
+          } else {
+            errors.push(errorMsg);
+          }
+        } catch {
+          errors.push(errorMsg);
+        }
       }
     }
+  }
+
+  // If all requests failed, throw an error with collected messages
+  if (errors.length > 0 && Object.keys(rollingMeanValues).length === 0) {
+    // All failed - throw the first unique error
+    const uniqueErrors = Array.from(new Set(errors));
+    throw new Error(uniqueErrors[0]);
+  }
+
+  // If some failed but some succeeded, log warning but return partial data
+  if (errors.length > 0) {
+    console.warn(`Some rolling mean requests failed: ${errors.join(', ')}`);
   }
 
   return rollingMeanValues;

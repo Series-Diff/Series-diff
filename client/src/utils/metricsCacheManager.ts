@@ -20,13 +20,14 @@ interface CacheEntry<T> {
   timestamp: number;
   expiresAt?: number;
   cacheKey?: string;
+  error?: string; // Cached error message - if set, data should be ignored
 }
 
 /**
  * Generate a unique cache key from cache parameters
  * Prefixed with 'metrics:' for proper cache segregation
  */
-const generateCacheKey = (params: CacheKey): string => {
+export const buildMetricsCacheKey = (params: CacheKey): string => {
   const parts = [
     'metrics',
     params.metricType,
@@ -45,12 +46,21 @@ const generateCacheKey = (params: CacheKey): string => {
 class MetricsCacheManager {
   private cache: Map<string, CacheEntry<unknown>> | null = null;
   private readonly CACHE_DURATION = 30 * 60 * 1000; // 30 minutes in milliseconds
+  // Optional change listener to notify external systems when a cache key is set/deleted
+  private changeListener?: (key: string, action: 'set' | 'delete') => void;
 
   /**
    * Set external cache (from CacheContext)
    */
   setCache(externalCache: Map<string, CacheEntry<unknown>>) {
     this.cache = externalCache;
+  }
+
+  /**
+   * Optional listener registration so outer code can mark dirty keys or sync
+   */
+  setChangeListener(listener: (key: string, action: 'set' | 'delete') => void) {
+    this.changeListener = listener;
   }
 
   /**
@@ -67,7 +77,7 @@ class MetricsCacheManager {
    * Get cached metric data
    */
   get<T>(params: CacheKey): T | null {
-    const cacheKey = generateCacheKey(params);
+    const cacheKey = buildMetricsCacheKey(params);
     const cache = this.getCache();
     const entry = cache.get(cacheKey);
 
@@ -87,6 +97,7 @@ class MetricsCacheManager {
     // Check if cache has expired
     if (entry.expiresAt && Date.now() > entry.expiresAt) {
       cache.delete(cacheKey);
+      try { this.changeListener?.(cacheKey, 'delete'); } catch(e) { console.warn('changeListener error:', e); }
       return null;
     }
 
@@ -109,7 +120,7 @@ class MetricsCacheManager {
    * Set cached metric data
    */
   set<T>(params: CacheKey, data: T, duration?: number): void {
-    const cacheKey = generateCacheKey(params);
+    const cacheKey = buildMetricsCacheKey(params);
     const cache = this.getCache();
     const entry: CacheEntry<T> = {
       data,
@@ -119,6 +130,9 @@ class MetricsCacheManager {
     };
 
     cache.set(cacheKey, entry);
+
+    // Notify listener that a key was set so outer code can mark dirty keys for persistence
+    try { this.changeListener?.(cacheKey, 'set'); } catch(e) { console.warn('changeListener error:', e); }
 
     apiLogger.logQuery(
       `metric_${params.metricType}`,
@@ -133,10 +147,64 @@ class MetricsCacheManager {
   }
 
   /**
+   * Set cached error for a metric - stores error so page reload shows error instead of retrying
+   */
+  setError(params: CacheKey, errorMessage: string, duration?: number): void {
+    const cacheKey = buildMetricsCacheKey(params);
+    const cache = this.getCache();
+    const entry: CacheEntry<null> = {
+      data: null,
+      timestamp: Date.now(),
+      expiresAt: Date.now() + (duration || this.CACHE_DURATION),
+      cacheKey,
+      error: errorMessage,
+    };
+
+    cache.set(cacheKey, entry);
+
+    // Notify listener that a key was set so outer code can mark dirty keys for persistence
+    try { this.changeListener?.(cacheKey, 'set'); } catch(e) { console.warn('changeListener error:', e); }
+  }
+
+  /**
+   * Get cached error for a metric (if any)
+   */
+  getError(params: CacheKey): string | null {
+    const cacheKey = buildMetricsCacheKey(params);
+    const cache = this.getCache();
+    const entry = cache.get(cacheKey);
+
+    if (!entry) return null;
+
+    // Check if cache has expired
+    if (entry.expiresAt && Date.now() > entry.expiresAt) {
+      cache.delete(cacheKey);
+      try { this.changeListener?.(cacheKey, 'delete'); } catch(e) { console.warn('changeListener error:', e); }
+      return null;
+    }
+
+    return entry.error || null;
+  }
+
+  /**
+   * Clear cached error for a metric (used when user clicks Retry)
+   */
+  clearError(params: CacheKey): void {
+    const cacheKey = buildMetricsCacheKey(params);
+    const cache = this.getCache();
+    const entry = cache.get(cacheKey);
+
+    if (entry && entry.error) {
+      cache.delete(cacheKey);
+      try { this.changeListener?.(cacheKey, 'delete'); } catch(e) { console.warn('changeListener error:', e); }
+    }
+  }
+
+  /**
    * Check if metric is cached
    */
   has(params: CacheKey): boolean {
-    const cacheKey = generateCacheKey(params);
+    const cacheKey = buildMetricsCacheKey(params);
     const cache = this.getCache();
     const entry = cache.get(cacheKey);
 
@@ -162,7 +230,10 @@ class MetricsCacheManager {
         keysToDelete.push(key);
       }
     });
-    keysToDelete.forEach(key => cache.delete(key));
+    keysToDelete.forEach(key => {
+      cache.delete(key);
+      try { this.changeListener?.(key, 'delete'); } catch(e) { console.warn('changeListener error:', e); }
+    });
   }
 
   /**
@@ -199,7 +270,11 @@ class MetricsCacheManager {
    * Clear all cache
    */
   clearAll(): void {
-    this.getCache().clear();
+    const cache = this.getCache();
+    for (const key of Array.from(cache.keys())) {
+      cache.delete(key);
+      try { this.changeListener?.(key, 'delete'); } catch(e) { console.warn('changeListener error:', e); }
+    }
   }
 
   /**

@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { LocalPlugin } from './useLocalPlugins';
 import { executePlugin } from '../services/pluginService';
-import { useGlobalCache } from '../contexts/CacheContext';
+import { errorSimulator } from '../utils/errorSimulator';
 
 export interface PluginResultsMap {
     [pluginId: string]: {
@@ -37,7 +37,6 @@ export const usePluginResults = (
     defaultMinDateForBounds?: Date | null,
     defaultMaxDateForBounds?: Date | null
 ): UsePluginResultsReturn => {
-    const globalCache = useGlobalCache();
     const [pluginResults, setPluginResults] = useState<PluginResultsMap>({});
     const [isLoadingPlugins, setIsLoadingPlugins] = useState(false);
     const [pluginErrors, setPluginErrors] = useState<PluginErrorsMap>({});
@@ -66,25 +65,36 @@ export const usePluginResults = (
         setPluginErrors({});
 
         try {
-            const newResults: PluginResultsMap = {};
-            const newErrors: PluginErrorsMap = {};
+                // Clear prior results for the plugins we're about to fetch so UIs show a loading state
+            const clearedResults: PluginResultsMap = {};
+            enabledPlugins.forEach(p => { clearedResults[p.id] = {}; });
+            setPluginResults(clearedResults);
 
-            // For each plugin, execute per category
-            for (const plugin of enabledPlugins) {
-                newResults[plugin.id] = {};
-                newErrors[plugin.id] = {};
+            // Run all plugin executions in parallel across plugins
+            const pluginPromises = enabledPlugins.map(async (plugin) => {
+                const pluginResultMap: Record<string, any> = {};
+                const pluginErrorMap: Record<string, string | null> = {};
+
+                // Check if error simulation is enabled for this plugin (by name)
+                // This must be done BEFORE processing any categories
+                const simulatedError = errorSimulator.getError(plugin.name);
+                if (simulatedError) {
+                    // Set error for all categories
+                    for (const category of Object.keys(filenamesPerCategory)) {
+                        pluginErrorMap[category] = simulatedError;
+                    }
+                    return { pluginId: plugin.id, results: pluginResultMap, errors: pluginErrorMap };
+                }
 
                 for (const category of Object.keys(filenamesPerCategory)) {
                     const files = filenamesPerCategory[category];
 
                     if (files.length < 2) {
-                        newResults[plugin.id][category] = {};
+                        pluginResultMap[category] = {};
                         continue;
                     }
 
                     try {
-                        // Normalize nulls to bounds for cache keys to avoid refetch on toggle
-                        // Use memoized default bounds to stabilize cache keys when toggling full range
                         const defaultMinIso = defaultMinDateForBounds ? new Date(defaultMinDateForBounds.getTime()).toISOString() : null;
                         const defaultMaxIso = defaultMaxDateForBounds ? new Date(defaultMaxDateForBounds.getTime()).toISOString() : null;
                         const cacheStart = start === null ? defaultMinIso : start;
@@ -99,20 +109,30 @@ export const usePluginResults = (
                         );
 
                         if (pluginResult.error) {
-                            // Store the specific error for this plugin/category
-                            newErrors[plugin.id][category] = pluginResult.error;
+                            pluginErrorMap[category] = pluginResult.error;
                             console.warn(`Plugin error for ${plugin.name}/${category}:`, pluginResult.error);
                         } else if (pluginResult.results) {
-                            // Results already in correct nested format
-                            newResults[plugin.id][category] = pluginResult.results as any;
+                            pluginResultMap[category] = pluginResult.results as any;
                         }
                     } catch (e: any) {
                         const errorMessage = e.message || 'Unknown execution error';
-                        newErrors[plugin.id][category] = errorMessage;
+                        pluginErrorMap[category] = errorMessage;
                         console.warn(`Error executing for ${plugin.name}/${category}`, e);
                     }
                 }
-            }
+
+                return { pluginId: plugin.id, results: pluginResultMap, errors: pluginErrorMap };
+            });
+
+            const settled = await Promise.all(pluginPromises);
+            const newResults: PluginResultsMap = {};
+            const newErrors: PluginErrorsMap = {};
+
+            settled.forEach(({ pluginId, results, errors }) => {
+                newResults[pluginId] = results;
+                newErrors[pluginId] = errors;
+            });
+
             setPluginResults(newResults);
             setPluginErrors(newErrors);
         } catch (err: any) {

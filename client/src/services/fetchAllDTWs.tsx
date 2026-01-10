@@ -98,7 +98,8 @@ export async function fetchAllDTWs(
   // If more than DTW_FAILURE_THRESHOLD (25%) of pairs failed, throw error to prevent caching
   const totalPairs = (numFiles * (numFiles - 1)) / 2;
   if (failedPairs > 0 && failedPairs >= totalPairs * DTW_FAILURE_THRESHOLD) {
-    throw new Error(`DTW calculation failed for ${failedPairs} pairs (possible OOM or timeout)`);
+    const pairWord = failedPairs === 1 ? 'pair' : 'pairs';
+    throw new Error(`DTW calculation failed for ${failedPairs} ${pairWord} (possible OOM or timeout)`);
   }
 
   return DTWs;
