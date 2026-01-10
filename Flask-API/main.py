@@ -1149,9 +1149,8 @@ def add_timeseries():
             current_timeseries[time] = normalized_values
     except ValueError as e:
         logger.error("Error adding timeseries for time '%s': %s", time, e)
-        timeseries_manager.sessions[token] = (
-            current_timeseries  # Restore previous state
-        )
+        if current_timeseries:
+            timeseries_manager.add_timeseries(token, time, current_timeseries)
         return _create_response({"error": str(e)}, 400)
     logger.info("All timeseries data uploaded successfully")
     return _create_response({"status": "Data uploaded"}, 201)
