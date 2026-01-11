@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 import { LocalPlugin } from './useLocalPlugins';
 import { executePlugin } from '../services/pluginService';
 import { errorSimulator } from '../utils/errorSimulator';
+import { getEffectiveDateRange } from '../utils/dateUtils';
 
 export interface PluginResultsMap {
     [pluginId: string]: {
@@ -95,17 +96,15 @@ export const usePluginResults = (
                     }
 
                     try {
-                        const defaultMinIso = defaultMinDateForBounds ? new Date(defaultMinDateForBounds.getTime()).toISOString() : null;
-                        const defaultMaxIso = defaultMaxDateForBounds ? new Date(defaultMaxDateForBounds.getTime()).toISOString() : null;
-                        const cacheStart = start === null ? defaultMinIso : start;
-                        const cacheEnd = end === null ? defaultMaxIso : end;
+                        // Use shared utility to clamp dates to data bounds
+                        const { effectiveStart, effectiveEnd } = getEffectiveDateRange(start, end, defaultMinDateForBounds, defaultMaxDateForBounds);
 
                         const pluginResult = await executePlugin(
                             plugin.code,
                             category,
                             files,
-                            cacheStart,
-                            cacheEnd
+                            effectiveStart,
+                            effectiveEnd
                         );
 
                         if (pluginResult.error) {

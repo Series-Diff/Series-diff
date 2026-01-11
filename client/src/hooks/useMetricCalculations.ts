@@ -4,6 +4,7 @@ import { apiLogger } from '../utils/apiLogger';
 import { metricsCacheManager } from '../utils/metricsCacheManager';
 import { errorSimulator } from '../utils/errorSimulator';
 import { useGlobalCache } from '../contexts/CacheContext';
+import { getEffectiveDateRange, getDateRangeCacheKey } from '../utils/dateUtils';
 
 import type { CombinedStatistic } from '../components';
 import type { CacheKey } from '../utils/metricsCacheManager';
@@ -146,23 +147,9 @@ export const useMetricCalculations = (
         defaultMaxDateForBounds ? new Date(defaultMaxDateForBounds.getTime()).toISOString() : null
     ), [defaultMaxDateForBounds]);
 
-    // Helper function to clamp a date string to data bounds
-    // Returns clamped ISO string or null if input is null
-    const clampDateToDataBounds = useCallback((dateIso: string | null, isStart: boolean): string | null => {
-        if (!dateIso) return null;
-        
-        const date = new Date(dateIso);
-        const minBound = defaultMinDateForBounds ? new Date(defaultMinDateForBounds.getTime()) : null;
-        const maxBound = defaultMaxDateForBounds ? new Date(defaultMaxDateForBounds.getTime()) : null;
-        
-        if (isStart && minBound && date < minBound) {
-            return minBound.toISOString();
-        }
-        if (!isStart && maxBound && date > maxBound) {
-            return maxBound.toISOString();
-        }
-        
-        return dateIso;
+    // Helper to get effective date range with clamping to data bounds
+    const getClampedDateRange = useCallback((start: string | null, end: string | null) => {
+        return getEffectiveDateRange(start, end, defaultMinDateForBounds, defaultMaxDateForBounds);
     }, [defaultMinDateForBounds, defaultMaxDateForBounds]);
 
     useEffect(() => {
@@ -184,9 +171,8 @@ export const useMetricCalculations = (
                 const start: string | null = startDate ? startDate.toISOString() : null;
                 const end: string | null = endDate ? endDate.toISOString() : null;
                 // Clamp dates to data bounds for consistent cache keys
-                const effectiveStartKey = (start === null) ? defaultMinIso : clampDateToDataBounds(start, true);
-                const effectiveEndKey = (end === null) ? defaultMaxIso : clampDateToDataBounds(end, false);
-                const dateRangeKey = `${effectiveStartKey || 'no-start'}_to_${effectiveEndKey || 'no-end'}`;
+                const { effectiveStart: effectiveStartKey, effectiveEnd: effectiveEndKey } = getClampedDateRange(start, end);
+                const dateRangeKey = getDateRangeCacheKey(effectiveStartKey, effectiveEndKey);
 
                 const selectedMetricsJson = localStorage.getItem('selectedMetricsForDisplay');
                 const selectedMetricsLocal = selectedMetricsJson ? new Set<string>(JSON.parse(selectedMetricsJson)) : null;
@@ -276,13 +262,8 @@ export const useMetricCalculations = (
                 // Normalize nulls to bounds to keep keys stable when toggling full range
                 // Also clamp dates to data bounds - if user selects date outside data range,
                 // treat it as the boundary for cache key purposes (avoids duplicate requests)
-                const effectiveStartKey = (start === null)
-                    ? defaultMinIso
-                    : clampDateToDataBounds(start, true);
-                const effectiveEndKey = (end === null)
-                    ? defaultMaxIso
-                    : clampDateToDataBounds(end, false);
-                const dateRangeKey = `${effectiveStartKey || 'no-start'}_to_${effectiveEndKey || 'no-end'}`;
+                const { effectiveStart: effectiveStartKey, effectiveEnd: effectiveEndKey } = getClampedDateRange(start, end);
+                const dateRangeKey = getDateRangeCacheKey(effectiveStartKey, effectiveEndKey);
                 
                 // Use clamped dates for API calls too - this ensures that dates outside 
                 // data bounds are treated as the boundary dates, avoiding unnecessary requests
@@ -920,9 +901,8 @@ export const useMetricCalculations = (
         const start: string | null = startDate ? startDate.toISOString() : null;
         const end: string | null = endDate ? endDate.toISOString() : null;
         // Clamp dates to data bounds for consistent cache keys
-        const effectiveStartKey = (start === null) ? defaultMinIso : clampDateToDataBounds(start, true);
-        const effectiveEndKey = (end === null) ? defaultMaxIso : clampDateToDataBounds(end, false);
-        const dateRangeKey = `${effectiveStartKey || 'no-start'}_to_${effectiveEndKey || 'no-end'}`;
+        const { effectiveStart: effectiveStartKey, effectiveEnd: effectiveEndKey } = getClampedDateRange(start, end);
+        const dateRangeKey = getDateRangeCacheKey(effectiveStartKey, effectiveEndKey);
         
         // Use clamped dates for API calls
         const apiStart = effectiveStartKey || undefined;

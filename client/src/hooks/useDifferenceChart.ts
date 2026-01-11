@@ -5,6 +5,7 @@ import { apiLogger } from '../utils/apiLogger';
 import { metricsCacheManager } from '../utils/metricsCacheManager';
 import type { CacheKey } from '../utils/metricsCacheManager';
 import { errorSimulator } from '../utils/errorSimulator';
+import { getEffectiveDateRange, getDateRangeCacheKey } from '../utils/dateUtils';
 
 export interface DifferenceOption {
     value: string;
@@ -129,14 +130,9 @@ export function useDifferenceChart(
             // Check cache BEFORE assuming we have data for this category
             // Cache key includes tolerance and dateRange
             const toleranceStr = tolerance !== null ? tolerance.toString() : 'no-tolerance';
-            // Normalize nulls to bounds for cache key stability across full-range toggle
-            const effectiveStartKey = (start === null)
-                ? (defaultMinDateForBounds ? defaultMinDateForBounds.toISOString() : null)
-                : start;
-            const effectiveEndKey = (end === null)
-                ? (defaultMaxDateForBounds ? defaultMaxDateForBounds.toISOString() : null)
-                : end;
-            const dateRangeKey = `${effectiveStartKey || 'no-start'}_to_${effectiveEndKey || 'no-end'}`;
+            // Use shared utility to clamp dates to data bounds
+            const { effectiveStart, effectiveEnd } = getEffectiveDateRange(start, end, defaultMinDateForBounds, defaultMaxDateForBounds);
+            const dateRangeKey = getDateRangeCacheKey(effectiveStart, effectiveEnd);
             const cacheParams: CacheKey = {
                 metricType: 'difference_chart',
                 category,
@@ -200,17 +196,21 @@ export function useDifferenceChart(
                 // Check for simulated error first (inside try-catch to prevent uncaught error overlay)
                 errorSimulator.checkAndThrow('difference_chart');
                 
+                // Use clamped dates for API calls to avoid requesting data outside bounds
+                const apiStart = effectiveStart || undefined;
+                const apiEnd = effectiveEnd || undefined;
+                
                 // Fetch data (we already checked cache above and returned if found)
                 const startTime = performance.now();
                 apiLogger.logQuery(`/api/difference/${category}`, 'GET', {
-                    params: { tolerance, files: filesForCategory.length, start, end },
+                    params: { tolerance, files: filesForCategory.length, start: apiStart, end: apiEnd },
                 });
                 
-                const diffs = await fetchAllDifferences({ [category]: filesForCategory }, tolerance, start || undefined, end || undefined);
+                const diffs = await fetchAllDifferences({ [category]: filesForCategory }, tolerance, apiStart, apiEnd);
                 
                 const duration = Math.round(performance.now() - startTime);
                 apiLogger.logQuery(`/api/difference/${category}`, 'GET', {
-                    params: { tolerance, files: filesForCategory.length, start, end },
+                    params: { tolerance, files: filesForCategory.length, start: apiStart, end: apiEnd },
                     duration,
                     status: 200,
                 });
