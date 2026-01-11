@@ -46,11 +46,9 @@ const MetricMatrixWrapper: React.FC<Props> = ({
   const getData = (cat?: string) => (cat ? (dataMap && dataMap[cat]) || (fallbackEmpty ? {} : undefined) : undefined);
 
   const primaryRaw = getData(selectedCategory);
-  const primaryHasData = primaryRaw && Object.keys(primaryRaw).length > 0;
   const primaryData = primaryRaw || {};
 
   const renderComp = (cat: string, rawData: any, showInfo = true) => {
-    const hasData = rawData && Object.keys(rawData).length > 0;
     const dataToPass = rawData || {};
     // If an error exists for this metric, prefer showing the error Alert in place of the spinner.
     // Only show loading when there's an explicit loading flag and no error present.

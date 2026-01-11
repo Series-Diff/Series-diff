@@ -90,7 +90,7 @@ export function getEffectiveDateRange(
  * 
  * @param effectiveStart - Effective start date ISO string (or null)
  * @param effectiveEnd - Effective end date ISO string (or null)
- * @returns Cache key string in format "start_to_end"
+ * @returns Cache key string in format "{start}_to_{end}" where null values become "no-start" or "no-end"
  */
 export function getDateRangeCacheKey(effectiveStart: string | null, effectiveEnd: string | null): string {
   return `${effectiveStart || 'no-start'}_to_${effectiveEnd || 'no-end'}`;
