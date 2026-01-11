@@ -1,4 +1,5 @@
 // services/fetchAllCosineSimilarities.ts
+import { formatRateLimitMessage, formatApiError } from '../utils/apiError';
 
 const API_URL = (process.env.REACT_APP_API_URL || '').replace(/\/$/, '');
 
@@ -44,6 +45,9 @@ export async function fetchCosineSimilarity(
     handleSessionToken(response);
 
     if (!response.ok) {
+      if (response.status === 429) {
+        throw new Error(formatRateLimitMessage(response, '/api/timeseries/cosine_similarity'));
+      }
       console.error(
         `Failed to fetch cosine similarity for ${filename1} vs ${filename2}:`,
         await response.text()
@@ -55,7 +59,7 @@ export async function fetchCosineSimilarity(
     return data.cosine_similarity ?? null;
   } catch (err) {
     console.error(`Error fetching cosine similarity for ${filename1} vs ${filename2}:`, err);
-    return null;
+    throw new Error(formatApiError(err, '/api/timeseries/cosine_similarity'));
   }
 }
 

@@ -2,17 +2,12 @@ import { useState, useEffect, useCallback, useMemo } from 'react';
 import { Button, Modal, Form, Spinner, Alert } from 'react-bootstrap';
 import './DashboardPage.css';
 import '../components/Chart/Chart.css';
-import '../components/Metric/Metrics.css';
+import '../components/Metric/Statistics.css';
 import '../components/Dropdown/Dropdown.css';
 import * as components from '../components';
 import * as hooks from '../hooks';
-import { useManualData } from '../hooks/useManualData';
 import { useGlobalCache } from '../contexts/CacheContext';
 import { cacheAPI } from '../utils/cacheApiWrapper';
-
-import ControlsPanel from './Dashboard/components/ControlsPanel';
-import DifferenceSelectionPanel from './Dashboard/components/DifferenceSelectionPanel';
-import ErrorBoundary from '../components/ErrorBoundary';
 
 function DashboardPage() {
     const [chartMode, setChartMode] = useState<'standard' | 'difference'>('standard');
@@ -37,7 +32,7 @@ function DashboardPage() {
         }
     }, []);
 
-    const { manualData, addManualData, clearManualData, removeByFileId, removeTimestampFromGroup, updateManualPoint } = useManualData();
+    const { manualData, addManualData, clearManualData, removeByFileId, removeTimestampFromGroup, updateManualPoint } = hooks.useManualData();
     const [showManualModal, setShowManualModal] = useState(false);
     const [showManualEdit, setShowManualEdit] = useState(false);
 
@@ -60,7 +55,7 @@ function DashboardPage() {
         !startDate || !endDate || startChanged || endChanged
     );
 
-    const { maeValues, rmseValues, PearsonCorrelationValues, DTWValues, EuclideanValues, CosineSimilarityValues, groupedMetrics, resetMetrics } = hooks.useMetricCalculations(
+    const { maeValues, rmseValues, PearsonCorrelationValues, DTWValues, EuclideanValues, CosineSimilarityValues, groupedMetrics, resetMetrics, metricLoading, metricError, retryMetric } = hooks.useMetricCalculations(
         filenamesPerCategory,
         selectedCategory,
         secondaryCategory,
@@ -115,6 +110,7 @@ function DashboardPage() {
         customToleranceValue,
         isDiffLoading,
         diffError,
+        setDiffError,
         differenceChartData,
         differenceOptions,
         handleDiffCategoryChange,
@@ -127,7 +123,7 @@ function DashboardPage() {
         resetDifferenceChart,
     } = hooks.useDifferenceChart(
         filenamesPerCategory,
-        setError,
+        undefined, // Don't propagate diff errors to global error state
         ignoreTimeRange ? null : (startDate && endDate ? startDate.toISOString() : null),
         ignoreTimeRange ? null : (startDate && endDate ? endDate.toISOString() : null),
         timeRangePending,
@@ -197,8 +193,17 @@ function DashboardPage() {
     const chartContainerClass = `Chart-container section-container position-relative flex-grow-1`;
 
     const toggleChartMode = useCallback(() => {
-        setChartMode(prev => prev === 'standard' ? 'difference' : 'standard');
-    }, []);
+        setChartMode(prev => {
+            const newMode = prev === 'standard' ? 'difference' : 'standard';
+            // Clear errors when switching modes - errors are independent per view
+            if (newMode === 'standard') {
+                setDiffError(null);
+            } else {
+                setError(null);
+            }
+            return newMode;
+        });
+    }, [setDiffError, setError]);
 
     // Compute metric visibility flags to avoid circular dependencies
     const canShowMovingAverage = shouldShowMetric('moving_average');
@@ -249,7 +254,7 @@ function DashboardPage() {
                     }}>
                         {/* Controls Panel */}
                         {isInDifferenceMode ? (
-                            <ControlsPanel
+                            <components.ControlsPanel
                                 mode="difference"
                                 filenamesPerCategory={filenamesPerCategory}
                                 selectedDiffCategory={selectedDiffCategory}
@@ -264,7 +269,7 @@ function DashboardPage() {
                                 handleReset={handleReset}
                             />
                         ) : (
-                            <ControlsPanel
+                            <components.ControlsPanel
                                 mode="standard"
                                 selectedCategory={selectedCategory}
                                 secondaryCategory={secondaryCategory}
@@ -289,8 +294,8 @@ function DashboardPage() {
                             />
                         )}
 
-                        {/* Show general errors, but not tolerance/diff-related errors (those are shown in chart area) */}
-                        {error && !error.includes('No overlapping timestamps') && !error.includes('tolerance') && !error.includes('no units specified') && (
+                        {/* Standard mode error alert - show general errors */}
+                        {!isInDifferenceMode && error && !error.includes('no units specified') && (
                             <Alert
                                 variant={error.includes('Storage quota exceeded') ? 'warning' : 'danger'}
                                 className="mb-0"
@@ -309,6 +314,20 @@ function DashboardPage() {
                             </Alert>
                         )}
 
+                        {/* Difference mode error alert */}
+                        {isInDifferenceMode && diffError && (
+                            <Alert
+                                variant="danger"
+                                className="mb-0"
+                                dismissible
+                                onClose={() => setDiffError(null)}
+                            >
+                                <strong>Difference Chart Error:</strong> {diffError.includes('No overlapping timestamps') 
+                                    ? 'No overlapping timestamps within tolerance. Try adjusting the tolerance value or resetting it.' 
+                                    : diffError}
+                            </Alert>
+                        )}
+
                         {shouldShowSingleFileAlert && (
                             <Alert
                               variant="warning"
@@ -316,12 +335,12 @@ function DashboardPage() {
                               dismissible
                               onClose={() => setSingleFileDismissed(true)}
                             >
-                              <strong>More files needed:</strong> Comparison metrics require at least two files in the same category. Upload another file to view metrics pairwise tables and difference charts.
+                              <strong>More files needed:</strong> Comparison metrics require at least two files in the same category. Upload at least two files to view metric pairwise tables and difference charts.
                             </Alert>
                         )}
 
                         {/* Chart Container wrapped in error boundary to surface runtime errors in Alert */}
-                        <ErrorBoundary onError={(msg) => setError(msg)}>
+                        <components.ErrorBoundary onError={(msg) => setError(msg)}>
                         <div
                             className={chartContainerClass}
                             style={{ flex: 1, minHeight: 0 }}
@@ -452,15 +471,13 @@ function DashboardPage() {
                                                     Loading difference data...
                                                 </div>
                                             )}
+                                            {/* Error state - show placeholder when diff error exists (error alert shown above) */}
                                             {!isDiffLoading && diffError && (
-                                                <div className="d-flex align-items-center justify-content-center text-muted flex-grow-1 flex-fill text-center">
-                                                    <div>
-                                                        <p className="mb-2">Unable to render difference chart with current tolerance.</p>
-                                                        <p className="small mb-0">{diffError.includes('No overlapping timestamps') ? 'No overlapping timestamps within tolerance. Reset tolerance to see the chart.' : diffError}</p>
-                                                    </div>
+                                                <div className="d-flex align-items-center justify-content-center text-muted flex-grow-1 flex-fill">
+                                                    Fix the error above to display the chart
                                                 </div>
                                             )}
-                                            {!isDiffLoading && !diffError && !hasDifferenceData && !error && (
+                                            {!isDiffLoading && !diffError && !hasDifferenceData && (
                                                 <div className="d-flex align-items-center justify-content-center text-muted flex-grow-1 flex-fill">
                                                     Select differences to visualize
                                                 </div>
@@ -480,349 +497,146 @@ function DashboardPage() {
                                 </>
                             )}
                         </div>
-                        </ErrorBoundary>
+                        </components.ErrorBoundary>
                     </div>
 
-                    {/* Standard mode specific sections */}
                     {/* Standard mode specific sections wrapped to catch runtime errors in metrics rendering */}
                     {!isInDifferenceMode && (
                         <>
-                            <ErrorBoundary onError={(msg) => setError(msg)}>
-                            {(hasData && Object.keys(groupedMetrics).length > 0 && !shouldShowSingleFileAlert) && (
-                                <div className="section-container p-3 d-flex flex-column gap-3">
-                                    <div className="d-flex justify-content-end align-items-center gap-2">
-                                        <Button
-                                            variant="outline-secondary"
-                                            onClick={() => setShowMetricsModal(true)}
-                                        >
-                                            Select Metrics
-                                        </Button>
-                                        <Button
-                                            variant="secondary"
-                                            onClick={handleExportClick}
-                                            disabled={!hasData || isExporting}
-                                        >
-                                            {isExporting ? 'Exporting...' : 'Export to PDF'}
-                                        </Button>
-                                        {isExporting && <Spinner animation="border" size="sm" />}
-                                    </div>
-                                    {Object.keys(filteredGroupedMetrics).length > 0 ? (
-                                        <components.Metrics groupedMetrics={filteredGroupedMetrics} />
-                                    ) : (selectedMetricsForDisplay !== null && selectedMetricsForDisplay.size === 0) ? (
-                                        <div className="text-muted fst-italic">
-                                            No metrics selected. Use "Select Metrics" to choose which metrics to display.
-                                        </div>
-                                    ) : null}
-                                </div>
-                            )}
+                            <components.ErrorBoundary onError={(msg) => setError(msg)}>
+                            {hasData && Object.keys(groupedMetrics).length > 0 && (
+                                <components.StatisticsWrapper
+                                    groupedStatistics={filteredGroupedMetrics}
+                                    statisticLoading={metricLoading}
+                                    statisticError={metricError}
+                                    selectedStatisticsForDisplay={selectedMetricsForDisplay}
+                                    filenamesPerCategory={filenamesPerCategory}
+                                    selectedCategory={selectedCategory}
+                                    secondaryCategory={secondaryCategory}
+                                    tertiaryCategory={tertiaryCategory}
+                                    onOpenStatisticsModal={() => setShowMetricsModal(true)}
+                                    onExportClick={handleExportClick}
+                                    isExporting={isExporting}
+                                    onRetryStatistic={retryMetric}
+                                />
+                            )}    
 
-                            {shouldShowMetric('pearson_correlation') && selectedCategory && PearsonCorrelationValues[selectedCategory] && !shouldShowSingleFileAlert && (
-                                <div className="section-container p-3 d-flex flex-column gap-3">
-                                    <components.CorrelationTable
-                                        data={PearsonCorrelationValues[selectedCategory]}
-                                        category={selectedCategory}
-                                        onCellClick={(file1, file2) =>
-                                            handleCellClick(file1, file2, selectedCategory, ignoreTimeRange ? null : startDate, ignoreTimeRange ? null : endDate)
-                                        }
-                                        metric="Pearson Correlation"
-                                        metricKey="pearson_correlation"
-                                    />
+                            {/* Render metric matrices via helper which also enforces ">=2 files" rule */}
+                            {(() => {
+                                return (
+                                    <>
+                                    {/* Metric-Matrix-Wrapper */}
+                                <components.MetricMatrixWrapper
+                                  metricId="pearson_correlation"
+                                  Comp={components.CorrelationMatrix}
+                                  dataMap={PearsonCorrelationValues}
+                                  metricLabel="Pearson Correlation"
+                                  metricKey="pearson_correlation"
+                                  isLoading={!!metricLoading['PearsonCorrelationValues']}
+                                  error={metricError['PearsonCorrelationValues'] ?? undefined}
+                                  correlationClick={true}
+                                  selectedCategory={selectedCategory}
+                                  secondaryCategory={secondaryCategory}
+                                  tertiaryCategory={tertiaryCategory}
+                                  totalFilesLoaded={totalFilesLoaded}
+                                  onCellClick={(file1: string, file2: string, cat: string) => handleCellClick(file1, file2, cat, ignoreTimeRange ? null : startDate, ignoreTimeRange ? null : endDate)}
+                                  shouldShow={shouldShowMetric('pearson_correlation')}
+                                  onRetry={() => retryMetric('PearsonCorrelationValues')}
+                                />
+                                <components.MetricMatrixWrapper
+                                  metricId="cosine_similarity"
+                                  Comp={components.CorrelationMatrix}
+                                  dataMap={CosineSimilarityValues}
+                                  metricLabel="Cosine Similarity"
+                                  metricKey="cosine_similarity"
+                                  isLoading={!!metricLoading['CosineSimilarityValues']}
+                                  error={metricError['CosineSimilarityValues'] ?? undefined}
+                                  extraProps={{ clickable: false }}
+                                  selectedCategory={selectedCategory}
+                                  secondaryCategory={secondaryCategory}
+                                  tertiaryCategory={tertiaryCategory}
+                                  totalFilesLoaded={totalFilesLoaded}
+                                  shouldShow={shouldShowMetric('cosine_similarity')}
+                                  onRetry={() => retryMetric('CosineSimilarityValues')}
+                                />
+                                <components.MetricMatrixWrapper
+                                  metricId="mae"
+                                  Comp={components.StandardMatrix}
+                                  dataMap={maeValues}
+                                  metricLabel="MAE"
+                                  metricKey="mae"
+                                  isLoading={!!metricLoading['maeValues']}
+                                  error={metricError['maeValues'] ?? undefined}
+                                  selectedCategory={selectedCategory}
+                                  secondaryCategory={secondaryCategory}
+                                  tertiaryCategory={tertiaryCategory}
+                                  totalFilesLoaded={totalFilesLoaded}
+                                  shouldShow={shouldShowMetric('mae')}
+                                  onRetry={() => retryMetric('maeValues')}
+                                />
+                                <components.MetricMatrixWrapper
+                                  metricId="rmse"
+                                  Comp={components.StandardMatrix}
+                                  dataMap={rmseValues}
+                                  metricLabel="RMSE"
+                                  metricKey="rmse"
+                                  isLoading={!!metricLoading['rmseValues']}
+                                  error={metricError['rmseValues'] ?? undefined}
+                                  selectedCategory={selectedCategory}
+                                  secondaryCategory={secondaryCategory}
+                                  tertiaryCategory={tertiaryCategory}
+                                  totalFilesLoaded={totalFilesLoaded}
+                                  shouldShow={shouldShowMetric('rmse')}
+                                  onRetry={() => retryMetric('rmseValues')}
+                                />
+                                <components.MetricMatrixWrapper
+                                  metricId="dtw"
+                                  Comp={components.StandardMatrix}
+                                  dataMap={DTWValues}
+                                  metricLabel="DTW"
+                                  metricKey="dtw"
+                                  isLoading={!!metricLoading['DTWValues']}
+                                  error={metricError['DTWValues'] ?? undefined}
+                                  fallbackEmpty={true}
+                                  selectedCategory={selectedCategory}
+                                  secondaryCategory={secondaryCategory}
+                                  tertiaryCategory={tertiaryCategory}
+                                  totalFilesLoaded={totalFilesLoaded}
+                                  shouldShow={shouldShowMetric('dtw')}
+                                  onRetry={() => retryMetric('DTWValues')}
+                                />
+                                <components.MetricMatrixWrapper
+                                  metricId="euclidean"
+                                  Comp={components.StandardMatrix}
+                                  dataMap={EuclideanValues}
+                                  metricLabel="Euclidean"
+                                  metricKey="euclidean"
+                                  isLoading={!!metricLoading['EuclideanValues']}
+                                  error={metricError['EuclideanValues'] ?? undefined}
+                                  selectedCategory={selectedCategory}
+                                  secondaryCategory={secondaryCategory}
+                                  tertiaryCategory={tertiaryCategory}
+                                  totalFilesLoaded={totalFilesLoaded}
+                                  shouldShow={shouldShowMetric('euclidean')}
+                                  onRetry={() => retryMetric('EuclideanValues')}
+                                />
 
-                                    {secondaryCategory && PearsonCorrelationValues[secondaryCategory] && (
-                                          <components.CorrelationTable
-                                              data={PearsonCorrelationValues[secondaryCategory]}
-                                              category={secondaryCategory}
-                                              onCellClick={(file1, file2) =>
-                                                  handleCellClick(file1, file2, secondaryCategory, ignoreTimeRange ? null : startDate, ignoreTimeRange ? null : endDate)
-                                              }
-                                              metric="Pearson Correlation"
-                                              metricKey="pearson_correlation"
-                                              showInfoIcon={false}
-                                          />
-                                    )}
 
-                                    {tertiaryCategory && PearsonCorrelationValues[tertiaryCategory] && (
-                                          <components.CorrelationTable
-                                              data={PearsonCorrelationValues[tertiaryCategory]}
-                                              category={tertiaryCategory}
-                                              onCellClick={(file1, file2) =>
-                                                  handleCellClick(file1, file2, tertiaryCategory, ignoreTimeRange ? null : startDate, ignoreTimeRange ? null : endDate)
-                                              }
-                                              metric="Pearson Correlation"
-                                              metricKey="pearson_correlation"
-                                              showInfoIcon={false}
-                                          />
-                                    )}
-                                </div>
-                            )}
-
-                            {shouldShowMetric('cosine_similarity') && selectedCategory && CosineSimilarityValues[selectedCategory] && !shouldShowSingleFileAlert && (
-                                <div className="section-container p-3 d-flex flex-column gap-3">
-                                    <components.CorrelationTable
-                                        data={CosineSimilarityValues[selectedCategory]}
-                                        category={selectedCategory}
-                                        clickable={false}
-                                        metric="Cosine Similarity"
-                                        metricKey="cosine_similarity"
-                                    />
-
-                                    {secondaryCategory && CosineSimilarityValues[secondaryCategory] && (
-                                        <components.CorrelationTable
-                                            data={CosineSimilarityValues[secondaryCategory]}
-                                            category={secondaryCategory}
-                                            clickable={false}
-                                            metric="Cosine Similarity"
-                                            metricKey="cosine_similarity"
-                                            showInfoIcon={false}
-                                        />
-                                    )}
-
-                                    {tertiaryCategory && CosineSimilarityValues[tertiaryCategory] && (
-                                        <components.CorrelationTable
-                                            data={CosineSimilarityValues[tertiaryCategory]}
-                                            category={tertiaryCategory}
-                                            clickable={false}
-                                            metric="Cosine Similarity"
-                                            metricKey="cosine_similarity"
-                                            showInfoIcon={false}
-                                        />
-                                    )}
-                                </div>
-                            )}
-
-                            {shouldShowMetric('mae') && selectedCategory && maeValues[selectedCategory] && !shouldShowSingleFileAlert && (
-                                <div className="section-container p-3 d-flex flex-column gap-3">
-                                    <components.StandardTable
-                                        data={maeValues[selectedCategory]}
-                                        category={selectedCategory}
-                                        metric="MAE"
-                                        metricKey="mae"
-                                    />
-
-                                    {secondaryCategory && maeValues[secondaryCategory] && (
-                                        <components.StandardTable
-                                            data={maeValues[secondaryCategory]}
-                                            category={secondaryCategory}
-                                            metric="MAE"
-                                            metricKey="mae"
-                                            showInfoIcon={false}
-                                        />
-                                    )}
-
-                                    {tertiaryCategory && maeValues[tertiaryCategory] && (
-                                        <components.StandardTable
-                                            data={maeValues[tertiaryCategory]}
-                                            category={tertiaryCategory}
-                                            metric="MAE"
-                                            metricKey="mae"
-                                            showInfoIcon={false}
-                                        />
-                                    )}
-                                </div>
-                            )}
-
-                            {shouldShowMetric('rmse') && selectedCategory && rmseValues[selectedCategory] && !shouldShowSingleFileAlert && (
-                                <div className="section-container p-3 d-flex flex-column gap-3">
-                                    <components.StandardTable
-                                        data={rmseValues[selectedCategory]}
-                                        category={selectedCategory}
-                                        metric="RMSE"
-                                        metricKey="rmse"
-                                    />
-
-                                    {secondaryCategory && rmseValues[secondaryCategory] && (
-                                        <components.StandardTable
-                                            data={rmseValues[secondaryCategory]}
-                                            category={secondaryCategory}
-                                            metric="RMSE"
-                                            metricKey="rmse"
-                                            showInfoIcon={false}
-                                        />
-                                    )}
-
-                                    {tertiaryCategory && rmseValues[tertiaryCategory] && (
-                                        <components.StandardTable
-                                            data={rmseValues[tertiaryCategory]}
-                                            category={tertiaryCategory}
-                                            metric="RMSE"
-                                            metricKey="rmse"
-                                            showInfoIcon={false}
-                                        />
-                                    )}
-                                </div>
-                            )}
-
-                            {shouldShowMetric('dtw') && selectedCategory && DTWValues[selectedCategory] && !shouldShowSingleFileAlert && (
-                                <div className="section-container p-3 d-flex flex-column gap-3">
-                                    <components.StandardTable
-                                        data={DTWValues[selectedCategory]}
-                                        category={selectedCategory}
-                                        metric="DTW"
-                                        metricKey="dtw"
-                                    />
-
-                                    {secondaryCategory && DTWValues[secondaryCategory] && (
-                                        <components.StandardTable
-                                            data={DTWValues[secondaryCategory]}
-                                            category={secondaryCategory}
-                                            metric="DTW"
-                                            metricKey="dtw"
-                                            showInfoIcon={false}
-                                        />
-                                    )}
-
-                                    {tertiaryCategory && DTWValues[tertiaryCategory] && (
-                                        <components.StandardTable
-                                            data={DTWValues[tertiaryCategory]}
-                                            category={tertiaryCategory}
-                                            metric="DTW"
-                                            metricKey="dtw"
-                                            showInfoIcon={false}
-                                        />
-                                    )}
-                                </div>
-                            )}
-
-                            {shouldShowMetric('euclidean') && selectedCategory && EuclideanValues[selectedCategory] && (
-                                <div className="section-container p-3 d-flex flex-column gap-3">
-                                    <components.StandardTable
-                                        data={EuclideanValues[selectedCategory]}
-                                        category={selectedCategory}
-                                        metric="Euclidean"
-                                        metricKey="euclidean"
-                                    />
-
-                                    {secondaryCategory && EuclideanValues[secondaryCategory] && (
-                                        <components.StandardTable
-                                            data={EuclideanValues[secondaryCategory]}
-                                            category={secondaryCategory}
-                                            metric="Euclidean"
-                                            metricKey="euclidean"
-                                            showInfoIcon={false}
-                                        />
-                                    )}
-
-                                    {tertiaryCategory && EuclideanValues[tertiaryCategory] && (
-                                        <components.StandardTable
-                                            data={EuclideanValues[tertiaryCategory]}
-                                            category={tertiaryCategory}
-                                            metric="Euclidean"
-                                            metricKey="euclidean"
-                                            showInfoIcon={false}
-                                        />
-                                    )}
-                                </div>
-                            )}
-
-                            {visiblePlugins.length > 0 && selectedCategory && (
-                                <div className="section-container" style={{ padding: "16px" }}>
-                                    <div className="d-flex justify-content-between align-items-center mb-3">
-                                        <h3 style={{ margin: 0 }}>Plugins</h3>
-                                        <div className="d-flex align-items-center gap-2">
-                                            {isLoadingPlugins && <Spinner animation="border" size="sm" />}
-                                            <Button
-                                                variant="outline-secondary"
-                                                size="sm"
-                                                onClick={refreshPluginResults}
-                                                disabled={isLoadingPlugins}
-                                            >
-                                                Refresh
-                                            </Button>
-                                        </div>
-                                    </div>
-
-                                    {visiblePlugins.map((plugin) => {
-                                        const categoryData = pluginResults[plugin.id]?.[selectedCategory];
-                                        const categoryError = pluginErrors[plugin.id]?.[selectedCategory];
-
-                                        if (categoryError) {
-                                            return (
-                                                <div key={plugin.id} className="mb-3">
-                                                    <h5>{plugin.name} ({selectedCategory})</h5>
-                                                    <Alert variant="danger" className="py-2">
-                                                        {categoryError}
-                                                    </Alert>
-                                                </div>
-                                            );
-                                        }
-
-                                        if (!categoryData || Object.keys(categoryData).length === 0) {
-                                            return null;
-                                        }
-
-                                        return (
-                                            <components.StandardTable
-                                                key={plugin.id}
-                                                data={categoryData}
-                                                category={selectedCategory}
-                                                metric={plugin.name}
-                                                customInfo={{ name: plugin.name, description: plugin.description }}
-                                            />
-                                        );
-                                    })}
-
-                                    {secondaryCategory && visiblePlugins.map((plugin) => {
-                                        const categoryData = pluginResults[plugin.id]?.[secondaryCategory];
-                                        const categoryError = pluginErrors[plugin.id]?.[secondaryCategory];
-
-                                        if (categoryError) {
-                                            return (
-                                                <div key={`${plugin.id}-${secondaryCategory}`} style={{ marginTop: "32px" }}>
-                                                    <h5>{plugin.name} ({secondaryCategory})</h5>
-                                                    <Alert variant="danger" className="py-2">
-                                                        {categoryError}
-                                                    </Alert>
-                                                </div>
-                                            );
-                                        }
-
-                                        if (!categoryData || Object.keys(categoryData).length === 0) {
-                                            return null;
-                                        }
-                                        return (
-                                            <div key={`${plugin.id}-${secondaryCategory}`} style={{ marginTop: "32px" }}>
-                                                <components.StandardTable
-                                                    data={categoryData}
-                                                    category={secondaryCategory}
-                                                    metric={plugin.name}
-                                                    customInfo={{ name: plugin.name, description: plugin.description }}
-                                                />
-                                            </div>
-                                        );
-                                    })}
-
-                                    {tertiaryCategory && visiblePlugins.map((plugin) => {
-                                        const categoryData = pluginResults[plugin.id]?.[tertiaryCategory];
-                                        const categoryError = pluginErrors[plugin.id]?.[tertiaryCategory];
-
-                                        if (categoryError) {
-                                            return (
-                                                <div key={`${plugin.id}-${tertiaryCategory}`} style={{ marginTop: "32px" }}>
-                                                    <h5>{plugin.name} ({tertiaryCategory})</h5>
-                                                    <Alert variant="danger" className="py-2">
-                                                        {categoryError}
-                                                    </Alert>
-                                                </div>
-                                            );
-                                        }
-
-                                        if (!categoryData || Object.keys(categoryData).length === 0) {
-                                            return null;
-                                        }
-                                        return (
-                                            <div key={`${plugin.id}-${tertiaryCategory}`} style={{ marginTop: "32px" }}>
-                                                <components.StandardTable
-                                                    data={categoryData}
-                                                    category={tertiaryCategory}
-                                                    metric={plugin.name}
-                                                    customInfo={{ name: plugin.name, description: plugin.description }}
-                                                />
-                                            </div>
-                                        );
-                                    })}
-                                </div>
-                            )}
-                            </ErrorBoundary>
+                            <components.PluginResultsSection
+                              visiblePlugins={visiblePlugins}
+                              pluginResults={pluginResults}
+                              pluginErrors={pluginErrors}
+                              selectedCategory={selectedCategory}
+                              secondaryCategory={secondaryCategory}
+                              tertiaryCategory={tertiaryCategory}
+                              isLoadingPlugins={isLoadingPlugins}
+                              refreshPluginResults={refreshPluginResults}
+                              totalFilesLoaded={totalFilesLoaded}
+                            />
+                                    </>
+                                );
+                            })()}
+                            </components.ErrorBoundary>
                         </>
                     )}
 
@@ -868,7 +682,7 @@ function DashboardPage() {
 
             {/* Sidebar */}
             {isInDifferenceMode ? (
-                <DifferenceSelectionPanel
+                <components.DifferenceSelectionPanel
                     differenceOptions={differenceOptions}
                     selectedDifferences={selectedDifferences}
                     reversedDifferences={reversedDifferences}

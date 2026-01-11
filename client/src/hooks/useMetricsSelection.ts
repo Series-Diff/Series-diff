@@ -2,7 +2,7 @@ import { useState, useEffect, useMemo, useRef, useCallback } from 'react';
 import { Metric } from '../constants/metricsConfig';
 import { LocalPlugin } from './useLocalPlugins';
 
-interface CombinedMetric {
+interface CombinedStatistic {
   id: string;
   name: string;
   mean?: number;
@@ -13,7 +13,7 @@ interface CombinedMetric {
   [key: string]: any;
 }
 
-const METRIC_KEY_MAPPING: Record<string, keyof CombinedMetric> = {
+const METRIC_KEY_MAPPING: Record<string, keyof CombinedStatistic> = {
   'mean': 'mean',
   'median': 'median',
   'variance': 'variance',
@@ -22,7 +22,7 @@ const METRIC_KEY_MAPPING: Record<string, keyof CombinedMetric> = {
 };
 
 export const useMetricsSelection = (
-  groupedMetrics: Record<string, CombinedMetric[]>
+  groupedMetrics: Record<string, CombinedStatistic[]>
 ) => {
   // Load plugins from localStorage and map to Metric format
   const [userMetrics, setUserMetrics] = useState<Metric[]>(() => {
@@ -218,35 +218,37 @@ export const useMetricsSelection = (
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []); // Empty dependency array - listeners are registered once and use ref for current state
 
-  // Track previous userMetrics to detect new plugins
-  const prevUserMetricsRef = useRef<Metric[]>([]);
+  // Track previous userMetrics to detect new plugins only after initial bootstrap
+  const prevUserMetricsRef = useRef<Metric[] | null>(null);
+  const hasBootstrappedPluginsRef = useRef(false);
 
-  // Auto-add new plugins when userMetrics changes
+  // Auto-add truly new plugins when userMetrics changes (skip initial load)
   useEffect(() => {
-    const prevIds = new Set(prevUserMetricsRef.current.map(m => m.value));
+    if (!hasBootstrappedPluginsRef.current) {
+      // First run: just mark bootstrapped and capture initial list without modifying selection
+      hasBootstrappedPluginsRef.current = true;
+      prevUserMetricsRef.current = userMetrics;
+      return;
+    }
+
+    const prevIds = new Set((prevUserMetricsRef.current || []).map(m => m.value));
     const currentIds = new Set(userMetrics.map(m => m.value));
-    
-    // Find new plugins
     const newIds = Array.from(currentIds).filter(id => !prevIds.has(id));
-    
+
     if (newIds.length > 0) {
-      // Add new plugin IDs to selectedMetricsForDisplay
       setSelectedMetricsForDisplay(prev => {
         if (prev === null) {
-          // If selectedMetricsForDisplay is null, initialize with DEFAULT_METRICS + new IDs
           const updatedSelection = new Set([...DEFAULT_METRICS, ...newIds]);
           localStorage.setItem('selectedMetricsForDisplay', JSON.stringify(Array.from(updatedSelection)));
           return updatedSelection;
         } else {
-          // Otherwise, just add new IDs to current selection
           const updatedSelection = new Set([...Array.from(prev), ...newIds]);
           localStorage.setItem('selectedMetricsForDisplay', JSON.stringify(Array.from(updatedSelection)));
           return updatedSelection;
         }
       });
     }
-    
-    // Update previous userMetrics reference
+
     prevUserMetricsRef.current = userMetrics;
   }, [userMetrics, DEFAULT_METRICS]);
   const filteredGroupedMetrics = useMemo(() => {
@@ -266,7 +268,7 @@ export const useMetricsSelection = (
       // 3. Filter specific fields
       const filteredMetrics = metrics.map(metric => {
         // Start with basic ID info
-        const filtered: CombinedMetric = {
+        const filtered: CombinedStatistic = {
           id: metric.id,
           name: metric.name
         };
@@ -290,7 +292,7 @@ export const useMetricsSelection = (
       }
 
       return acc;
-    }, {} as Record<string, CombinedMetric[]>);
+    }, {} as Record<string, CombinedStatistic[]>);
   }, [groupedMetrics, selectedMetricsForDisplay]);
 
   // Helper function to check if a metric should be displayed

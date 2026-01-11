@@ -1,4 +1,5 @@
 import { TimeSeriesEntry } from "../services/fetchTimeSeries";
+import { formatRateLimitMessage, formatApiError } from '../utils/apiError';
 
 const API_URL = (process.env.REACT_APP_API_URL || '').replace(/\/$/, '');
 const getAuthHeaders = (): HeadersInit => {
@@ -40,6 +41,9 @@ async function fetchDifference(
   handleSessionToken(resp);
 
   if (!resp.ok) {
+    if (resp.status === 429) {
+      throw new Error(formatRateLimitMessage(resp, '/api/timeseries/difference'));
+    }
     const msg = await resp.text();
     throw new Error(msg || `Failed to fetch difference for ${filename1} - ${filename2} in ${category}`);
   }
@@ -85,7 +89,7 @@ export async function fetchAllDifferences(
           }
         } catch (err) {
           console.warn(`Error fetching difference for ${category}.${differenceKey}:`, err);
-          throw err;
+          throw new Error(formatApiError(err, '/api/timeseries/difference'));
         }
       }
     }

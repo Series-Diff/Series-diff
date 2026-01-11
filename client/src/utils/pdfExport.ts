@@ -137,7 +137,7 @@ export async function exportToPDF(chartData: Record<string, TimeSeriesEntry[]>, 
                 // Dla każdej grupy (elementu): Dodaj podtytuł z <h3>{groupName} Metrics</h3> (większe wcięcie, np. xOffset + 20)
                 for (let j = 0; j < elementsInGroup.length; j++) {
                     const element = elementsInGroup[j];
-                    const headerElement = element.querySelector('.Metrics-header h3'); // Pobierz treść podtytułu
+                    const headerElement = element.querySelector('.statistic-group-header h3'); // Pobierz treść podtytułu
                     const subTitle = headerElement ? headerElement.textContent || '' : 'Subsection'; // Treść z <h3>
 
                     if (yOffset + 20 > PDFpageHeight) {
@@ -148,8 +148,8 @@ export async function exportToPDF(chartData: Record<string, TimeSeriesEntry[]>, 
                     pdf.text(subTitle, xOffset + 20, yOffset); // Większe wcięcie
                     yOffset += ySpacing;
 
-                    // Potem rozmieść .single-metric z równymi odstępami, oryginalnymi proporcjami, wyrównane do lewej
-                    const childElements = Array.from(element.querySelectorAll('.single-metric')) as HTMLElement[];
+                    // Potem rozmieść .single-statistics-group z równymi odstępami, oryginalnymi proporcjami, wyrównane do lewej
+                    const childElements = Array.from(element.querySelectorAll('.single-statistics-group')) as HTMLElement[];
                     yOffset = await placeElementsInPdf(pdf, childElements, yOffset, PDFpageWidth, PDFpageHeight, ySpacing, true, 3); // Użyj wspólnej funkcji, preferredItemsPerRow=5 (max 5 dla horizontal), isChildren=true
                 }
             } else if (groupId.includes('pdf-content-metrics-vertical')) {

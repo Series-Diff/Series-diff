@@ -1,5 +1,6 @@
 import React, { createContext, useContext, useRef, useEffect } from 'react';
 import { cacheAPI } from '../utils/cacheApiWrapper';
+import { metricsCacheManager, buildMetricsCacheKey, CacheKey as MetricsCacheKey } from '../utils/metricsCacheManager';
 
 export type CacheEntry<T> = {
   data: T;
@@ -21,6 +22,7 @@ interface CacheContextType {
   scatterCache: Map<string, CacheEntry<any>>;
   pluginCache: Map<string, CacheEntry<any>>;
   clearAllCaches: () => Promise<void>;
+  removeCacheKey: (key: string) => Promise<void>;
 }
 
 const CacheContext = createContext<CacheContextType | undefined>(undefined);
@@ -40,43 +42,143 @@ const initializeCaches = async () => {
 
       // Route cache entries by prefix
       if (key.startsWith('scatter:')) {
-        scatterCache.set(key, data);
+        setScatterEntry(key, data as any);
       } else if (key.startsWith('plugin|')) {
-        pluginCache.set(key, data);
+        setPluginEntry(key, data as any);
       } else if (key.startsWith('metrics|') || key.startsWith('timeseries:')) {
-        metricsCache.set(key, data);
+        // Normalize legacy metric keys to a canonical builder (order + defaults)
+        let normalizedKey = key;
+
+        // Legacy stdDev -> std_dev
+        if (normalizedKey.startsWith('metrics|stdDev|')) {
+          normalizedKey = normalizedKey.replace('metrics|stdDev|', 'metrics|std_dev|');
+          try { cacheAPI.delete(key).catch(() => {}); } catch (e) { /* ignore */ }
+        }
+
+        if (normalizedKey.startsWith('metrics|')) {
+          const parts = normalizedKey.split('|');
+          if (parts.length >= 4) {
+            const params: MetricsCacheKey = {
+              metricType: parts[1],
+              category: parts[2],
+              dateRange: parts[3],
+              tolerance: parts[4] || 'no-tolerance',
+              window: parts[5] || 'no-window',
+              fullDateRange: (parts[6] || 'partial-range') === 'full-range',
+            };
+            normalizedKey = buildMetricsCacheKey(params);
+          }
+        }
+
+        setMetricsEntry(normalizedKey, data as any);
       }
       // Ignore unknown prefixes
     }
+
+    // After populating the in-memory maps, set metrics cache manager to use the same Map
+    // Must be done synchronously so that hooks accessing it verify cache immediately
+    try {
+      metricsCacheManager.setCache(metricsCache as any);
+    } catch (e) {
+      console.warn('Failed to link metricsCacheManager:', e);
+    }
+
   } catch (e) {
     console.warn('Failed to initialize caches from cacheAPI:', e);
   }
 };
 
 // Sync caches to cacheAPI - called periodically and on unload
+// Track dirty keys so we only sync entries that changed since last sync
+const dirtyMetricsKeys = new Set<string>();
+const dirtyScatterKeys = new Set<string>();
+const dirtyPluginKeys = new Set<string>();
+
 const syncCachesToStorage = async () => {
   try {
-    // Metrics
-    for (const [key, entry] of Array.from(metricsCache.entries())) {
+    // Only sync modified metric keys
+    for (const key of Array.from(dirtyMetricsKeys)) {
+      const entry = metricsCache.get(key);
+      if (!entry) {
+        try { await cacheAPI.delete(key); } catch(e) {}
+        dirtyMetricsKeys.delete(key);
+        continue;
+      }
       const ttl = entry.expiresAt ? entry.expiresAt - Date.now() : 30 * 60 * 1000; // Default 30min
       await cacheAPI.set(key, entry, Math.max(ttl, 0));
+      dirtyMetricsKeys.delete(key);
     }
-    
-    // Scatter
-    for (const [key, entry] of Array.from(scatterCache.entries())) {
+
+    // Only sync modified scatter keys
+    for (const key of Array.from(dirtyScatterKeys)) {
+      const entry = scatterCache.get(key);
+      if (!entry) {
+        try { await cacheAPI.delete(key); } catch(e) {}
+        dirtyScatterKeys.delete(key);
+        continue;
+      }
       const ttl = entry.expiresAt ? entry.expiresAt - Date.now() : 30 * 60 * 1000;
       await cacheAPI.set(key, entry, Math.max(ttl, 0));
+      dirtyScatterKeys.delete(key);
     }
-    
-    // Plugin
-    for (const [key, entry] of Array.from(pluginCache.entries())) {
+
+    // Only sync modified plugin keys
+    for (const key of Array.from(dirtyPluginKeys)) {
+      const entry = pluginCache.get(key);
+      if (!entry) {
+        try { await cacheAPI.delete(key); } catch(e) {}
+        dirtyPluginKeys.delete(key);
+        continue;
+      }
       const ttl = entry.expiresAt ? entry.expiresAt - Date.now() : 30 * 60 * 1000;
       await cacheAPI.set(key, entry, Math.max(ttl, 0));
+      dirtyPluginKeys.delete(key);
     }
   } catch (e) {
     console.warn('Failed to sync caches to cacheAPI:', e);
   }
 };
+
+// Helper functions to set/delete entries and mark dirty keys (avoid Proxy to keep Map methods intact)
+const setMetricsEntry = (key: string, entry: CacheEntry<any>) => {
+  metricsCache.set(key, entry);
+  dirtyMetricsKeys.add(key);
+};
+const deleteMetricsEntry = (key: string) => {
+  metricsCache.delete(key);
+  dirtyMetricsKeys.add(key);
+};
+const clearMetricsMap = () => {
+  for (const k of Array.from(metricsCache.keys())) dirtyMetricsKeys.add(k);
+  metricsCache.clear();
+};
+
+const setScatterEntry = (key: string, entry: CacheEntry<any>) => {
+  scatterCache.set(key, entry);
+  dirtyScatterKeys.add(key);
+};
+const deleteScatterEntry = (key: string) => {
+  scatterCache.delete(key);
+  dirtyScatterKeys.add(key);
+};
+const clearScatterMap = () => {
+  for (const k of Array.from(scatterCache.keys())) dirtyScatterKeys.add(k);
+  scatterCache.clear();
+};
+
+const setPluginEntry = (key: string, entry: CacheEntry<any>) => {
+  pluginCache.set(key, entry);
+  dirtyPluginKeys.add(key);
+};
+const deletePluginEntry = (key: string) => {
+  pluginCache.delete(key);
+  dirtyPluginKeys.add(key);
+};
+const clearPluginMap = () => {
+  for (const k of Array.from(pluginCache.keys())) dirtyPluginKeys.add(k);
+  pluginCache.clear();
+};
+
 
 export const CacheProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [isInitialized, setIsInitialized] = React.useState(false);
@@ -95,13 +197,52 @@ export const CacheProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     }
   }, []);
 
+  // Expose helpers on window for debugging convenience (do not use in production code)
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      (window as any).setMetricsEntry = setMetricsEntry;
+      (window as any).deleteMetricsEntry = deleteMetricsEntry;
+      (window as any).setPluginEntry = setPluginEntry;
+      (window as any).deletePluginEntry = deletePluginEntry;
+    }
+
+    // Register metricsCacheManager change listener so any calls to metricsCacheManager.set/delete
+    // (which use the same Map instance after setCache) will mark dirty keys for persistence.
+    // Additionally, eagerly persist the entry to cacheAPI when set so reloads immediately have a copy.
+    try {
+      metricsCacheManager.setChangeListener(async (key: string, action: 'set' | 'delete') => {
+        try {
+          if (action === 'set') {
+            dirtyMetricsKeys.add(key);
+            const entry = metricsCache.get(key);
+            if (entry) {
+              const ttl = entry.expiresAt ? entry.expiresAt - Date.now() : 30 * 60 * 1000;
+              cacheAPI.set(key, entry, Math.max(ttl, 0)).catch(() => {});
+            }
+          }
+          if (action === 'delete') {
+            dirtyMetricsKeys.add(key);
+            cacheAPI.delete(key).catch(() => {});
+          }
+        } catch (e) {
+          // swallow to avoid impacting main thread
+        }
+      });
+    } catch (e) {
+      // ignore if metricsCacheManager not ready
+    }
+  }, []);
+
   // Sync caches to cacheAPI periodically and on unload/visibility change
   useEffect(() => {
     const syncAll = async () => {
       await syncCachesToStorage();
     };
 
-    const interval = setInterval(syncAll, 500); // Sync every 0.5s
+    const rawInterval = process.env.REACT_APP_CACHE_SYNC_INTERVAL_MS;
+    const parsedInterval = rawInterval != null ? parseInt(rawInterval, 10) : NaN;
+    const intervalMs = Number.isFinite(parsedInterval) && parsedInterval > 0 ? parsedInterval : 5000;
+    const interval = setInterval(syncAll, Math.max(1000, intervalMs)); // min 1s
 
     const handleBeforeUnload = async () => {
       await syncAll();
@@ -124,18 +265,45 @@ export const CacheProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   }, []);
 
   const clearAllCaches = async () => {
-    metricsCache.clear();
-    scatterCache.clear();
-    pluginCache.clear();
+    clearMetricsMap();
+    clearScatterMap();
+    clearPluginMap();
     await cacheAPI.clear();
   };
+
+  // Helper to remove a single cache key immediately (updates in-memory map + cacheAPI)
+  const removeCacheKey = async (key: string) => {
+    if (metricsCache.has(key)) {
+      deleteMetricsEntry(key);
+    }
+    if (scatterCache.has(key)) {
+      deleteScatterEntry(key);
+    }
+    if (pluginCache.has(key)) {
+      deletePluginEntry(key);
+    }
+    try {
+      await cacheAPI.delete(key);
+    } catch (e) {
+      console.warn('Failed to remove cache key from cacheAPI', e);
+    }
+  };
+
 
   const value: CacheContextType = {
     metricsCache,
     scatterCache,
     pluginCache,
     clearAllCaches,
+    removeCacheKey,
   };
+
+  // Helpful debug hook for manual deletion from console
+  if (typeof window !== 'undefined') {
+    (window as any).removeCacheKey = removeCacheKey;
+    (window as any).metricsCache = metricsCache;
+    (window as any).pluginCache = pluginCache;
+  }
 
   // Don't render children until cache is loaded
   if (!isInitialized) {

@@ -1,4 +1,5 @@
 // services/fetchAllDTWs.ts
+import { formatRateLimitMessage, formatApiError, isNetworkError } from '../utils/apiError';
 
 // DTW failure threshold: if more than 25% of pairs fail to compute,
 // throw an error to prevent caching potentially invalid results.
@@ -44,12 +45,23 @@ export async function fetchDTW(
     handleSessionToken(response);
 
     if (!response.ok) {
+      if (response.status === 429) {
+        throw new Error(formatRateLimitMessage(response, '/api/timeseries/dtw'));
+      }
       return null;
     }
 
     const data = await response.json();
     return data.dtw_distance ?? 0;
   } catch (err) {
+    // If rate-limit error was thrown above, propagate
+    if (err instanceof Error && /Rate limit exceeded/.test(err.message)) {
+      throw err;
+    }
+    // Network errors (server crash, OOM, timeout) - propagate with appropriate message
+    if (isNetworkError(err)) {
+      throw new Error(formatApiError(err, '/api/timeseries/dtw'));
+    }
     return null;
   }
 }
@@ -98,7 +110,8 @@ export async function fetchAllDTWs(
   // If more than DTW_FAILURE_THRESHOLD (25%) of pairs failed, throw error to prevent caching
   const totalPairs = (numFiles * (numFiles - 1)) / 2;
   if (failedPairs > 0 && failedPairs >= totalPairs * DTW_FAILURE_THRESHOLD) {
-    throw new Error(`DTW calculation failed for ${failedPairs} pairs (possible OOM or timeout)`);
+    const pairWord = failedPairs === 1 ? 'pair' : 'pairs';
+    throw new Error(`DTW calculation failed for ${failedPairs} ${pairWord} (possible OOM or timeout)`);
   }
 
   return DTWs;

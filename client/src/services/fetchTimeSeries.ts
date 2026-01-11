@@ -1,5 +1,6 @@
 import { apiLogger } from '../utils/apiLogger';
 import { cacheAPI } from '../utils/cacheApiWrapper';
+import { formatRateLimitMessage, formatApiError } from '../utils/apiError';
 
 type TimeSeriesCacheEntry = {
   data: TimeSeriesResponse;
@@ -77,16 +78,26 @@ export const fetchTimeSeriesData = async (
     params: { start, end },
   });
 
-  const resp = await fetch(url, {
-    headers: {
-      ...getAuthHeaders(),
-      'Content-Type': 'application/json',
-    },
-  });
+  let resp: Response;
+  try {
+    resp = await fetch(url, {
+      headers: {
+        ...getAuthHeaders(),
+        'Content-Type': 'application/json',
+      },
+    });
+  } catch (err) {
+    throw new Error(formatApiError(err, '/api/timeseries'));
+  }
 
   handleSessionToken(resp);
 
-  if (!resp.ok) throw new Error(await resp.text());
+  if (!resp.ok) {
+    if (resp.status === 429) {
+      throw new Error(formatRateLimitMessage(resp, '/api/timeseries'));
+    }
+    throw new Error(await resp.text());
+  }
   const duration = Math.round(performance.now() - startTime);
   apiLogger.logQuery('/api/timeseries', 'GET', {
     params: { start, end },
@@ -125,13 +136,23 @@ export const fetchTimeSeriesData = async (
 };
 
 export const fetchRawTimeSeriesData = async (): Promise<Record<string, any[]>> => {
-  const resp = await fetch(`${API_URL}/api/timeseries`, {
-    headers: getAuthHeaders(),
-  });
+  let resp: Response;
+  try {
+    resp = await fetch(`${API_URL}/api/timeseries`, {
+      headers: getAuthHeaders(),
+    });
+  } catch (err) {
+    throw new Error(formatApiError(err, '/api/timeseries'));
+  }
 
   handleSessionToken(resp);
 
-  if (!resp.ok) throw new Error(await resp.text());
+  if (!resp.ok) {
+    if (resp.status === 429) {
+      throw new Error(formatRateLimitMessage(resp, '/api/timeseries'));
+    }
+    throw new Error(await resp.text());
+  }
 
   return await resp.json();
 };

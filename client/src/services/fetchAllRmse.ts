@@ -1,4 +1,5 @@
 // services/fetchAllRmse.ts
+import { formatRateLimitMessage, formatApiError } from '../utils/apiError';
 
 const API_URL = (process.env.REACT_APP_API_URL || '').replace(/\/$/, '');
 
@@ -41,6 +42,9 @@ async function fetchRmse(
   handleSessionToken(resp);
 
   if (!resp.ok) {
+    if (resp.status === 429) {
+      throw new Error(formatRateLimitMessage(resp, '/api/timeseries/rmse'));
+    }
     console.error("Failed to fetch RMSE:", await resp.text());
     return null;
   }
@@ -75,6 +79,7 @@ export async function fetchAllRmse(
           }
         } catch (err) {
           console.warn(`Error fetching RMSE for ${category}.${f1} vs ${f2}:`, err);
+          throw new Error(formatApiError(err, '/api/timeseries/rmse'));
         }
       }
     }

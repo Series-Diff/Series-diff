@@ -50,7 +50,7 @@ export const PREDEFINED_METRICS: Metric[] = [
     { value: 'median', label: 'Median', description: 'Middle value in the sorted time series data', category: 'Statistical' },
     { value: 'variance', label: 'Variance', description: 'Measure of data dispersion from the mean', category: 'Statistical' },
     { value: 'std_dev', label: 'Standard Deviation', description: 'Square root of variance, indicating data spread', category: 'Statistical' },
-    { value: 'autocorrelation', label: 'Autocorrelation', description: 'Correlation of the series with its lagged version', category: 'Temporal' },
+    { value: 'autocorrelation', label: 'Autocorrelation', description: 'Correlation of the series with its lagged version', category: 'Statistical' },
     // { value: 'kurtosis', label: 'Kurtosis', description: 'Measure of the tailedness of the data distribution', category: 'Statistical' },
     // { value: 'iqr', label: 'IQR (Interquartile Range)', description: 'Difference between the 75th and 25th percentiles, measuring spread', category: 'Statistical' },
     // { value: 'skewness', label: 'Skewness', description: 'Measure of the asymmetry of the data distribution', category: 'Statistical' },

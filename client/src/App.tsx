@@ -53,7 +53,7 @@ const App: React.FC = () => {
       <div className="App">
         <NavigationMenu />
         <main>
-          <Suspense fallback={<div>Loading...</div>}>
+            <Suspense fallback={<div className="d-flex justify-content-center align-items-center min-vh-100">Loading...</div>}>
             <Routes>
               <Route path="/" element={<Navigate to="/dashboard" replace />} /> {/* Ustawienie domyślnej strony startowej na DashboardPage */}
               <Route path="/dashboard" element={<DashboardPage />} />

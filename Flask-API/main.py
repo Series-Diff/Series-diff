@@ -31,6 +31,41 @@ limiter = container.limiter
 limiter.init_app(app)
 
 
+@app.errorhandler(429)
+def ratelimit_handler(e):
+    """
+    Handle rate limit exceeded errors with proper CORS headers.
+    Flask-Limiter's default 429 response may not include CORS headers,
+    causing browsers to block the response as a network error.
+    """
+    response = jsonify(
+        {
+            "error": "Rate limit exceeded",
+            "message": (
+                str(e.description)
+                if hasattr(e, "description")
+                else "Too many requests. Please try again later."
+            ),
+            "retry_after": (
+                e.get_response().headers.get("Retry-After")
+                if hasattr(e, "get_response")
+                else None
+            ),
+        }
+    )
+    response.status_code = 429
+    # Ensure CORS headers are present
+    response.headers["Access-Control-Allow-Origin"] = "*"
+    response.headers["Access-Control-Allow-Methods"] = "GET, POST, PUT, DELETE, OPTIONS"
+    response.headers["Access-Control-Allow-Headers"] = "Content-Type, X-Session-ID"
+    response.headers["Access-Control-Expose-Headers"] = "X-Session-ID, Retry-After"
+    if hasattr(e, "get_response"):
+        retry_after = e.get_response().headers.get("Retry-After")
+        if retry_after:
+            response.headers["Retry-After"] = retry_after
+    return response
+
+
 def _all_required_services_are_running():
     """
     Check if all required services are running.

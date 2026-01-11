@@ -1,4 +1,5 @@
 // services/fetchAllMeans.ts
+import { formatRateLimitMessage, formatApiError } from '../utils/apiError';
 
 const API_URL = (process.env.REACT_APP_API_URL || '').replace(/\/$/, '');
 
@@ -41,6 +42,9 @@ async function fetchMean(
   handleSessionToken(resp);
 
   if (!resp.ok) {
+    if (resp.status === 429) {
+      throw new Error(formatRateLimitMessage(resp, '/api/timeseries/mean'));
+    }
     console.error("Failed to fetch mean:", await resp.text());
     return null;
   }
@@ -68,6 +72,7 @@ export async function fetchAllMeans(
         }
       } catch (err) {
         console.warn(`Error fetching mean for ${category}.${filename}:`, err);
+        throw new Error(formatApiError(err, '/api/timeseries/mean'));
       }
     }
   }

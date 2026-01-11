@@ -2,9 +2,19 @@ import os
 import logging
 import socket
 import redis
+from flask import request
 from flask_limiter import Limiter
 from flask_limiter.util import get_remote_address
 from services.time_series_manager import TimeSeriesManager
+
+
+def _should_skip_rate_limit():
+    """
+    Skip rate limiting for OPTIONS preflight requests.
+    Browsers send OPTIONS requests before actual requests for CORS,
+    and these should not count against rate limits.
+    """
+    return request.method == "OPTIONS"
 
 
 class Container:
@@ -61,6 +71,8 @@ class Container:
                 default_limits=["5000 per day", "1000 per hour"],
                 strategy="fixed-window",
             )
+            # Exempt CORS preflight requests from rate limiting
+            self._limiter.request_filter(_should_skip_rate_limit)
         return self._limiter
 
     @property

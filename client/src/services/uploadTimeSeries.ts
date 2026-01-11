@@ -1,4 +1,5 @@
 // src/services/uploadTimeSeries.ts
+import { formatRateLimitMessage, formatApiError } from '../utils/apiError';
 
 const API_URL = (process.env.REACT_APP_API_URL || '').replace(/\/$/, '');
 
@@ -35,17 +36,24 @@ export const sendProcessedTimeSeriesData = async (
     handleSessionToken(response);
 
     if (!response.ok) {
+      if (response.status === 429) {
+        const message = formatRateLimitMessage(response, 'POST /api/upload-timeseries');
+        callback?.(false);
+        throw new Error(message);
+      }
       const errorText = await response.text();
       console.error('Server error:', errorText);
-      throw new Error(errorText);
+      callback?.(false);
+      throw new Error(errorText || 'Upload failed');
     }
 
     const result = await response.json();
     callback?.(true);
     return result;
   } catch (error) {
-    console.error('Error uploading time series data:', error);
+    const message = formatApiError(error, 'POST /api/upload-timeseries');
+    console.error('Error uploading time series data:', message);
     callback?.(false);
-    throw error;
+    throw new Error(message);
   }
 };

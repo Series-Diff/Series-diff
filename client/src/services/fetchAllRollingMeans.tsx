@@ -1,4 +1,5 @@
 import { TimeSeriesEntry } from "./fetchTimeSeries";
+import { formatRateLimitMessage, formatApiError } from '../utils/apiError';
 
 const API_URL = (process.env.REACT_APP_API_URL || '').replace(/\/$/, '');
 
@@ -42,7 +43,12 @@ export async function fetchRollingMean(
 
   handleSessionToken(resp);
 
-  if (!resp.ok) throw new Error(await resp.text());
+  if (!resp.ok) {
+    if (resp.status === 429) {
+      throw new Error(formatRateLimitMessage(resp, '/api/timeseries/rolling_mean'));
+    }
+    throw new Error(await resp.text());
+  }
 
   const data = await resp.json();
   const out: Record<string, TimeSeriesEntry[]> = {};
@@ -71,6 +77,7 @@ export async function fetchAllRollingMeans(
   end?: string
 ): Promise<Record<string, TimeSeriesEntry[]>> {
   const rollingMeanValues: Record<string, TimeSeriesEntry[]> = {};
+  const errors: string[] = [];
 
   for (const category of Object.keys(filenamesPerCategory)) {
     const files = filenamesPerCategory[category];
@@ -95,9 +102,23 @@ export async function fetchAllRollingMeans(
           console.warn(`Unexpected data structure for ${keyPrefix}. Expected an object, received:`, seriesMap);
         }
       } catch (err) {
+        const errorMsg = formatApiError(err, '/api/timeseries/rolling_mean');
         console.warn(`Error processing rolling mean series for ${keyPrefix}:`, err);
+        errors.push(errorMsg);
       }
     }
+  }
+
+  // If all requests failed, throw an error with collected messages
+  if (errors.length > 0 && Object.keys(rollingMeanValues).length === 0) {
+    // All failed - throw the first unique error
+    const uniqueErrors = Array.from(new Set(errors));
+    throw new Error(uniqueErrors[0]);
+  }
+
+  // If some failed but some succeeded, log warning but return partial data
+  if (errors.length > 0) {
+    console.warn(`Some rolling mean requests failed: ${errors.join(', ')}`);
   }
 
   return rollingMeanValues;
