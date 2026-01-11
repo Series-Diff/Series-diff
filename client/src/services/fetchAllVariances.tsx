@@ -1,8 +1,9 @@
+import { formatRateLimitMessage, formatApiError } from '../utils/apiError';
 const API_URL = (process.env.REACT_APP_API_URL || '').replace(/\/$/, '');
 
 const getAuthHeaders = (): HeadersInit => {
   const token = localStorage.getItem('session_token');
-  return token ? { 'X-Session-ID': token } : {};
+  return token ? { 'X-Session-ID': token } : {}; 
 };
 
 const handleSessionToken = (response: Response) => {
@@ -41,6 +42,9 @@ async function fetchVariance(
   handleSessionToken(resp);
 
   if (!resp.ok) {
+    if (resp.status === 429) {
+      throw new Error(formatRateLimitMessage(resp, '/api/timeseries/variance'));
+    }
     console.error("Failed to fetch variance:", await resp.text());
     return null;
   }
@@ -68,6 +72,7 @@ export async function fetchAllVariances(
         }
       } catch (err) {
         console.warn(`Error fetching variance for ${category}.${filename}:`, err);
+        throw new Error(formatApiError(err, '/api/timeseries/variance'));
       }
     }
   }

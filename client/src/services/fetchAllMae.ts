@@ -1,4 +1,5 @@
 // services/fetchAllMae.ts
+import { formatRateLimitMessage, formatApiError } from '../utils/apiError';
 
 const API_URL = (process.env.REACT_APP_API_URL || '').replace(/\/$/, '');
 
@@ -41,6 +42,9 @@ async function fetchMae(
   handleSessionToken(resp);
 
   if (!resp.ok) {
+    if (resp.status === 429) {
+      throw new Error(formatRateLimitMessage(resp, '/api/timeseries/mae'));
+    }
     console.error("Failed to fetch MAE:", await resp.text());
     return null;
   }
@@ -75,6 +79,7 @@ export async function fetchAllMae(
           }
         } catch (err) {
           console.warn(`Error fetching MAE for ${category}.${f1} vs ${f2}:`, err);
+          throw new Error(formatApiError(err, '/api/timeseries/mae'));
         }
       }
     }

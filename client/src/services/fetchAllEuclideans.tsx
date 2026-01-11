@@ -1,4 +1,5 @@
 // services/fetchAllEuclidean.tsx
+import { formatRateLimitMessage, formatApiError, isNetworkError } from '../utils/apiError';
 
 const API_URL = (process.env.REACT_APP_API_URL || '').replace(/\/$/, '');
 const getAuthHeaders = (): HeadersInit => {
@@ -38,15 +39,27 @@ export async function fetchEuclidean(
     params.append('end', end);
   }
 
-  const resp = await fetch(`${API_URL}/api/timeseries/euclidean_distance?${params.toString()}`, {
-    headers: {
-      ...getAuthHeaders(),
-    },
-  });
+  let resp: Response;
+  try {
+    resp = await fetch(`${API_URL}/api/timeseries/euclidean_distance?${params.toString()}`, {
+      headers: {
+        ...getAuthHeaders(),
+      },
+    });
+  } catch (err) {
+    // Handle network errors (Failed to fetch) - often caused by rate limiting
+    if (isNetworkError(err)) {
+      throw new Error(formatApiError(err, '/api/timeseries/euclidean_distance'));
+    }
+    throw err;
+  }
 
   handleSessionToken(resp);
 
   if (!resp.ok) {
+    if (resp.status === 429) {
+      throw new Error(formatRateLimitMessage(resp, '/api/timeseries/euclidean_distance'));
+    }
     console.error("Failed to fetch euclidean distance:", await resp.text());
     return null;
   }

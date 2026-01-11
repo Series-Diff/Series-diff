@@ -118,7 +118,7 @@ export const Statistics: React.FC<StatisticsProps> = ({ groupedStatistics, selec
             </div>
             <div className="statistics-error-summary">
               <div className="d-flex flex-column flex-sm-row align-items-center justify-content-center gap-2">
-                <span><strong>Failed to calculate:</strong> {failedStatistics.join(', ')}</span>
+                <span>{errors[failedStatisticsKeys[0]] || `Failed to calculate: ${failedStatistics.join(', ')}`}</span>
                 {onRetryStatistic && (
                   <Button variant="outline-danger" size="sm" onClick={handleRetryAll} className="flex-shrink-0">
                     Retry All
@@ -160,7 +160,7 @@ export const Statistics: React.FC<StatisticsProps> = ({ groupedStatistics, selec
               {failedStatistics.length > 0 && index === 0 && (
                 <div className="statistics-error-summary">
                   <div className="d-flex flex-column flex-sm-row align-items-center justify-content-center gap-2">
-                    <span><strong>Failed to calculate:</strong> {failedStatistics.join(', ')}</span>
+                    <span>{errors[failedStatisticsKeys[0]] || `Failed to calculate: ${failedStatistics.join(', ')}`}</span>
                     {onRetryStatistic && (
                       <Button variant="outline-danger" size="sm" onClick={handleRetryAll} className="flex-shrink-0">
                         Retry All

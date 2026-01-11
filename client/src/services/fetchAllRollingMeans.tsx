@@ -1,4 +1,5 @@
 import { TimeSeriesEntry } from "./fetchTimeSeries";
+import { formatRateLimitMessage, formatApiError } from '../utils/apiError';
 
 const API_URL = (process.env.REACT_APP_API_URL || '').replace(/\/$/, '');
 
@@ -42,7 +43,12 @@ export async function fetchRollingMean(
 
   handleSessionToken(resp);
 
-  if (!resp.ok) throw new Error(await resp.text());
+  if (!resp.ok) {
+    if (resp.status === 429) {
+      throw new Error(formatRateLimitMessage(resp, '/api/timeseries/rolling_mean'));
+    }
+    throw new Error(await resp.text());
+  }
 
   const data = await resp.json();
   const out: Record<string, TimeSeriesEntry[]> = {};
@@ -96,19 +102,9 @@ export async function fetchAllRollingMeans(
           console.warn(`Unexpected data structure for ${keyPrefix}. Expected an object, received:`, seriesMap);
         }
       } catch (err) {
-        const errorMsg = err instanceof Error ? err.message : String(err);
+        const errorMsg = formatApiError(err, '/api/timeseries/rolling_mean');
         console.warn(`Error processing rolling mean series for ${keyPrefix}:`, err);
-        // Parse API error message if it's JSON
-        try {
-          const parsed = JSON.parse(errorMsg);
-          if (parsed.error) {
-            errors.push(parsed.error);
-          } else {
-            errors.push(errorMsg);
-          }
-        } catch {
-          errors.push(errorMsg);
-        }
+        errors.push(errorMsg);
       }
     }
   }

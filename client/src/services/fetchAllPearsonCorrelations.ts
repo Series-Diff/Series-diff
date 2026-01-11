@@ -1,4 +1,5 @@
 // services/fetchAllPearsonCorrelations.ts
+import { formatRateLimitMessage, formatApiError } from '../utils/apiError';
 const API_URL = (process.env.REACT_APP_API_URL || '').replace(/\/$/, '');
 
 const getAuthHeaders = (): HeadersInit => {
@@ -39,6 +40,9 @@ export async function fetchPearsonCorrelation(
     handleSessionToken(response);
 
     if (!response.ok) {
+      if (response.status === 429) {
+        throw new Error(formatRateLimitMessage(response, '/api/timeseries/pearson_correlation'));
+      }
       console.error(`Failed to fetch correlation for ${filename1} vs ${filename2}:`, await response.text());
       return null;
     }
@@ -47,7 +51,7 @@ export async function fetchPearsonCorrelation(
     return data.pearson_correlation ?? null;
   } catch (err) {
     console.error(`Error fetching correlation for ${filename1} vs ${filename2}:`, err);
-    return null;
+    throw new Error(formatApiError(err, '/api/timeseries/pearson_correlation'));
   }
 }
 

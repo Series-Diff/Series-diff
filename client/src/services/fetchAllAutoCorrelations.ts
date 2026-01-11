@@ -1,4 +1,5 @@
 // services/fetchAllAutoCorrelations.ts
+import { formatRateLimitMessage, formatApiError } from '../utils/apiError';
 
 const API_URL = (process.env.REACT_APP_API_URL || '').replace(/\/$/, '');
 
@@ -40,6 +41,9 @@ async function fetchAutocorrelation(
   handleSessionToken(resp);
 
   if (!resp.ok) {
+    if (resp.status === 429) {
+      throw new Error(formatRateLimitMessage(resp, '/api/timeseries/autocorrelation'));
+    }
     console.error("Failed to fetch autocorrelation:", await resp.text());
     return null;
   }
@@ -67,6 +71,7 @@ export async function fetchAllAutoCorrelations(
         }
       } catch (err) {
         console.warn(`Error fetching autocorrelation for ${category}.${filename}:`, err);
+        throw new Error(formatApiError(err, '/api/timeseries/autocorrelation'));
       }
     }
   }

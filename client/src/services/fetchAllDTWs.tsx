@@ -1,4 +1,5 @@
 // services/fetchAllDTWs.ts
+import { formatRateLimitMessage, formatApiError, isNetworkError } from '../utils/apiError';
 
 // DTW failure threshold: if more than 25% of pairs fail to compute,
 // throw an error to prevent caching potentially invalid results.
@@ -44,12 +45,23 @@ export async function fetchDTW(
     handleSessionToken(response);
 
     if (!response.ok) {
+      if (response.status === 429) {
+        throw new Error(formatRateLimitMessage(response, '/api/timeseries/dtw'));
+      }
       return null;
     }
 
     const data = await response.json();
     return data.dtw_distance ?? 0;
   } catch (err) {
+    // If rate-limit error was thrown above, propagate
+    if (err instanceof Error && /Rate limit exceeded/.test(err.message)) {
+      throw err;
+    }
+    // Network errors (Failed to fetch) are often caused by rate limiting
+    if (isNetworkError(err)) {
+      throw new Error(formatApiError(err, '/api/timeseries/dtw'));
+    }
     return null;
   }
 }

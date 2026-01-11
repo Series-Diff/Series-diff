@@ -10,6 +10,7 @@
 
 import { apiLogger } from '../utils/apiLogger';
 import { cacheAPI } from '../utils/cacheApiWrapper';
+import { formatRateLimitMessage, formatApiError } from '../utils/apiError';
 
 export interface PluginValidationResult {
     valid: boolean;
@@ -69,34 +70,41 @@ export async function validatePluginCode(code: string): Promise<PluginValidation
         params: { codeLength: code.length },
     });
 
-    const response = await fetch(`${API_BASE}/validate`, {
-        method: 'POST',
-        headers: {
-            'Content-Type': 'application/json',
-            ...getAuthHeaders()
-        },
-        body: JSON.stringify({ code })
-    });
+    try {
+        const response = await fetch(`${API_BASE}/validate`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                ...getAuthHeaders()
+            },
+            body: JSON.stringify({ code })
+        });
 
-    const duration = Math.round(performance.now() - startTime);
-    handleSessionToken(response);
+        const duration = Math.round(performance.now() - startTime);
+        handleSessionToken(response);
 
-    if (!response.ok) {
+        if (!response.ok) {
+            if (response.status === 429) {
+                throw new Error(formatRateLimitMessage(response, '/api/plugins/validate'));
+            }
+            apiLogger.logQuery('/api/plugins/validate', 'POST', {
+                params: { codeLength: code.length },
+                duration,
+                status: response.status,
+            });
+            throw new Error('Failed to validate plugin code');
+        }
+
         apiLogger.logQuery('/api/plugins/validate', 'POST', {
             params: { codeLength: code.length },
             duration,
             status: response.status,
         });
-        throw new Error('Failed to validate plugin code');
+
+        return response.json();
+    } catch (err) {
+        throw new Error(formatApiError(err, '/api/plugins/validate'));
     }
-
-    apiLogger.logQuery('/api/plugins/validate', 'POST', {
-        params: { codeLength: code.length },
-        duration,
-        status: response.status,
-    });
-
-    return response.json();
 }
 
 const getAuthHeaders = (): HeadersInit => {
@@ -156,37 +164,45 @@ export async function executePlugin(
         params: { category, files: filenames.length, start, end },
     });
 
-    const response = await fetch(`${API_BASE}/execute`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', ...getAuthHeaders() },
-        body: JSON.stringify({ code, category, filenames, start, end })
-    });
+    try {
+        const response = await fetch(`${API_BASE}/execute`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', ...getAuthHeaders() },
+            body: JSON.stringify({ code, category, filenames, start, end })
+        });
 
-    const duration = Math.round(performance.now() - startTime);
-    handleSessionToken(response);
-    const result = await response.json();
+        const duration = Math.round(performance.now() - startTime);
+        handleSessionToken(response);
+        const result = await response.json();
 
-    if (!response.ok) {
+        if (!response.ok) {
+            apiLogger.logQuery('/api/plugins/execute', 'POST', {
+                params: { category, files: filenames.length, start, end },
+                duration,
+                status: response.status,
+            });
+            if (response.status === 429) {
+                return { error: formatRateLimitMessage(response, '/api/plugins/execute') };
+            }
+            return { error: result.error || 'Failed to execute plugin' };
+        }
+
+        // Cache result using cacheAPI with TTL
+        try {
+            await cacheAPI.set(cacheKey, { data: result, timestamp: Date.now() }, PLUGIN_CACHE_DURATION);
+        } catch (e) {
+            console.warn('Failed to cache plugin result:', e);
+        }
+
         apiLogger.logQuery('/api/plugins/execute', 'POST', {
             params: { category, files: filenames.length, start, end },
             duration,
             status: response.status,
         });
-        return { error: result.error || 'Failed to execute plugin' };
+
+        return result;
+    } catch (err) {
+        // Handle network errors (Failed to fetch) as potential rate limit issues
+        return { error: formatApiError(err, '/api/plugins/execute') };
     }
-
-    // Cache result using cacheAPI with TTL
-    try {
-        await cacheAPI.set(cacheKey, { data: result, timestamp: Date.now() }, PLUGIN_CACHE_DURATION);
-    } catch (e) {
-        console.warn('Failed to cache plugin result:', e);
-    }
-
-    apiLogger.logQuery('/api/plugins/execute', 'POST', {
-        params: { category, files: filenames.length, start, end },
-        duration,
-        status: response.status,
-    });
-
-    return result;
 }
