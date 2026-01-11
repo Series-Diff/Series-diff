@@ -58,7 +58,7 @@ export async function fetchDTW(
     if (err instanceof Error && /Rate limit exceeded/.test(err.message)) {
       throw err;
     }
-    // Network errors (Failed to fetch) are often caused by rate limiting
+    // Network errors (server crash, OOM, timeout) - propagate with appropriate message
     if (isNetworkError(err)) {
       throw new Error(formatApiError(err, '/api/timeseries/dtw'));
     }

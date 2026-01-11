@@ -29,15 +29,27 @@ export function isRateLimitError(error: unknown): boolean {
 }
 
 /**
- * Check if an error is a network-level "Failed to fetch" that might be caused by rate limiting.
- * This happens when the browser blocks the request due to CORS issues on 429 responses.
+ * Check if an error is a network-level error (connection failed, server unreachable, etc.).
+ * This includes "Failed to fetch" and other network-related errors.
  */
 export function isNetworkError(error: unknown): boolean {
-  if (error instanceof TypeError && error.message === 'Failed to fetch') {
-    return true;
+  if (error instanceof TypeError) {
+    // TypeError with "Failed to fetch" is the standard network error
+    // This covers: ERR_EMPTY_RESPONSE, ERR_CONNECTION_REFUSED, ERR_NAME_NOT_RESOLVED, etc.
+    if (error.message === 'Failed to fetch' || error.message.includes('fetch')) {
+      return true;
+    }
   }
-  if (error instanceof Error && error.message.includes('Failed to fetch')) {
-    return true;
+  if (error instanceof Error) {
+    const msg = error.message.toLowerCase();
+    // Check for common network error patterns
+    if (msg.includes('failed to fetch') || 
+        msg.includes('network') || 
+        msg.includes('connection') ||
+        msg.includes('timeout') ||
+        msg.includes('aborted')) {
+      return true;
+    }
   }
   return false;
 }
@@ -50,15 +62,25 @@ export function getGenericRateLimitMessage(): string {
 }
 
 /**
+ * Generic network error message for server crashes, timeouts, etc.
+ */
+export function getNetworkErrorMessage(): string {
+  return 'Server unavailable. The request failed - the server may be overloaded or restarting. Please try again.';
+}
+
+/**
  * Convert an error to a user-friendly message, detecting rate limit scenarios.
+ * Note: We no longer assume network errors are rate limits - they could be server crashes,
+ * OOM kills, or genuine connectivity issues.
  */
 export function formatApiError(error: unknown, endpointLabel?: string): string {
   if (isRateLimitError(error)) {
     return error instanceof Error ? error.message : getGenericRateLimitMessage();
   }
   if (isNetworkError(error)) {
-    // Network errors during API calls are often caused by rate limiting blocking CORS preflight
-    return getGenericRateLimitMessage();
+    // Network errors can have many causes: server crash, OOM, timeout, connectivity issues.
+    // Don't assume it's rate limiting - show a generic server error message.
+    return getNetworkErrorMessage();
   }
   if (error instanceof Error) {
     return error.message;
