@@ -1,4 +1,4 @@
-# This is documentation of Flask API for Comparison Tool Application
+# This is documentation of Flask API for SeriesDiff Application
 
 ## File Structure
 
