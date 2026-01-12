@@ -2,22 +2,6 @@ import {useCallback, useEffect, useMemo, useRef, useState} from "react";
 import { TimeSeriesEntry } from "@/services/fetchTimeSeries";
 
 /**
- * Format a Date to an ISO-like string preserving the original time values.
- * This is used internally for Plotly chart axis synchronization.
- * It does NOT convert timezone - just formats the Date object's local time components.
- */
-function toLocalISOString(date: Date): string {
-    const year = date.getFullYear();
-    const month = String(date.getMonth() + 1).padStart(2, '0');
-    const day = String(date.getDate()).padStart(2, '0');
-    const hours = String(date.getHours()).padStart(2, '0');
-    const minutes = String(date.getMinutes()).padStart(2, '0');
-    const seconds = String(date.getSeconds()).padStart(2, '0');
-    const ms = String(date.getMilliseconds()).padStart(3, '0');
-    return `${year}-${month}-${day}T${hours}:${minutes}:${seconds}.${ms}`;
-}
-
-/**
  * Custom hook for managing chart state.
  * 
  * Handles:
@@ -32,9 +16,7 @@ export const useChartState = (
     primaryData: Record<string, TimeSeriesEntry[]>,
     secondaryData?: Record<string, TimeSeriesEntry[]>,
     tertiaryData?: Record<string, TimeSeriesEntry[]>,
-    manualData: Record<string, TimeSeriesEntry[]> = {},
-    onXaxisRangeChange?: (start: Date | null, end: Date | null) => void,
-    externalXaxisRange?: [Date | null, Date | null]
+    manualData: Record<string, TimeSeriesEntry[]> = {}
 ) => {
     const [xaxisRange, setXaxisRange] = useState<[string | null, string | null]>([null, null]);
     const [tickFormat, setTickFormat] = useState('%d.%m.%Y'); // Only day before zoom
@@ -144,9 +126,9 @@ export const useChartState = (
                 return; // No-op to prevent relayout-induced loops
             }
 
-            // Use local ISO string to preserve timezone (avoid UTC conversion)
-            const nextRangeStart = toLocalISOString(rangeStart);
-            const nextRangeEnd = toLocalISOString(rangeEnd);
+            // Format dates as ISO strings for Plotly
+            const nextRangeStart = rangeStart.toISOString();
+            const nextRangeEnd = rangeEnd.toISOString();
             
             const estimatedPointsOnScreen = diffHours / (averageStepHours || 0.001);
 
@@ -165,9 +147,6 @@ export const useChartState = (
             xaxisRangeRef.current = [nextRangeStart, nextRangeEnd];
             xaxisRangeTimestampRef.current = [startTs, endTs];
             setXaxisRange([nextRangeStart, nextRangeEnd]);
-            
-            // Notify parent of range change (for date picker sync)
-            onXaxisRangeChange?.(rangeStart, rangeEnd);
         } else if (event['xaxis.autorange'] === true) {
             // Use ref for comparison
             if (xaxisRangeRef.current[0] === null && xaxisRangeRef.current[1] === null) {
@@ -179,12 +158,10 @@ export const useChartState = (
             setXaxisRange([null, null]); // Resetting X-axis range
             setTickFormat('%d.%m.%Y'); // Restoring default format
             setShowMarkers(false); // Restoring default markers
-            // Notify parent of autorange (null values = full range)
-            onXaxisRangeChange?.(null, null);
         }
-    }, [averageStepHours, onXaxisRangeChange]);
+    }, [averageStepHours]);
 
-    // Keep xaxisRange state in sync with refs (for external consumers)
+    // Keep xaxisRange state in sync with refs
     useEffect(() => {
         xaxisRangeRef.current = xaxisRange;
         if (xaxisRange[0] && xaxisRange[1]) {
@@ -196,55 +173,6 @@ export const useChartState = (
             xaxisRangeTimestampRef.current = [null, null];
         }
     }, [xaxisRange]);
-
-    // Sync external x-axis range from date picker to chart
-    const prevExternalRangeRef = useRef<[Date | null, Date | null]>([null, null]);
-    useEffect(() => {
-        if (!externalXaxisRange) return;
-        
-        const [externalStart, externalEnd] = externalXaxisRange;
-        const [prevStart, prevEnd] = prevExternalRangeRef.current;
-        
-        // Check if external range has changed (with tolerance)
-        const tolerance = 1000; // 1 second tolerance
-        const startChanged = !externalStart !== !prevStart || 
-            (externalStart && prevStart && Math.abs(externalStart.getTime() - prevStart.getTime()) >= tolerance);
-        const endChanged = !externalEnd !== !prevEnd ||
-            (externalEnd && prevEnd && Math.abs(externalEnd.getTime() - prevEnd.getTime()) >= tolerance);
-        
-        if (!startChanged && !endChanged) return;
-        
-        prevExternalRangeRef.current = externalXaxisRange;
-        
-        if (externalStart && externalEnd) {
-            const startTs = externalStart.getTime();
-            const endTs = externalEnd.getTime();
-            
-            // Avoid relayout loop if already at this range (within tolerance)
-            const currentStartTs = xaxisRangeTimestampRef.current[0];
-            const currentEndTs = xaxisRangeTimestampRef.current[1];
-            
-            if (currentStartTs !== null && currentEndTs !== null &&
-                Math.abs(currentStartTs - startTs) < tolerance &&
-                Math.abs(currentEndTs - endTs) < tolerance) {
-                return;
-            }
-            
-            // Use local ISO string to preserve timezone (avoid UTC conversion)
-            const startStr = toLocalISOString(externalStart);
-            const endStr = toLocalISOString(externalEnd);
-            
-            const fakeEvent = {
-                'xaxis.range[0]': startStr,
-                'xaxis.range[1]': endStr,
-            };
-            handleRelayout(fakeEvent);
-        } else {
-            // Reset to autorange if both are null
-            if (xaxisRangeRef.current[0] === null && xaxisRangeRef.current[1] === null) return;
-            handleRelayout({ 'xaxis.autorange': true });
-        }
-    }, [externalXaxisRange, handleRelayout]);
 
     // Only run initial X-range setup when allData transitions from empty to non-empty
     const prevAllDataCount = useRef(0);
