@@ -1,5 +1,6 @@
 import React from 'react';
 import { Form } from 'react-bootstrap';
+import { useCompactMode, getSelectStyles } from '../../hooks/useCompactMode';
 
 
 type SelectProps = {
@@ -23,11 +24,15 @@ export const Select: React.FC<SelectProps> = ({
   allowNoneOption = false,
   ariaLabel,
 }) => {
+  const { isCompact } = useCompactMode();
+  const styles = getSelectStyles(isCompact);
+
   const selectElement = (
     <Form.Select
       id={id}
       aria-label={ariaLabel || label || `Select ${id.replace(/-/g, ' ')}`}
-      style={{ width: '224px' }}
+      size={styles.size}
+      style={{ width: styles.width }}
       value={selected}
       onChange={onChange}
     >
@@ -42,8 +47,8 @@ export const Select: React.FC<SelectProps> = ({
 
   if (label) {
     return (
-      <div className="d-flex flex-column align-items-center">
-        <Form.Label htmlFor={id} className="mb-2">{label}</Form.Label>
+      <div className={`d-flex flex-column align-items-center ${styles.textClass}`}>
+        <Form.Label htmlFor={id} className={`${styles.labelMargin} ${styles.labelClass}`}>{label}</Form.Label>
         {selectElement}
       </div>
     );
