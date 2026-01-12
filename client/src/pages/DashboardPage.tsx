@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
+import { useCompactMode, getControlsPanelStyles } from '../hooks/useCompactMode';
 import { Button, Modal, Form, Spinner, Alert } from 'react-bootstrap';
 import './DashboardPage.css';
 import '../components/Chart/Chart.css';
@@ -167,6 +168,9 @@ function DashboardPage() {
 
     const hasDifferenceData = Object.keys(differenceChartData).length > 0;
     const isInDifferenceMode = chartMode === 'difference';
+
+    const { isCompact } = useCompactMode();
+    const styles = getControlsPanelStyles(isCompact);
 
     const hasEnoughFilesForDifference = Object.values(filenamesPerCategory).some(files => files.length >= 2);
     // Count unique files across all categories (don't duplicate count if same file appears in multiple categories)
@@ -400,15 +404,17 @@ function DashboardPage() {
                                                         canShowDifferenceChart={canShowDifferenceChart}
                                                     />
                                                 </div>
-                                                <div className="d-flex w-100 px-2 pb-1 mt-3">
-                                                    <div className="d-flex gap-3 w-100">
+                                                <div className={`d-flex w-100 px-2 mt-3`}>
+                                                    <div className={`d-flex gap-2 w-100`}>
                                                         <components.DateTimePicker
                                                             label="Start"
                                                             value={pendingStartDate}
                                                             onChange={handleStartChange}
                                                             minDate={defaultMinDate}
                                                             maxDate={(pendingEndDate ?? endDate) ?? defaultMaxDate}
-                                                            openToDate={pendingStartDate ?? defaultMinDate} />
+                                                            openToDate={pendingStartDate ?? defaultMinDate}
+                                                            minWidth={styles.datePickerMinWidth}
+                                                            />
 
                                                         <components.DateTimePicker
                                                             label="End"
@@ -417,6 +423,7 @@ function DashboardPage() {
                                                             minDate={(pendingStartDate ?? startDate) ?? defaultMinDate}
                                                             maxDate={defaultMaxDate}
                                                             openToDate={pendingEndDate ?? defaultMaxDate}
+                                                            minWidth={styles.datePickerMinWidth}
                                                         />
 
                                                         {!ignoreTimeRange && (
@@ -424,6 +431,7 @@ function DashboardPage() {
                                                                 <Button
                                                                     variant="primary"
                                                                     size="sm"
+                                                                    className={styles.textClass}
                                                                     disabled={!pendingStartDate || !pendingEndDate}
                                                                     onClick={applyPendingDates}
                                                                 >
@@ -436,7 +444,7 @@ function DashboardPage() {
                                                             <Form.Check
                                                                 type="switch"
                                                                 id="date-filter-toggle"
-                                                                label={<span className="text-nowrap small text-muted">Calculate metrics on full date range</span>}
+                                                                label={<span className={`text-nowrap ${styles.textClass} text-muted`}>Calculate metrics on full date range</span>}
                                                                 title="Enabling this option will recalculate metrics and statistics based on all available data. Disabling it will allow calculations only based on the selected date range."
                                                                 checked={ignoreTimeRange}
                                                                 onChange={(e) => setIgnoreTimeRange(e.target.checked)}
