@@ -98,6 +98,12 @@ const MyChart: React.FC<MyChartProps> = ({
     const stackedDomains = getStackedDomains();
 
     const chartLayout: Partial<Layout> = {
+        margin: {
+            l: 60, // lewy (na osie Y)
+            r: 20, // prawy
+            t: 30, // górny (tytuł)
+            b: 40  // dolny (oś X)
+        },
         title: {text: title},
         uirevision: uiRevision,
         plot_bgcolor: 'white',
@@ -119,7 +125,7 @@ const MyChart: React.FC<MyChartProps> = ({
 
         legend: {
             orientation: "h",
-            y: 1.25,
+            y: 1.3,
             x: 0,
             xanchor: 'left',
             yanchor: 'top',
@@ -127,7 +133,7 @@ const MyChart: React.FC<MyChartProps> = ({
         },
 
         xaxis: {
-            title: {text: 'Time'},
+            // title: {text: 'Time'},
             type: 'date',
             tickformat: tickFormat,
             fixedrange: false,
@@ -227,7 +233,7 @@ const MyChart: React.FC<MyChartProps> = ({
     };
 
     return (
-        <div className="d-flex flex-column h-100 gap-2">
+        <div className="d-flex flex-column h-100 ">
             <div id='pdf-content-chart' ref={containerRef} style={{width: "100%", height: "100%", minHeight: 0, flex: "1 1 auto"}}>
                 <Plot
                     data={traces}
@@ -235,6 +241,8 @@ const MyChart: React.FC<MyChartProps> = ({
                     useResizeHandler={true}
                     style={{width: '100%', height: '100%'}}
                     config={{
+                        autosizable: true,
+                        
                         responsive: true,
                         scrollZoom: true,
                         displaylogo: false,

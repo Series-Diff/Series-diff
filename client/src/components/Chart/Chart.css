@@ -29,3 +29,8 @@
 .chart-wrapper .main-svg {
   width: 100% !important;
 }
+
+.js-plotly-plot .plotly .modebar {
+  top: 5vh !important;
+  right: 0 !important;
+}
