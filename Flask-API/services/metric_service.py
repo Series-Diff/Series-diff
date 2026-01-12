@@ -2,8 +2,8 @@ import numpy as np
 import pandas as pd
 from scipy.stats import pearsonr
 from statsmodels.tsa.stattools import acf
-from dtw import dtw
 import logging
+from fastdtw import fastdtw
 
 logger = logging.getLogger("FlaskAPI")
 
@@ -20,9 +20,9 @@ def extract_series_from_dict(data: dict, category: str, filename: str) -> dict:
         dict: A dictionary containing the extracted time series.
     """
     if (
-        not isinstance(data, dict)
-        or not isinstance(category, str)
-        or not isinstance(filename, str)
+            not isinstance(data, dict)
+            or not isinstance(category, str)
+            or not isinstance(filename, str)
     ):
         raise ValueError(
             "Invalid data structure for: " + str(category) + " " + str(filename)
@@ -44,19 +44,19 @@ def extract_series_from_dict(data: dict, category: str, filename: str) -> dict:
             )
 
         if category_normalized not in data[key] or not isinstance(
-            data[key][category_normalized], dict
+                data[key][category_normalized], dict
         ):
             skipped_count += 1
             continue  # Category not found in this timestamp - skip silently
 
         if filename_normalized not in data[key][category_normalized] or not isinstance(
-            data[key][category_normalized][filename_normalized], (int, float)
+                data[key][category_normalized][filename_normalized], (int, float)
         ):
             skipped_count += 1
             continue  # not good solution, but gotta find out what to do when there's missing data for some timestamps
 
         if not isinstance(
-            data[key][category_normalized][filename_normalized], (int, float)
+                data[key][category_normalized][filename_normalized], (int, float)
         ):
             raise ValueError(
                 f"Unsupported data type for key '{key}': {type(data[key][category_normalized][filename_normalized])}"
@@ -79,7 +79,7 @@ def extract_series_from_dict(data: dict, category: str, filename: str) -> dict:
 
 
 def get_aligned_data(
-    series1: dict, series2: dict, tolerance: str | None = None
+        series1: dict, series2: dict, tolerance: str | None = None
 ) -> pd.DataFrame:
     """
     Helper function to align two series based on timestamp with tolerance.
@@ -248,7 +248,7 @@ def calculate_iqr(series: dict) -> float:
 
 
 def calculate_pearson_correlation(
-    series1: dict, series2: dict, tolerance: str | None = None
+        series1: dict, series2: dict, tolerance: str | None = None
 ) -> float:
     """
     Calculates the Pearson correlation coefficient between two series,
@@ -294,7 +294,7 @@ def calculate_pearson_correlation(
 
 
 def calculate_difference(
-    series1: dict, series2: dict, tolerance: str | None = None
+        series1: dict, series2: dict, tolerance: str | None = None
 ) -> dict:
     """
     Calculates the difference between two time series by nearest timestamp matching.
@@ -366,16 +366,20 @@ def calculate_dtw(series1: dict, series2: dict) -> float:
     s2.index = pd.to_datetime(s2.index)
     s2 = s2.sort_index().astype(float)
 
-    x = s1.values
-    y = s2.values
+    if s1.empty or s2.empty:
+        return None
 
-    dtw_distance = dtw(x, y).distance
+    x = s1.values.astype(np.float64).flatten()
+    y = s2.values.astype(np.float64).flatten()
 
-    return dtw_distance
+    distance, path = fastdtw(x, y)
+
+
+    return distance
 
 
 def calculate_euclidean_distance(
-    series1: dict, series2: dict, tolerance: str | None = None
+        series1: dict, series2: dict, tolerance: str | None = None
 ) -> float:
     """
     Computes the Euclidean distance between two time series by aligning points
@@ -407,7 +411,7 @@ def calculate_euclidean_distance(
 
 
 def calculate_cosine_similarity(
-    series1: dict, series2: dict, tolerance: str | None = None
+        series1: dict, series2: dict, tolerance: str | None = None
 ) -> float:
     """
     Computes the cosine similarity between two time series
