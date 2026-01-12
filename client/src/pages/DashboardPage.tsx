@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useMemo } from 'react';
+import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { useCompactMode, getControlsPanelStyles } from '../hooks/useCompactMode';
 import { Button, Modal, Form, Spinner, Alert } from 'react-bootstrap';
 import './DashboardPage.css';
@@ -41,11 +41,58 @@ function DashboardPage() {
 
     const { isPopupOpen, selectedFiles, handleFileUpload, handlePopupComplete, handlePopupClose, resetFileUpload } = hooks.useFileUpload(handleFetchData, setError, setIsLoading);
 
-    const { startDate, endDate, pendingStartDate, pendingEndDate, handleStartChange, handleEndChange, applyPendingDates, resetDates, defaultMinDate, defaultMaxDate, ignoreTimeRange, setIgnoreTimeRange, } = hooks.useDateRange(
+    const { startDate, endDate, pendingStartDate, pendingEndDate, handleStartChange, handleEndChange, setPendingStartDate, setPendingEndDate, applyPendingDates, resetDates, defaultMinDate, defaultMaxDate, ignoreTimeRange, setIgnoreTimeRange, } = hooks.useDateRange(
         Object.entries(chartData).map(([_, entries]) => ({ entries })),
         manualData,
         (msg: string) => setError(prev => (prev && prev.includes('Storage quota exceeded')) ? prev : msg)
     );
+    
+    // State to track visible date range from date pickers (for chart sync)
+    const [visibleDateRange, setVisibleDateRange] = useState<[Date | null, Date | null]>([null, null]);
+    
+    // Ref to track if we're currently updating from chart (to prevent feedback loops)
+    const isUpdatingFromChartRef = useRef(false);
+    // Ref to store the last chart-reported range to avoid re-sending same values back
+    const lastChartRangeRef = useRef<{ start: number | null; end: number | null }>({ start: null, end: null });
+    
+    // Callback when chart visible range changes (zoom/pan) - updates date pickers
+    const handleChartVisibleRangeChange = useCallback((start: Date | null, end: Date | null) => {
+        // When chart fires autorange (null, null), use the full data bounds
+        const effectiveStart = start ?? defaultMinDate;
+        const effectiveEnd = end ?? defaultMaxDate;
+        
+        // Store the chart range to prevent sending it back
+        lastChartRangeRef.current = {
+            start: effectiveStart?.getTime() ?? null,
+            end: effectiveEnd?.getTime() ?? null
+        };
+        
+        // Mark that this update is from the chart to prevent feedback loop
+        isUpdatingFromChartRef.current = true;
+        setPendingStartDate(effectiveStart);
+        setPendingEndDate(effectiveEnd);
+        // Reset the flag after React finishes processing state updates
+        setTimeout(() => {
+            isUpdatingFromChartRef.current = false;
+        }, 0);
+    }, [setPendingStartDate, setPendingEndDate, defaultMinDate, defaultMaxDate]);
+    
+    // When pending dates change from picker (not from chart), update visibleDateRange for chart sync
+    useEffect(() => {
+        // Skip if this update originated from the chart
+        if (isUpdatingFromChartRef.current) return;
+        
+        if (pendingStartDate && pendingEndDate) {
+            // Check if these values match what the chart last reported (avoid sending back the same range)
+            const startTime = pendingStartDate.getTime();
+            const endTime = pendingEndDate.getTime();
+            if (lastChartRangeRef.current.start === startTime && lastChartRangeRef.current.end === endTime) {
+                return;
+            }
+            
+            setVisibleDateRange([pendingStartDate, pendingEndDate]);
+        }
+    }, [pendingStartDate, pendingEndDate]);
 
     const { selectedCategory, secondaryCategory, tertiaryCategory, handleRangeChange, syncColorsByFile, colorSyncMode, setColorSyncMode, syncColorsByGroup, filteredData, filteredManualData, handleDropdownChange, handleSecondaryDropdownChange, handleTertiaryDropdownChange, resetChartConfig } = hooks.useChartConfiguration(filenamesPerCategory, chartData, rollingMeanChartData, showMovingAverage, maWindow, ignoreTimeRange ? null : startDate, ignoreTimeRange ? null : endDate, manualData);
 
@@ -402,6 +449,8 @@ function DashboardPage() {
                                                         toggleChartMode={toggleChartMode}
                                                         isInDifferenceMode={isInDifferenceMode}
                                                         canShowDifferenceChart={canShowDifferenceChart}
+                                                        onVisibleRangeChange={handleChartVisibleRangeChange}
+                                                        visibleDateRange={visibleDateRange}
                                                     />
                                                 </div>
                                                 <div className={`d-flex w-100 px-2 mt-3`}>
@@ -410,8 +459,7 @@ function DashboardPage() {
                                                             label="Start"
                                                             value={pendingStartDate}
                                                             onChange={handleStartChange}
-                                                            minDate={defaultMinDate}
-                                                            maxDate={(pendingEndDate ?? endDate) ?? defaultMaxDate}
+                                                            maxDate={pendingEndDate ?? endDate ?? undefined}
                                                             openToDate={pendingStartDate ?? defaultMinDate}
                                                             minWidth={styles.datePickerMinWidth}
                                                             />
@@ -420,8 +468,7 @@ function DashboardPage() {
                                                             label="End"
                                                             value={pendingEndDate}
                                                             onChange={handleEndChange}
-                                                            minDate={(pendingStartDate ?? startDate) ?? defaultMinDate}
-                                                            maxDate={defaultMaxDate}
+                                                            minDate={pendingStartDate ?? startDate ?? undefined}
                                                             openToDate={pendingEndDate ?? defaultMaxDate}
                                                             minWidth={styles.datePickerMinWidth}
                                                         />
@@ -509,6 +556,8 @@ function DashboardPage() {
                                                             toggleChartMode={toggleChartMode}
                                                             isInDifferenceMode={isInDifferenceMode}
                                                             canShowDifferenceChart={canShowDifferenceChart}
+                                                            onVisibleRangeChange={handleChartVisibleRangeChange}
+                                                            visibleDateRange={visibleDateRange}
                                                         />
                                                     </div>
                                                 )}
