@@ -1,16 +1,60 @@
 import { useEffect, useState, useMemo, useRef } from "react";
 import { TimeSeriesEntry } from "../services/fetchTimeSeries";
 
+// localStorage keys for persistence
+const STORAGE_KEY_IGNORE_TIME_RANGE = 'dashboard_ignoreTimeRange';
+const STORAGE_KEY_START_DATE = 'dashboard_startDate';
+const STORAGE_KEY_END_DATE = 'dashboard_endDate';
+
+// Helper to parse date from localStorage
+const parseDateFromStorage = (key: string): Date | null => {
+  const stored = localStorage.getItem(key);
+  if (stored) {
+    const date = new Date(stored);
+    if (!isNaN(date.getTime())) {
+      return date;
+    }
+  }
+  return null;
+};
+
 export function useDateRange(
   loadedData: any[] = [],
   manualData: Record<string, TimeSeriesEntry[]> = {},
   onError?: (message: string) => void
 ) {
-  const [startDate, setStartDate] = useState<Date | null>(null);
-  const [endDate, setEndDate] = useState<Date | null>(null);
-  const [pendingStartDate, setPendingStartDate] = useState<Date | null>(null);
-  const [pendingEndDate, setPendingEndDate] = useState<Date | null>(null);
-  const [ignoreTimeRange, setIgnoreTimeRange] = useState(true);
+  // Initialize dates from localStorage
+  const [startDate, setStartDate] = useState<Date | null>(() => parseDateFromStorage(STORAGE_KEY_START_DATE));
+  const [endDate, setEndDate] = useState<Date | null>(() => parseDateFromStorage(STORAGE_KEY_END_DATE));
+  const [pendingStartDate, setPendingStartDate] = useState<Date | null>(() => parseDateFromStorage(STORAGE_KEY_START_DATE));
+  const [pendingEndDate, setPendingEndDate] = useState<Date | null>(() => parseDateFromStorage(STORAGE_KEY_END_DATE));
+  // Initialize ignoreTimeRange from localStorage (default to true)
+  const [ignoreTimeRange, setIgnoreTimeRange] = useState(() => {
+    const stored = localStorage.getItem(STORAGE_KEY_IGNORE_TIME_RANGE);
+    return stored === null ? true : stored === 'true';
+  });
+
+  // Persist ignoreTimeRange to localStorage
+  useEffect(() => {
+    localStorage.setItem(STORAGE_KEY_IGNORE_TIME_RANGE, String(ignoreTimeRange));
+  }, [ignoreTimeRange]);
+
+  // Persist date range to localStorage when applied
+  useEffect(() => {
+    if (startDate) {
+      localStorage.setItem(STORAGE_KEY_START_DATE, startDate.toISOString());
+    } else {
+      localStorage.removeItem(STORAGE_KEY_START_DATE);
+    }
+  }, [startDate]);
+
+  useEffect(() => {
+    if (endDate) {
+      localStorage.setItem(STORAGE_KEY_END_DATE, endDate.toISOString());
+    } else {
+      localStorage.removeItem(STORAGE_KEY_END_DATE);
+    }
+  }, [endDate]);
 
   type Bounds = { min: Date | null; max: Date | null; errorMessage?: string };
 
@@ -84,12 +128,40 @@ export function useDateRange(
     const prevMin = prevBoundsRef.current.min;
     const prevMax = prevBoundsRef.current.max;
     if (prevMin === null && prevMax === null) {
-      const initialStart = minDate;
-      const initialEnd = maxDate;
-      setStartDate(prev => prev ?? initialStart);
-      setEndDate(prev => prev ?? initialEnd);
-      setPendingStartDate(prev => prev ?? initialStart);
-      setPendingEndDate(prev => prev ?? initialEnd);
+      // First time we have data bounds - try to restore from localStorage
+      const storedStartStr = localStorage.getItem(STORAGE_KEY_START_DATE);
+      const storedEndStr = localStorage.getItem(STORAGE_KEY_END_DATE);
+      
+      let initialStart = minDate;
+      let initialEnd = maxDate;
+      
+      // Restore and clamp stored dates to current data bounds
+      if (storedStartStr) {
+        const storedStart = new Date(storedStartStr);
+        if (!isNaN(storedStart.getTime())) {
+          // Clamp to data bounds
+          initialStart = storedStart < minDate ? minDate : (storedStart > maxDate ? maxDate : storedStart);
+        }
+      }
+      if (storedEndStr) {
+        const storedEnd = new Date(storedEndStr);
+        if (!isNaN(storedEnd.getTime())) {
+          // Clamp to data bounds
+          initialEnd = storedEnd > maxDate ? maxDate : (storedEnd < minDate ? minDate : storedEnd);
+        }
+      }
+      
+      // Ensure start <= end
+      if (initialStart > initialEnd) {
+        initialStart = minDate;
+        initialEnd = maxDate;
+      }
+      
+      // Always set clamped values (override any pre-loaded localStorage values that may be out of bounds)
+      setStartDate(initialStart);
+      setEndDate(initialEnd);
+      setPendingStartDate(initialStart);
+      setPendingEndDate(initialEnd);
       prevBoundsRef.current = { min: minDate, max: maxDate };
       return;
     }
