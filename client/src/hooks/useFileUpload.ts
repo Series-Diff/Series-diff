@@ -33,14 +33,18 @@ export const useFileUpload = (
             globalCache.clearAllCaches();
             localStorage.removeItem('chartData');
             localStorage.removeItem('filenamesPerCategory');
-            await services.sendProcessedTimeSeriesData(groupedData, async (success) => {
-                if (!success) {
-                    setError("Data processing or server upload failed.");
-                } else {
-                    await handleFetchData();
-                }
+            try {
+                await services.sendProcessedTimeSeriesData(groupedData);
+                // If the upload succeeded, re-fetch data
+                await handleFetchData();
+            } catch (err: any) {
+                // Surface server or processing errors to the global error alert
+                const message = err && err.message ? err.message : 'Data processing or server upload failed.';
+                setError(message);
+                console.error('File upload error captured in UI:', err);
+            } finally {
                 setIsLoading(false);
-            });
+            }
         } else {
             console.log("No data processed from files.");
         }

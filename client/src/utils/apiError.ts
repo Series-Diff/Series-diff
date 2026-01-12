@@ -87,3 +87,37 @@ export function formatApiError(error: unknown, endpointLabel?: string): string {
   }
   return 'An unexpected error occurred.';
 }
+/**
+ * Map raw server response text to a clearer, user-facing message.
+ * Handles common server-side messages and HTML error pages.
+ */
+export function formatServerResponseMessage(raw: string): string {
+  if (!raw) return 'Server returned an empty error response.';
+  const lower = raw.toLowerCase();
+
+  if (lower.includes('data cannot be empty')) {
+    return (
+      'No valid data found after processing the uploaded files. ' +
+      'This often happens when files require a pivot/transpose step or when category/grouping is missing (e.g., "None"). ' +
+      'Please check the uploaded files and processing options, then try again.'
+    );
+  }
+
+  if (lower.includes('internal server error') || lower.includes('<!doctype html>') || lower.includes('<html')) {
+    return (
+      'Server error while processing files. Try reloading and re-uploading; if the problem persists, visit the Help page for additional information.'
+    );
+  }
+
+  if (lower.includes('attributeerror') || lower.includes('sessions')) {
+    return (
+      'Internal server error: session state is invalid. Try restarting the upload process or contact support if this keeps happening.'
+    );
+  }
+
+  // Default: return the original trimmed message (first line) to avoid leaking HTML
+  const firstLine = raw.split('\n').map(l => l.trim()).find(l => l.length > 0) ?? raw;
+  // Remove tags if any
+  const sanitized = firstLine.replace(/<[^>]*>/g, '');
+  return `Server error: ${sanitized}`;
+}

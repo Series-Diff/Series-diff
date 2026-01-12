@@ -1,5 +1,5 @@
 // src/services/uploadTimeSeries.ts
-import { formatRateLimitMessage, formatApiError } from '../utils/apiError';
+import { formatRateLimitMessage, formatApiError, formatServerResponseMessage } from '../utils/apiError';
 
 const API_URL = (process.env.REACT_APP_API_URL || '').replace(/\/$/, '');
 
@@ -41,10 +41,30 @@ export const sendProcessedTimeSeriesData = async (
         callback?.(false);
         throw new Error(message);
       }
-      const errorText = await response.text();
+      // Try parse JSON error body first using a clone to avoid "body stream already read"
+      let errorText = '';
+      try {
+        const clone = response.clone();
+        const json = await clone.json();
+        if (json && (json.message || json.error)) {
+          errorText = json.message || json.error;
+        } else {
+          errorText = JSON.stringify(json);
+        }
+      } catch (e) {
+        // fallback to plain text using clone (safer) or response.statusText
+        try {
+          const textClone = response.clone();
+          errorText = await textClone.text();
+        } catch (e2) {
+          errorText = response.statusText || '';
+        }
+      }
       console.error('Server error:', errorText);
       callback?.(false);
-      throw new Error(errorText || 'Upload failed');
+      // Map some server responses to user-friendly messages
+      const friendly = formatServerResponseMessage(errorText || response.statusText || 'Upload failed');
+      throw new Error(friendly);
     }
 
     const result = await response.json();
