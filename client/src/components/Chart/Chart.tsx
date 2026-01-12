@@ -19,8 +19,6 @@ interface MyChartProps {
     toggleChartMode?: () => void;
     isInDifferenceMode?: boolean;
     canShowDifferenceChart?: boolean;
-    onVisibleRangeChange?: (start: Date | null, end: Date | null) => void;
-    visibleDateRange?: [Date | null, Date | null];
 }
 
 const MyChart: React.FC<MyChartProps> = ({
@@ -35,8 +33,6 @@ const MyChart: React.FC<MyChartProps> = ({
                                              toggleChartMode,
                                              isInDifferenceMode,
                                              canShowDifferenceChart,
-                                             onVisibleRangeChange,
-                                             visibleDateRange
                                          }) => {
 
     const manualDataSafe = useMemo(() => manualData ?? {}, [manualData]);
@@ -48,7 +44,7 @@ const MyChart: React.FC<MyChartProps> = ({
         customRange3, setCustomRange3, customY3Min, setCustomY3Min, customY3Max, setCustomY3Max,
         visibleMap, setVisibleMap, handleRelayout,
         primaryDataBounds, secondaryDataBounds, tertiaryDataBounds
-    } = useChartState(primaryData, secondaryData, tertiaryData, manualDataSafe, onVisibleRangeChange, visibleDateRange);
+    } = useChartState(primaryData, secondaryData, tertiaryData, manualDataSafe);
 
     const {handleLegendClick, containerRef} = useChartInteractions(setVisibleMap);
 

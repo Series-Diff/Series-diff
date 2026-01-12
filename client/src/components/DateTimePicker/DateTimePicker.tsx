@@ -39,6 +39,14 @@ const DateTimePicker: React.FC<DateTimePickerProps> = ({
       onChange(openToDate || null);
       return true;
     }
+    
+    // Helper to clamp date to min/max bounds
+    const clampDate = (date: Date): Date => {
+      if (minDate && date < minDate) return minDate;
+      if (maxDate && date > maxDate) return maxDate;
+      return date;
+    };
+    
     // Parse dd.MM.yyyy HH:mm format
     const dateTimeParts = trimmed.match(DATE_TIME_PATTERN);
     if (dateTimeParts) {
@@ -57,7 +65,7 @@ const DateTimePicker: React.FC<DateTimePickerProps> = ({
       );
 
       if (!isNaN(date.getTime())) {
-        onChange(date);
+        onChange(clampDate(date));
         return true;
       }
     }
@@ -74,7 +82,7 @@ const DateTimePicker: React.FC<DateTimePickerProps> = ({
       );
 
       if (!isNaN(date.getTime())) {
-        onChange(date);
+        onChange(clampDate(date));
         return true;
       }
     }
