@@ -133,7 +133,7 @@ function DashboardPage() {
 
     const handleReset = async () => {
         setChartMode('standard');
-        
+
         // Get cache stats before clearing
         const metricsStats = globalCache.metricsCache.size;
         const pluginStats = globalCache.pluginCache.size;
@@ -141,18 +141,18 @@ function DashboardPage() {
         const totalSize = metricsStats + pluginStats + scatterStats;
 
         const cacheApiKeysBefore = (await cacheAPI.keys()).length;
-        
+
         // Clear global cache (now async)
         await globalCache.clearAllCaches();
 
         const cacheApiKeysAfter = (await cacheAPI.keys()).length;
-        
+
         // Log cleanup with cache API stats
         console.log(
             `Caches cleared: ${totalSize} entries removed (Metrics: ${metricsStats}, Plugin: ${pluginStats}, Scatter: ${scatterStats}); ` +
             `CacheAPI entries: ${cacheApiKeysBefore} -> ${cacheApiKeysAfter}`
         );
-        
+
         await baseReset();
         resetMetrics();
         resetChartConfig();
@@ -307,7 +307,7 @@ function DashboardPage() {
                                     <>
                                         <br />
                                         <small className="mt-2 d-block">
-                                          You can still display your data on the chart, but metrics and statistics may not work, and the data might not be saved after refresh.
+                                            You can still display your data on the chart, but metrics and statistics may not work, and the data might not be saved after refresh.
                                         </small>
                                     </>
                                 )}
@@ -322,181 +322,193 @@ function DashboardPage() {
                                 dismissible
                                 onClose={() => setDiffError(null)}
                             >
-                                <strong>Difference Chart Error:</strong> {diffError.includes('No overlapping timestamps') 
-                                    ? 'No overlapping timestamps within tolerance. Try adjusting the tolerance value or resetting it.' 
-                                    : diffError}
+                                <strong>Difference Chart Error:</strong> {diffError.includes('No overlapping timestamps')
+                                ? 'No overlapping timestamps within tolerance. Try adjusting the tolerance value or resetting it.'
+                                : diffError}
                             </Alert>
                         )}
 
                         {shouldShowSingleFileAlert && (
                             <Alert
-                              variant="warning"
-                              className="mb-0"
-                              dismissible
-                              onClose={() => setSingleFileDismissed(true)}
+                                variant="warning"
+                                className="mb-0"
+                                dismissible
+                                onClose={() => setSingleFileDismissed(true)}
                             >
-                              <strong>More files needed:</strong> Comparison metrics require at least two files in the same category. Upload at least two files to view metric pairwise tables and difference charts.
+                                <strong>More files needed:</strong> Comparison metrics require at least two files in the same category. Upload at least two files to view metric pairwise tables and difference charts.
                             </Alert>
                         )}
 
                         {/* Chart Container wrapped in error boundary to surface runtime errors in Alert */}
                         <components.ErrorBoundary onError={(msg) => setError(msg)}>
-                        <div
-                            className={chartContainerClass}
-                            style={{ flex: 1, minHeight: 0 }}
-                        >
-                            {/* Switch to Standard Chart button - always visible in difference mode */}
-                            {isInDifferenceMode && canShowDifferenceChart && (
-                                <Button
-                                    variant="outline-secondary"
-                                    size="sm"
-                                    onClick={toggleChartMode}
-                                    style={{
-                                        position: 'absolute',
-                                        bottom: '16px',
-                                        right: '16px',
-                                        zIndex: 10
-                                    }}
-                                >
-                                    Switch to Standard Chart
-                                </Button>
-                            )}
-                            {!isInDifferenceMode && (
-                                <>
-                                    {isLoading && !hasData &&
-                                        <div className="d-flex align-items-center justify-content-center text-muted flex-grow-1">
-                                            <Spinner animation="border" size="sm" className="me-2" />
-                                            Loading chart...
-                                        </div>}
-                                    {!isLoading && !hasData && !error &&
-                                        <div className="d-flex align-items-center justify-content-center text-muted flex-grow-1">
-                                            Load data to visualize
-                                        </div>}
-                                    {!isLoading && hasData && (
-                                        <>
-                                            <div className="d-flex w-100 px-2 pb-1">
-                                                <div className="d-flex gap-3 w-100">
-                                                    <components.DateTimePicker
-                                                        label="Start"
-                                                        value={pendingStartDate}
-                                                        onChange={handleStartChange}
-                                                        minDate={defaultMinDate}
-                                                        maxDate={(pendingEndDate ?? endDate) ?? defaultMaxDate}
-                                                        openToDate={pendingStartDate ?? defaultMinDate} />
+                            <div
+                                className={chartContainerClass}
+                                style={{ flex: 1, minHeight: 0 }}
+                            >
+                                {/* Switch to Standard Chart button - always visible in difference mode */}
+                                {isInDifferenceMode && canShowDifferenceChart && (
+                                    <Button
+                                        variant="outline-secondary"
+                                        size="sm"
+                                        onClick={toggleChartMode}
+                                        style={{
+                                            position: 'absolute',
+                                            top: '16px',
+                                            right: '16px',
+                                            zIndex: 10
+                                        }}
+                                    >
+                                        Switch to Standard Chart
+                                    </Button>
+                                )}
+                                {!isInDifferenceMode && (
+                                    <>
 
-                                                    <components.DateTimePicker
-                                                        label="End"
-                                                        value={pendingEndDate}
-                                                        onChange={handleEndChange}
-                                                        minDate={(pendingStartDate ?? startDate) ?? defaultMinDate}
-                                                        maxDate={defaultMaxDate}
-                                                        openToDate={pendingEndDate ?? defaultMaxDate}
-                                                    />
-
-                                                    {!ignoreTimeRange && (
-                                                        <div className="d-flex align-items-center">
-                                                            <Button
-                                                                variant="primary"
-                                                                size="sm"
-                                                                disabled={!pendingStartDate || !pendingEndDate}
-                                                                onClick={applyPendingDates}
-                                                            >
-                                                                Apply
-                                                            </Button>
-                                                        </div>
-                                                    )}
-
-                                                    <div className="d-flex align-items-center">
-                                                        <Form.Check
-                                                            type="switch"
-                                                            id="date-filter-toggle"
-                                                            label={<span className="text-nowrap small text-muted">Calculate metrics on full date range</span>}
-                                                            title="Enabling this option will recalculate metrics and statistics based on all available data. Disabling it will allow calculations only based on the selected date range."
-                                                            checked={ignoreTimeRange}
-                                                            onChange={(e) => setIgnoreTimeRange(e.target.checked)}
-                                                            className="mb-0" />
-                                                    </div>
-                                                    <div className="ms-auto d-flex align-items-center gap-2">
-                                                        <Button
-                                                            variant="outline-secondary"
-                                                            size="sm"
-                                                            onClick={() => Object.keys(manualData).length === 0 ? setShowManualModal(true) : setShowManualEdit(true)}
-                                                        >
-                                                            Manual Measurements
-                                                        </Button>
-                                                    </div>
-                                                </div>
-                                            </div>
-                                            <div className="chart-wrapper flex-grow-1" style={{ height: '100%' }}>
-                                                <components.MyChart
-                                                    primaryData={filteredData.primary}
-                                                    secondaryData={filteredData.secondary || undefined}
-                                                    tertiaryData={filteredData.tertiary || undefined}
-                                                    syncColorsByFile={syncColorsByFile}
-                                                    syncColorsByGroup={syncColorsByGroup}
-                                                    layoutMode={layoutMode}
-                                                    manualData={filteredManualData}
-                                                    toggleChartMode={toggleChartMode}
-                                                    isInDifferenceMode={isInDifferenceMode}
-                                                    canShowDifferenceChart={canShowDifferenceChart}
-                                                />
-                                            </div>
-                                        </>
-                                    )}
-                                </>
-                            )}
-                            {/* Difference Chart Mode */}
-                            {isInDifferenceMode && canShowDifferenceChart && (
-                                <>
-                                    {!hasData && !isLoading && !error && (
-                                        <div className="d-flex align-items-center justify-content-center text-muted flex-grow-1 flex-fill">
-                                            Load data to visualize differences
-                                        </div>
-                                    )}
-                                    {hasData && !hasEnoughFilesForDifference && (
-                                        <div className="d-flex flex-column align-items-center justify-content-center text-muted flex-grow-1 flex-fill">
-                                            <div>
-                                                <p className="mb-2">Difference chart requires at least 2 files in the same category.</p>
-                                            </div>
-                                            <div className="text-muted small">
-                                                {totalFilesLoaded} file{totalFilesLoaded !== 1 ? 's' : ''} across {Object.keys(filenamesPerCategory).length} categor{Object.keys(filenamesPerCategory).length !== 1 ? 'ies' : 'y'}
-                                            </div>
-                                        </div>
-                                    )}
-                                    {hasData && hasEnoughFilesForDifference && (
-                                        <>
-                                            {isDiffLoading && (
-                                                <div className="d-flex align-items-center justify-content-center text-muted flex-grow-1 flex-fill">
-                                                    <Spinner animation="border" size="sm" className="me-2" />
-                                                    Loading difference data...
-                                                </div>
-                                            )}
-                                            {/* Error state - show placeholder when diff error exists (error alert shown above) */}
-                                            {!isDiffLoading && diffError && (
-                                                <div className="d-flex align-items-center justify-content-center text-muted flex-grow-1 flex-fill">
-                                                    Fix the error above to display the chart
-                                                </div>
-                                            )}
-                                            {!isDiffLoading && !diffError && !hasDifferenceData && (
-                                                <div className="d-flex align-items-center justify-content-center text-muted flex-grow-1 flex-fill">
-                                                    Select differences to visualize
-                                                </div>
-                                            )}
-                                            {!isDiffLoading && !diffError && hasDifferenceData && (
+                                        {isLoading && !hasData &&
+                                            <div className="d-flex align-items-center justify-content-center text-muted flex-grow-1">
+                                                <Spinner animation="border" size="sm" className="me-2" />
+                                                Loading chart...
+                                            </div>}
+                                        {!isLoading && !hasData && !error &&
+                                            <div className="d-flex align-items-center justify-content-center text-muted flex-grow-1">
+                                                Load data to visualize
+                                            </div>}
+                                        {!isLoading && hasData && (
+                                            <>
+                                                {hasData && shouldShowMetric('difference_chart') && (
+                                                    <Button
+                                                        variant="outline-secondary"
+                                                        size="sm"
+                                                        onClick={toggleChartMode}
+                                                        className="position-absolute top-0 end-0 m-3"
+                                                        style={{zIndex: 1050}}
+                                                    >
+                                                        {isInDifferenceMode ? 'Switch to Standard Chart' : 'Switch to Difference Chart'}
+                                                    </Button>
+                                                )}
                                                 <div className="chart-wrapper flex-grow-1" style={{ height: '100%' }}>
                                                     <components.MyChart
-                                                        primaryData={differenceChartData}
+                                                        primaryData={filteredData.primary}
+                                                        secondaryData={filteredData.secondary || undefined}
+                                                        tertiaryData={filteredData.tertiary || undefined}
+                                                        syncColorsByFile={syncColorsByFile}
+                                                        syncColorsByGroup={syncColorsByGroup}
+                                                        layoutMode={layoutMode}
+                                                        manualData={filteredManualData}
                                                         toggleChartMode={toggleChartMode}
                                                         isInDifferenceMode={isInDifferenceMode}
                                                         canShowDifferenceChart={canShowDifferenceChart}
                                                     />
                                                 </div>
-                                            )}
-                                        </>
-                                    )}
-                                </>
-                            )}
-                        </div>
+                                                <div className="d-flex w-100 px-2 pb-1 mt-3">
+                                                    <div className="d-flex gap-3 w-100">
+                                                        <components.DateTimePicker
+                                                            label="Start"
+                                                            value={pendingStartDate}
+                                                            onChange={handleStartChange}
+                                                            minDate={defaultMinDate}
+                                                            maxDate={(pendingEndDate ?? endDate) ?? defaultMaxDate}
+                                                            openToDate={pendingStartDate ?? defaultMinDate} />
+
+                                                        <components.DateTimePicker
+                                                            label="End"
+                                                            value={pendingEndDate}
+                                                            onChange={handleEndChange}
+                                                            minDate={(pendingStartDate ?? startDate) ?? defaultMinDate}
+                                                            maxDate={defaultMaxDate}
+                                                            openToDate={pendingEndDate ?? defaultMaxDate}
+                                                        />
+
+                                                        {!ignoreTimeRange && (
+                                                            <div className="d-flex align-items-center">
+                                                                <Button
+                                                                    variant="primary"
+                                                                    size="sm"
+                                                                    disabled={!pendingStartDate || !pendingEndDate}
+                                                                    onClick={applyPendingDates}
+                                                                >
+                                                                    Apply
+                                                                </Button>
+                                                            </div>
+                                                        )}
+
+                                                        <div className="d-flex align-items-center">
+                                                            <Form.Check
+                                                                type="switch"
+                                                                id="date-filter-toggle"
+                                                                label={<span className="text-nowrap small text-muted">Calculate metrics on full date range</span>}
+                                                                title="Enabling this option will recalculate metrics and statistics based on all available data. Disabling it will allow calculations only based on the selected date range."
+                                                                checked={ignoreTimeRange}
+                                                                onChange={(e) => setIgnoreTimeRange(e.target.checked)}
+                                                                className="mb-0" />
+                                                        </div>
+                                                        <div className="ms-auto d-flex align-items-center gap-2">
+                                                            <Button
+                                                                variant="outline-secondary"
+                                                                size="sm"
+                                                                onClick={() => Object.keys(manualData).length === 0 ? setShowManualModal(true) : setShowManualEdit(true)}
+                                                            >
+                                                                Manual Measurements
+                                                            </Button>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            </>
+                                        )}
+                                    </>
+                                )}
+                                {/* Difference Chart Mode */}
+                                {isInDifferenceMode && canShowDifferenceChart && (
+                                    <>
+                                        {!hasData && !isLoading && !error && (
+                                            <div className="d-flex align-items-center justify-content-center text-muted flex-grow-1 flex-fill">
+                                                Load data to visualize differences
+                                            </div>
+                                        )}
+                                        {hasData && !hasEnoughFilesForDifference && (
+                                            <div className="d-flex flex-column align-items-center justify-content-center text-muted flex-grow-1 flex-fill">
+                                                <div>
+                                                    <p className="mb-2">Difference chart requires at least 2 files in the same category.</p>
+                                                </div>
+                                                <div className="text-muted small">
+                                                    {totalFilesLoaded} file{totalFilesLoaded !== 1 ? 's' : ''} across {Object.keys(filenamesPerCategory).length} categor{Object.keys(filenamesPerCategory).length !== 1 ? 'ies' : 'y'}
+                                                </div>
+                                            </div>
+                                        )}
+                                        {hasData && hasEnoughFilesForDifference && (
+                                            <>
+                                                {isDiffLoading && (
+                                                    <div className="d-flex align-items-center justify-content-center text-muted flex-grow-1 flex-fill">
+                                                        <Spinner animation="border" size="sm" className="me-2" />
+                                                        Loading difference data...
+                                                    </div>
+                                                )}
+                                                {/* Error state - show placeholder when diff error exists (error alert shown above) */}
+                                                {!isDiffLoading && diffError && (
+                                                    <div className="d-flex align-items-center justify-content-center text-muted flex-grow-1 flex-fill">
+                                                        Fix the error above to display the chart
+                                                    </div>
+                                                )}
+                                                {!isDiffLoading && !diffError && !hasDifferenceData && (
+                                                    <div className="d-flex align-items-center justify-content-center text-muted flex-grow-1 flex-fill">
+                                                        Select differences to visualize
+                                                    </div>
+                                                )}
+                                                {!isDiffLoading && !diffError && hasDifferenceData && (
+                                                    <div className="chart-wrapper flex-grow-1" style={{ height: '100%' }}>
+                                                        <components.MyChart
+                                                            primaryData={differenceChartData}
+                                                            toggleChartMode={toggleChartMode}
+                                                            isInDifferenceMode={isInDifferenceMode}
+                                                            canShowDifferenceChart={canShowDifferenceChart}
+                                                        />
+                                                    </div>
+                                                )}
+                                            </>
+                                        )}
+                                    </>
+                                )}
+                            </div>
                         </components.ErrorBoundary>
                     </div>
 
@@ -504,138 +516,138 @@ function DashboardPage() {
                     {!isInDifferenceMode && (
                         <>
                             <components.ErrorBoundary onError={(msg) => setError(msg)}>
-                            {hasData && Object.keys(groupedMetrics).length > 0 && (
-                                <components.StatisticsWrapper
-                                    groupedStatistics={filteredGroupedMetrics}
-                                    statisticLoading={metricLoading}
-                                    statisticError={metricError}
-                                    selectedStatisticsForDisplay={selectedMetricsForDisplay}
-                                    filenamesPerCategory={filenamesPerCategory}
-                                    selectedCategory={selectedCategory}
-                                    secondaryCategory={secondaryCategory}
-                                    tertiaryCategory={tertiaryCategory}
-                                    onOpenStatisticsModal={() => setShowMetricsModal(true)}
-                                    onExportClick={handleExportClick}
-                                    isExporting={isExporting}
-                                    onRetryStatistic={retryMetric}
-                                />
-                            )}    
+                                {hasData && Object.keys(groupedMetrics).length > 0 && (
+                                    <components.StatisticsWrapper
+                                        groupedStatistics={filteredGroupedMetrics}
+                                        statisticLoading={metricLoading}
+                                        statisticError={metricError}
+                                        selectedStatisticsForDisplay={selectedMetricsForDisplay}
+                                        filenamesPerCategory={filenamesPerCategory}
+                                        selectedCategory={selectedCategory}
+                                        secondaryCategory={secondaryCategory}
+                                        tertiaryCategory={tertiaryCategory}
+                                        onOpenStatisticsModal={() => setShowMetricsModal(true)}
+                                        onExportClick={handleExportClick}
+                                        isExporting={isExporting}
+                                        onRetryStatistic={retryMetric}
+                                    />
+                                )}
 
-                            {/* Render metric matrices via helper which also enforces ">=2 files" rule */}
-                            {(() => {
-                                return (
-                                    <>
-                                    {/* Metric-Matrix-Wrapper */}
-                                <components.MetricMatrixWrapper
-                                  metricId="pearson_correlation"
-                                  Comp={components.CorrelationMatrix}
-                                  dataMap={PearsonCorrelationValues}
-                                  metricLabel="Pearson Correlation"
-                                  metricKey="pearson_correlation"
-                                  isLoading={!!metricLoading['PearsonCorrelationValues']}
-                                  error={metricError['PearsonCorrelationValues'] ?? undefined}
-                                  correlationClick={true}
-                                  selectedCategory={selectedCategory}
-                                  secondaryCategory={secondaryCategory}
-                                  tertiaryCategory={tertiaryCategory}
-                                  totalFilesLoaded={totalFilesLoaded}
-                                  onCellClick={(file1: string, file2: string, cat: string) => handleCellClick(file1, file2, cat, ignoreTimeRange ? null : startDate, ignoreTimeRange ? null : endDate)}
-                                  shouldShow={shouldShowMetric('pearson_correlation')}
-                                  onRetry={() => retryMetric('PearsonCorrelationValues')}
-                                />
-                                <components.MetricMatrixWrapper
-                                  metricId="cosine_similarity"
-                                  Comp={components.CorrelationMatrix}
-                                  dataMap={CosineSimilarityValues}
-                                  metricLabel="Cosine Similarity"
-                                  metricKey="cosine_similarity"
-                                  isLoading={!!metricLoading['CosineSimilarityValues']}
-                                  error={metricError['CosineSimilarityValues'] ?? undefined}
-                                  extraProps={{ clickable: false }}
-                                  selectedCategory={selectedCategory}
-                                  secondaryCategory={secondaryCategory}
-                                  tertiaryCategory={tertiaryCategory}
-                                  totalFilesLoaded={totalFilesLoaded}
-                                  shouldShow={shouldShowMetric('cosine_similarity')}
-                                  onRetry={() => retryMetric('CosineSimilarityValues')}
-                                />
-                                <components.MetricMatrixWrapper
-                                  metricId="mae"
-                                  Comp={components.StandardMatrix}
-                                  dataMap={maeValues}
-                                  metricLabel="MAE"
-                                  metricKey="mae"
-                                  isLoading={!!metricLoading['maeValues']}
-                                  error={metricError['maeValues'] ?? undefined}
-                                  selectedCategory={selectedCategory}
-                                  secondaryCategory={secondaryCategory}
-                                  tertiaryCategory={tertiaryCategory}
-                                  totalFilesLoaded={totalFilesLoaded}
-                                  shouldShow={shouldShowMetric('mae')}
-                                  onRetry={() => retryMetric('maeValues')}
-                                />
-                                <components.MetricMatrixWrapper
-                                  metricId="rmse"
-                                  Comp={components.StandardMatrix}
-                                  dataMap={rmseValues}
-                                  metricLabel="RMSE"
-                                  metricKey="rmse"
-                                  isLoading={!!metricLoading['rmseValues']}
-                                  error={metricError['rmseValues'] ?? undefined}
-                                  selectedCategory={selectedCategory}
-                                  secondaryCategory={secondaryCategory}
-                                  tertiaryCategory={tertiaryCategory}
-                                  totalFilesLoaded={totalFilesLoaded}
-                                  shouldShow={shouldShowMetric('rmse')}
-                                  onRetry={() => retryMetric('rmseValues')}
-                                />
-                                <components.MetricMatrixWrapper
-                                  metricId="dtw"
-                                  Comp={components.StandardMatrix}
-                                  dataMap={DTWValues}
-                                  metricLabel="DTW"
-                                  metricKey="dtw"
-                                  isLoading={!!metricLoading['DTWValues']}
-                                  error={metricError['DTWValues'] ?? undefined}
-                                  fallbackEmpty={true}
-                                  selectedCategory={selectedCategory}
-                                  secondaryCategory={secondaryCategory}
-                                  tertiaryCategory={tertiaryCategory}
-                                  totalFilesLoaded={totalFilesLoaded}
-                                  shouldShow={shouldShowMetric('dtw')}
-                                  onRetry={() => retryMetric('DTWValues')}
-                                />
-                                <components.MetricMatrixWrapper
-                                  metricId="euclidean"
-                                  Comp={components.StandardMatrix}
-                                  dataMap={EuclideanValues}
-                                  metricLabel="Euclidean"
-                                  metricKey="euclidean"
-                                  isLoading={!!metricLoading['EuclideanValues']}
-                                  error={metricError['EuclideanValues'] ?? undefined}
-                                  selectedCategory={selectedCategory}
-                                  secondaryCategory={secondaryCategory}
-                                  tertiaryCategory={tertiaryCategory}
-                                  totalFilesLoaded={totalFilesLoaded}
-                                  shouldShow={shouldShowMetric('euclidean')}
-                                  onRetry={() => retryMetric('EuclideanValues')}
-                                />
+                                {/* Render metric matrices via helper which also enforces ">=2 files" rule */}
+                                {(() => {
+                                    return (
+                                        <>
+                                            {/* Metric-Matrix-Wrapper */}
+                                            <components.MetricMatrixWrapper
+                                                metricId="pearson_correlation"
+                                                Comp={components.CorrelationMatrix}
+                                                dataMap={PearsonCorrelationValues}
+                                                metricLabel="Pearson Correlation"
+                                                metricKey="pearson_correlation"
+                                                isLoading={!!metricLoading['PearsonCorrelationValues']}
+                                                error={metricError['PearsonCorrelationValues'] ?? undefined}
+                                                correlationClick={true}
+                                                selectedCategory={selectedCategory}
+                                                secondaryCategory={secondaryCategory}
+                                                tertiaryCategory={tertiaryCategory}
+                                                totalFilesLoaded={totalFilesLoaded}
+                                                onCellClick={(file1: string, file2: string, cat: string) => handleCellClick(file1, file2, cat, ignoreTimeRange ? null : startDate, ignoreTimeRange ? null : endDate)}
+                                                shouldShow={shouldShowMetric('pearson_correlation')}
+                                                onRetry={() => retryMetric('PearsonCorrelationValues')}
+                                            />
+                                            <components.MetricMatrixWrapper
+                                                metricId="cosine_similarity"
+                                                Comp={components.CorrelationMatrix}
+                                                dataMap={CosineSimilarityValues}
+                                                metricLabel="Cosine Similarity"
+                                                metricKey="cosine_similarity"
+                                                isLoading={!!metricLoading['CosineSimilarityValues']}
+                                                error={metricError['CosineSimilarityValues'] ?? undefined}
+                                                extraProps={{ clickable: false }}
+                                                selectedCategory={selectedCategory}
+                                                secondaryCategory={secondaryCategory}
+                                                tertiaryCategory={tertiaryCategory}
+                                                totalFilesLoaded={totalFilesLoaded}
+                                                shouldShow={shouldShowMetric('cosine_similarity')}
+                                                onRetry={() => retryMetric('CosineSimilarityValues')}
+                                            />
+                                            <components.MetricMatrixWrapper
+                                                metricId="mae"
+                                                Comp={components.StandardMatrix}
+                                                dataMap={maeValues}
+                                                metricLabel="MAE"
+                                                metricKey="mae"
+                                                isLoading={!!metricLoading['maeValues']}
+                                                error={metricError['maeValues'] ?? undefined}
+                                                selectedCategory={selectedCategory}
+                                                secondaryCategory={secondaryCategory}
+                                                tertiaryCategory={tertiaryCategory}
+                                                totalFilesLoaded={totalFilesLoaded}
+                                                shouldShow={shouldShowMetric('mae')}
+                                                onRetry={() => retryMetric('maeValues')}
+                                            />
+                                            <components.MetricMatrixWrapper
+                                                metricId="rmse"
+                                                Comp={components.StandardMatrix}
+                                                dataMap={rmseValues}
+                                                metricLabel="RMSE"
+                                                metricKey="rmse"
+                                                isLoading={!!metricLoading['rmseValues']}
+                                                error={metricError['rmseValues'] ?? undefined}
+                                                selectedCategory={selectedCategory}
+                                                secondaryCategory={secondaryCategory}
+                                                tertiaryCategory={tertiaryCategory}
+                                                totalFilesLoaded={totalFilesLoaded}
+                                                shouldShow={shouldShowMetric('rmse')}
+                                                onRetry={() => retryMetric('rmseValues')}
+                                            />
+                                            <components.MetricMatrixWrapper
+                                                metricId="dtw"
+                                                Comp={components.StandardMatrix}
+                                                dataMap={DTWValues}
+                                                metricLabel="DTW"
+                                                metricKey="dtw"
+                                                isLoading={!!metricLoading['DTWValues']}
+                                                error={metricError['DTWValues'] ?? undefined}
+                                                fallbackEmpty={true}
+                                                selectedCategory={selectedCategory}
+                                                secondaryCategory={secondaryCategory}
+                                                tertiaryCategory={tertiaryCategory}
+                                                totalFilesLoaded={totalFilesLoaded}
+                                                shouldShow={shouldShowMetric('dtw')}
+                                                onRetry={() => retryMetric('DTWValues')}
+                                            />
+                                            <components.MetricMatrixWrapper
+                                                metricId="euclidean"
+                                                Comp={components.StandardMatrix}
+                                                dataMap={EuclideanValues}
+                                                metricLabel="Euclidean"
+                                                metricKey="euclidean"
+                                                isLoading={!!metricLoading['EuclideanValues']}
+                                                error={metricError['EuclideanValues'] ?? undefined}
+                                                selectedCategory={selectedCategory}
+                                                secondaryCategory={secondaryCategory}
+                                                tertiaryCategory={tertiaryCategory}
+                                                totalFilesLoaded={totalFilesLoaded}
+                                                shouldShow={shouldShowMetric('euclidean')}
+                                                onRetry={() => retryMetric('EuclideanValues')}
+                                            />
 
 
-                            <components.PluginResultsSection
-                              visiblePlugins={visiblePlugins}
-                              pluginResults={pluginResults}
-                              pluginErrors={pluginErrors}
-                              selectedCategory={selectedCategory}
-                              secondaryCategory={secondaryCategory}
-                              tertiaryCategory={tertiaryCategory}
-                              isLoadingPlugins={isLoadingPlugins}
-                              refreshPluginResults={refreshPluginResults}
-                              totalFilesLoaded={totalFilesLoaded}
-                            />
-                                    </>
-                                );
-                            })()}
+                                            <components.PluginResultsSection
+                                                visiblePlugins={visiblePlugins}
+                                                pluginResults={pluginResults}
+                                                pluginErrors={pluginErrors}
+                                                selectedCategory={selectedCategory}
+                                                secondaryCategory={secondaryCategory}
+                                                tertiaryCategory={tertiaryCategory}
+                                                isLoadingPlugins={isLoadingPlugins}
+                                                refreshPluginResults={refreshPluginResults}
+                                                totalFilesLoaded={totalFilesLoaded}
+                                            />
+                                        </>
+                                    );
+                                })()}
                             </components.ErrorBoundary>
                         </>
                     )}
