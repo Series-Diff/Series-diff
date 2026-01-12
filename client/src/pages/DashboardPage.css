@@ -40,3 +40,8 @@ button,
   overflow-y: auto;
   overflow-x: hidden;
 }
+
+/* Ensure DatePicker calendar/time popper is above other elements (Y-axis controls) */
+.react-datepicker-popper {
+  z-index: 9999 !important;
+}
