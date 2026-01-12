@@ -10,7 +10,7 @@ export function useDateRange(
   const [endDate, setEndDate] = useState<Date | null>(null);
   const [pendingStartDate, setPendingStartDate] = useState<Date | null>(null);
   const [pendingEndDate, setPendingEndDate] = useState<Date | null>(null);
-  const [ignoreTimeRange, setIgnoreTimeRange] = useState(false);
+  const [ignoreTimeRange, setIgnoreTimeRange] = useState(true);
 
   type Bounds = { min: Date | null; max: Date | null; errorMessage?: string };
 
@@ -134,6 +134,8 @@ export function useDateRange(
     setIgnoreTimeRange,
     handleStartChange: setPendingStartDate,
     handleEndChange: setPendingEndDate,
+    setPendingStartDate,
+    setPendingEndDate,
     applyPendingDates: () => {
       setStartDate(pendingStartDate);
       setEndDate(pendingEndDate);
@@ -143,7 +145,7 @@ export function useDateRange(
       setEndDate(null);
       setPendingStartDate(null);
       setPendingEndDate(null);
-      setIgnoreTimeRange(false);
+      setIgnoreTimeRange(true);
     },
     defaultMinDate: dataBounds.min,
     defaultMaxDate: dataBounds.max,
