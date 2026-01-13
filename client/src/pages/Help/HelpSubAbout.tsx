@@ -45,7 +45,7 @@ export const HelpAbout = (): JSX.Element => {
               <Alert.Heading>Key Features</Alert.Heading>
               <ul>
                 <li><strong>Data Handling:</strong> Import data in CSV or flat JSON formats</li>
-                <li><strong>Visualization:</strong> Interactive charts with primary and secondary axes</li>
+                <li><strong>Visualization:</strong> Interactive charts with multiple axes</li>
                 <li><strong>Analysis:</strong> Advanced metrics and anomaly detection algorithms</li>
                 <li><strong>Extensibility:</strong> Support for custom plugins to define user-specified metrics</li>
                 <li><strong>Reporting:</strong> Generate PDF reports for analysis results</li>

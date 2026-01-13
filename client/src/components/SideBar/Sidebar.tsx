@@ -19,9 +19,8 @@ export const Sidebar = ({ page }: Props): JSX.Element => {
         { text: "How to Get Started", to: "/help/getting-started" },
         { text: "Data Types and Formats", to: "/help/data-types" },
         { text: "Chart Visualization", to: "/help/chart-visualization" },
-        { text: "Understanding Metrics", to: "/help/metrics" },
+        { text: " Metrics and Statistics", to: "/help/metrics" },
         { text: "Installing Plugins", to: "/help/plugins" },
-        { text: "Anomaly Detection", to: "/help/anomaly-detection" },
         { text: "Generating Reports", to: "/help/reports" },
         { text: "Troubleshooting", to: "/help/troubleshooting" },
         { text: "About", to: "/help/about" }
