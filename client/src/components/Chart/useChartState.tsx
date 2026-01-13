@@ -2,6 +2,22 @@ import {useCallback, useEffect, useMemo, useRef, useState} from "react";
 import { TimeSeriesEntry } from "@/services/fetchTimeSeries";
 
 /**
+ * Format date for Plotly without timezone conversion.
+ * Plotly interprets dates without timezone suffix as local time.
+ * Using toISOString() would convert to UTC (suffix "Z") causing timezone shift issues.
+ */
+const formatDateForPlotly = (date: Date): string => {
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const day = String(date.getDate()).padStart(2, '0');
+    const hours = String(date.getHours()).padStart(2, '0');
+    const minutes = String(date.getMinutes()).padStart(2, '0');
+    const seconds = String(date.getSeconds()).padStart(2, '0');
+    const ms = String(date.getMilliseconds()).padStart(3, '0');
+    return `${year}-${month}-${day}T${hours}:${minutes}:${seconds}.${ms}`;
+};
+
+/**
  * Custom hook for managing chart state.
  * 
  * Handles:
@@ -126,9 +142,9 @@ export const useChartState = (
                 return; // No-op to prevent relayout-induced loops
             }
 
-            // Format dates as ISO strings for Plotly
-            const nextRangeStart = rangeStart.toISOString();
-            const nextRangeEnd = rangeEnd.toISOString();
+            // Format dates for Plotly without UTC conversion to avoid timezone shift
+            const nextRangeStart = formatDateForPlotly(rangeStart);
+            const nextRangeEnd = formatDateForPlotly(rangeEnd);
             
             const estimatedPointsOnScreen = diffHours / (averageStepHours || 0.001);
 
@@ -189,15 +205,23 @@ export const useChartState = (
             }));
             const minTs = Math.min(...stringsWithTimestamps.map(item => item.ts));
             const maxTs = Math.max(...stringsWithTimestamps.map(item => item.ts));
-            const minXString = stringsWithTimestamps.find(item => item.ts === minTs)?.str || allXStrings[0];
-            const maxXString = stringsWithTimestamps.find(item => item.ts === maxTs)?.str || allXStrings[allXStrings.length - 1];
+            
+            // Use timestamps for comparison to avoid string format mismatches
+            const currentStartTs = xaxisRangeTimestampRef.current[0];
+            const currentEndTs = xaxisRangeTimestampRef.current[1];
+            const tolerance = 1000; // 1 second tolerance
+            if (currentStartTs !== null && currentEndTs !== null &&
+                Math.abs(currentStartTs - minTs) < tolerance &&
+                Math.abs(currentEndTs - maxTs) < tolerance) {
+                return; // Already aligned with data
+            }
 
-            // Avoid relayout loop when range is already aligned with data
-            if (xaxisRangeRef.current[0] === minXString && xaxisRangeRef.current[1] === maxXString) return;
-
+            // Format dates for Plotly using local time (avoid UTC conversion)
+            const minDate = new Date(minTs);
+            const maxDate = new Date(maxTs);
             const fakeEvent = {
-                'xaxis.range[0]': minXString,
-                'xaxis.range[1]': maxXString,
+                'xaxis.range[0]': formatDateForPlotly(minDate),
+                'xaxis.range[1]': formatDateForPlotly(maxDate),
             };
 
             handleRelayout(fakeEvent);
