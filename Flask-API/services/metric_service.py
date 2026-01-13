@@ -2,8 +2,8 @@ import numpy as np
 import pandas as pd
 from scipy.stats import pearsonr
 from statsmodels.tsa.stattools import acf
-from dtw import dtw
 import logging
+from fastdtw import fastdtw
 
 logger = logging.getLogger("FlaskAPI")
 
@@ -366,12 +366,15 @@ def calculate_dtw(series1: dict, series2: dict) -> float:
     s2.index = pd.to_datetime(s2.index)
     s2 = s2.sort_index().astype(float)
 
-    x = s1.values
-    y = s2.values
+    if s1.empty or s2.empty:
+        return None
 
-    dtw_distance = dtw(x, y).distance
+    x = s1.values.astype(np.float64).flatten()
+    y = s2.values.astype(np.float64).flatten()
 
-    return dtw_distance
+    distance, path = fastdtw(x, y)
+
+    return distance
 
 
 def calculate_euclidean_distance(

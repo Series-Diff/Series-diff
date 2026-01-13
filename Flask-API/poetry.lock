@@ -280,50 +280,19 @@ wrapt = ">=1.10,<3"
 dev = ["PyTest", "PyTest-Cov", "bump2version (<1)", "setuptools ; python_version >= \"3.12\"", "tox"]
 
 [[package]]
-name = "dtw-python"
-version = "1.7.2"
-description = "A comprehensive implementation of dynamic time warping (DTW) algorithms."
+name = "fastdtw"
+version = "0.3.4"
+description = "Dynamic Time Warping (DTW) algorithm with an O(N) time and memory complexity."
 optional = false
-python-versions = ">=3.9"
+python-versions = "*"
 groups = ["main"]
 files = [
-    {file = "dtw_python-1.7.2-cp310-cp310-macosx_10_9_x86_64.whl", hash = "sha256:ae97d9d1a34bf1267b5742800eebc83655d6edac7ef11eaa1da614fe15ecbf15"},
-    {file = "dtw_python-1.7.2-cp310-cp310-macosx_11_0_arm64.whl", hash = "sha256:48de94c12f57bf524f70f4debdf46e4895c43e24abc71fa14f15dec8ecdce7a0"},
-    {file = "dtw_python-1.7.2-cp310-cp310-manylinux2014_x86_64.manylinux_2_17_x86_64.manylinux_2_28_x86_64.whl", hash = "sha256:4ca9ed4abdcc3a74e46d5cc8a08f892e28d1151969914839ac60ac5ff030dbfc"},
-    {file = "dtw_python-1.7.2-cp310-cp310-win_amd64.whl", hash = "sha256:8071c345f1dde18830d520690bb4a95dcaa50ea0bd4d260fc4368d592f1b214f"},
-    {file = "dtw_python-1.7.2-cp311-cp311-macosx_10_9_x86_64.whl", hash = "sha256:e5bbf17129365ee88aea98890332bb7d20e80fa78eb9c64a11175f07e4c699b3"},
-    {file = "dtw_python-1.7.2-cp311-cp311-macosx_11_0_arm64.whl", hash = "sha256:0f1f075f90bc1faacfa0661cd29f070516b09ce1fc90ea353313aae8c19f5c2e"},
-    {file = "dtw_python-1.7.2-cp311-cp311-manylinux2014_x86_64.manylinux_2_17_x86_64.manylinux_2_28_x86_64.whl", hash = "sha256:d81ddd8e03befc4041cdf66d569c0f8ba730fd7aebede0d38add7862a10f9779"},
-    {file = "dtw_python-1.7.2-cp311-cp311-win_amd64.whl", hash = "sha256:e5aecfee9abc5cb39f94ebb25bc74683575dda507836ab0563badfa0fbb11b2b"},
-    {file = "dtw_python-1.7.2-cp312-cp312-macosx_10_13_x86_64.whl", hash = "sha256:85ff43afd6adb64a25755f01e98ee21eb70a34c105231720e5f4104b5988741a"},
-    {file = "dtw_python-1.7.2-cp312-cp312-macosx_11_0_arm64.whl", hash = "sha256:c507179cae0f38bc22b22fd63c53d99274e11aa2e3a65e6148108345da9df033"},
-    {file = "dtw_python-1.7.2-cp312-cp312-manylinux2014_x86_64.manylinux_2_17_x86_64.manylinux_2_28_x86_64.whl", hash = "sha256:239cb6207f512dbd1b0a5da03269ec3ddb2dc177719fe9b6eb5149feeec1bd63"},
-    {file = "dtw_python-1.7.2-cp312-cp312-win_amd64.whl", hash = "sha256:3126abd69b18a2a4809790d71f5f42fcc2cb483921e17da8f11bac5ddd7d548d"},
-    {file = "dtw_python-1.7.2-cp313-cp313-macosx_10_13_x86_64.whl", hash = "sha256:7d36341701b6a049b9dc3b234fe80047c4cd7df438bb86c6236179f2ce79dcf6"},
-    {file = "dtw_python-1.7.2-cp313-cp313-macosx_11_0_arm64.whl", hash = "sha256:129d860f875ded4c4e119450315eff27bcf4d7e6dee8831fd91e68c0e757219c"},
-    {file = "dtw_python-1.7.2-cp313-cp313-manylinux2014_x86_64.manylinux_2_17_x86_64.manylinux_2_28_x86_64.whl", hash = "sha256:1b0cf947bc5e71f4d7ad139deaa51ad02bba5458e28e5df92b94a90374f5067e"},
-    {file = "dtw_python-1.7.2-cp313-cp313-win_amd64.whl", hash = "sha256:61e5e4abaa7fd58ef3d63b064fa394770c095a3bbad991339b1fb934928cbc1b"},
-    {file = "dtw_python-1.7.2-cp314-cp314-macosx_10_13_x86_64.whl", hash = "sha256:1bcc6ace984ed893d688cd8b8a0676bf76f0f01647265d2a017c9f7d3bfcc71a"},
-    {file = "dtw_python-1.7.2-cp314-cp314-macosx_11_0_arm64.whl", hash = "sha256:c77633dc1d8d9d0276aed0a782b508b415aab04ddc79bfc2c1abe647a8ccc151"},
-    {file = "dtw_python-1.7.2-cp314-cp314-manylinux2014_x86_64.manylinux_2_17_x86_64.manylinux_2_28_x86_64.whl", hash = "sha256:217811332fc3b4e53290942abe45f11ae65a9ca91c77c475d38daa6b73e4d47f"},
-    {file = "dtw_python-1.7.2-cp314-cp314-win_amd64.whl", hash = "sha256:d7e6675e4b6179b80f8a9c1cd8db60d92f59019e8ea1f344f6b1c8c61142ed45"},
-    {file = "dtw_python-1.7.2-cp314-cp314t-macosx_10_13_x86_64.whl", hash = "sha256:4d4395a97d20b84c665adef5873d3841f658885568c289d46a649484d994a6b6"},
-    {file = "dtw_python-1.7.2-cp314-cp314t-macosx_11_0_arm64.whl", hash = "sha256:e7ce66f2c72c28c657e03ba799d7a00a538ced00870b9801debeab2bf4168792"},
-    {file = "dtw_python-1.7.2-cp314-cp314t-manylinux2014_x86_64.manylinux_2_17_x86_64.manylinux_2_28_x86_64.whl", hash = "sha256:f19ef9ad1ea09f373db003a191f5615c772039ff261b98e33aab186e62e13e1e"},
-    {file = "dtw_python-1.7.2-cp314-cp314t-win_amd64.whl", hash = "sha256:fcd8f8f484eb100362e2fe65ca27cb8b431964fceb33c64d97c4a841b5abaef8"},
-    {file = "dtw_python-1.7.2-cp39-cp39-macosx_10_9_x86_64.whl", hash = "sha256:d403cd4d72db13576fe318aacc792adaa895658465c28f5a92b66e845577c1e1"},
-    {file = "dtw_python-1.7.2-cp39-cp39-macosx_11_0_arm64.whl", hash = "sha256:33ce34017855fecee57ef08ed03b858f6f520bee4eef744b171938ac0e5262b6"},
-    {file = "dtw_python-1.7.2-cp39-cp39-manylinux2014_x86_64.manylinux_2_17_x86_64.manylinux_2_28_x86_64.whl", hash = "sha256:3d4438d9ba63355492d7c8ffd7455d0335dfb95f7e2ab50a7dc0ffe013d89b45"},
-    {file = "dtw_python-1.7.2-cp39-cp39-win_amd64.whl", hash = "sha256:97d243009705603c45c073f84abbb1d02a3fda2c9b18afabb92d012cba058509"},
-    {file = "dtw_python-1.7.2.tar.gz", hash = "sha256:ad832a96067c9ddc104307abcc7ed3787fc627b71aa48dd2a6a7cf208dbec020"},
+    {file = "fastdtw-0.3.4-cp37-cp37m-macosx_10_14_x86_64.whl", hash = "sha256:28918c163dce9e736e09252a02073fce712bc4c7aa18f2a45d882cca84da2dbb"},
+    {file = "fastdtw-0.3.4.tar.gz", hash = "sha256:2350fa6ec36bcad186eaf81f46eff35181baf04e324f522de8aeb43d0243f64f"},
 ]
 
 [package.dependencies]
-numpy = ">=2.0"
-scipy = "*"
-
-[package.extras]
-test = ["numpy"]
+numpy = "*"
 
 [[package]]
 name = "flake8"
@@ -1548,4 +1517,4 @@ dev = ["pytest", "setuptools"]
 [metadata]
 lock-version = "2.1"
 python-versions = "^3.11"
-content-hash = "e327e915adb4c9a0f830c90b909fbd565f5d6db24e3435d0539d6536291b1ffa"
+content-hash = "d4c412b42760603caec98edc43d9a664c614c052214ae9ce14776eb6ae7843d0"
