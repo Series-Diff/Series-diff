@@ -91,7 +91,7 @@ export const buildTraces = (
     ): Data => {
         const parts = name.split('.');
         const groupName = parts[0];
-
+        const displayName = parts.length > 1 ? parts.slice(1).join('.') : name;
         const baseKey = getBaseKey(name, syncColorsByFile, syncColorsByGroup);
         const color = colorMap.get(baseKey) || '#000000';
         const isSeriesMA = isMA(name);
@@ -101,7 +101,7 @@ export const buildTraces = (
             y: series.map(d => d.y),
             type: 'scattergl' as const,
             mode: isManual ? 'markers' : (showMarkers ? 'lines+markers' : 'lines') as 'lines' | 'lines+markers' | 'markers',
-            name,
+            name: displayName,
             legendgroup: groupName,
             legendgrouptitle: {
                 text: `<b>${groupName}</b>`,
