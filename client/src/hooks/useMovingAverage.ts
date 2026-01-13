@@ -1,4 +1,4 @@
-import { useState, useCallback } from 'react';
+import {useState, useCallback, useEffect} from 'react';
 import * as services from '../services';
 import { apiLogger } from '../utils/apiLogger';
 import { metricsCacheManager } from '../utils/metricsCacheManager';
@@ -13,6 +13,27 @@ export const useMovingAverage = (
     const [maWindow, setMaWindow] = useState('1d'); // Default value
     const [isMaLoading, setIsMaLoading] = useState(false);
     const [rollingMeanChartData, setRollingMeanChartData] = useState<Record<string, services.TimeSeriesEntry[]>>({});
+
+    useEffect(() => {
+        const handleMetricSelectionChange = (event: Event) => {
+            const customEvent = event as CustomEvent;
+
+            if (customEvent.detail?.key === 'selectedMetricsForDisplay') {
+                const selectedMetricsArray = customEvent.detail.value as string[];
+                const selectedMetricsSet = new Set(selectedMetricsArray);
+
+                if (showMovingAverage && !selectedMetricsSet.has('moving_average')) {
+                    setShowMovingAverage(false);
+                }
+            }
+        };
+
+        window.addEventListener('localStorageChange', handleMetricSelectionChange);
+
+        return () => {
+            window.removeEventListener('localStorageChange', handleMetricSelectionChange);
+        };
+    }, [showMovingAverage, setError]);
 
     const fetchMaData = useCallback(async (window: string) => {
         if (Object.keys(filenamesPerCategory).length === 0) {
