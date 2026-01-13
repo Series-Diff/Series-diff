@@ -65,9 +65,7 @@ describe('useFileUpload', () => {
   });
 
   it('handlePopupComplete sets error on processing failure', async () => {
-    mockedServices.sendProcessedTimeSeriesData.mockImplementation(async (_data, cb) => {
-      if (cb) cb(false);
-    });
+    mockedServices.sendProcessedTimeSeriesData.mockRejectedValue(new Error('Data processing or server upload failed.'));
     const { state, setError, setIsLoading } = createHarness();
 
     await act(async () => {
@@ -81,9 +79,7 @@ describe('useFileUpload', () => {
   });
 
   it('handlePopupComplete triggers fetch on success', async () => {
-    mockedServices.sendProcessedTimeSeriesData.mockImplementation(async (_data, cb) => {
-      if (cb) cb(true);
-    });
+    mockedServices.sendProcessedTimeSeriesData.mockResolvedValue(undefined);
     const { state, handleFetchData } = createHarness();
 
     await act(async () => {
