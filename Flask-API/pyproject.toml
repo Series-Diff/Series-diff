@@ -21,7 +21,7 @@ dependencies = [
     "redis[hiredis] (>=7.1.0,<8.0.0)",
     "orjson (>=3.10.13,<4.0.0)",
     "boto3 (>=1.35.0,<2.0.0)",
-    "fastdtw"
+    "fastdtw (>=0.3.4)"
 ]
 
 [tool.poetry]
