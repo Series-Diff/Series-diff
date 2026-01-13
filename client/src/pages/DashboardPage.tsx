@@ -587,6 +587,11 @@ function DashboardPage() {
                                         onExportClick={handleExportClick}
                                         isExporting={isExporting}
                                         onRetryStatistic={retryMetric}
+                                        appliedStartDate={startDate}
+                                        appliedEndDate={endDate}
+                                        dataMinDate={defaultMinDate}
+                                        dataMaxDate={defaultMaxDate}
+                                        ignoreTimeRange={ignoreTimeRange}
                                     />
                                 )}
 
