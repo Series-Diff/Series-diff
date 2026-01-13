@@ -1,5 +1,5 @@
 name: comparison-tool
-description: AWS Python Pulimi program for SeriesDiff project
+description: AWS Python Pulumi program for SeriesDiff project
 runtime:
   name: python
   options:
