@@ -198,13 +198,12 @@ function DashboardPage() {
 
     const needsFullHeight = isInDifferenceMode || !hasData;
 
-    const mainStyle = needsFullHeight ? {
+    const mainStyle = {
         gap: "16px",
-        height: `calc(100vh - var(--nav-height) - 2 * var(--section-margin))`,
-        overflow: "hidden" as const
-    } : {
-        gap: "16px",
-        minHeight: `calc(100vh - var(--nav-height) - 2 * var(--section-margin))`
+        minHeight: `calc(100vh - var(--nav-height) - 2 * var(--section-margin))`,
+        height: "auto",
+        overflowY: "auto" as const,
+        paddingBottom: "20px"
     };
 
     const chartLayoutClass = `d-flex flex-column gap-3 w-100 flex-grow-1${needsFullHeight ? ' h-100' : ''}`;
@@ -267,8 +266,9 @@ function DashboardPage() {
                         display: 'flex',
                         flexDirection: 'column',
                         gap: '16px',
-                        height: `calc(100vh - var(--nav-height) - 2 * var(--section-margin))`,
-                        overflow: 'hidden'
+                        height: 'auto',
+                        minHeight: `calc(100vh - var(--nav-height) - 2 * var(--section-margin))`,
+                        overflow: 'visible'
                     }}>
                         {/* Controls Panel */}
                         {isInDifferenceMode ? (
@@ -361,8 +361,12 @@ function DashboardPage() {
                         <components.ErrorBoundary onError={(msg) => setError(msg)}>
                             <div
                                 className={chartContainerClass}
-                                style={{ flex: 1, minHeight: 0 }}
-                            >
+                                style={{
+                                    flex: 1,
+                                    minHeight: '60vh',
+                                    display: 'flex',
+                                    flexDirection: 'column'
+                                }}                            >
                                 {/* Switch to Standard Chart button - always visible in difference mode */}
                                 {isInDifferenceMode && canShowDifferenceChart && (
                                     <Button
@@ -404,7 +408,10 @@ function DashboardPage() {
                                                         {isInDifferenceMode ? 'Switch to Standard Chart' : 'Switch to Difference Chart'}
                                                     </Button>
                                                 )}
-                                                <div className="chart-wrapper flex-grow-1" style={{ height: '100%' }}>
+                                                <div
+                                                    className="chart-wrapper flex-grow-1 d-flex flex-column"
+                                                    style={{ minHeight: '400px' }}
+                                                >
                                                     <components.MyChart
                                                         primaryData={filteredData.primary}
                                                         secondaryData={filteredData.secondary || undefined}
@@ -517,7 +524,7 @@ function DashboardPage() {
                                                     </div>
                                                 )}
                                                 {!isDiffLoading && !diffError && hasDifferenceData && (
-                                                    <div className="chart-wrapper flex-grow-1" style={{ height: '100%' }}>
+                                                    <div className="chart-wrapper flex-grow-1" style={{ height: 'auto'}}>
                                                         <components.MyChart
                                                             primaryData={differenceChartData}
                                                             toggleChartMode={toggleChartMode}
