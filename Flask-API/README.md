@@ -31,32 +31,34 @@
 ## Running Application
 
 ### Web browser access
-API can be accessed at [api.seriesdiff.com](https://api.seriesdiff.com/). the list of accessible endpoints is listed in [API Endopoints](#api-endpoints) section
+API can be accessed at [api.seriesdiff.com](https://api.seriesdiff.com/). The list of accessible endpoints is listed in [API Endopoints](#api-endpoints) section
 ###  Local development
 If you want to develop application on your local machine you can use one of the two command
 1. If you want to run only backend on the local environment you can use for it command `gunicorn -c ./gunicorn_config.py main:app`
 2. If you want to run docker container to run application you can do it by two ways
    - build and run flask api container (with redis server):
-   ```
-   docker network create flask-api-net
 
-   docker run -d --name redis  --network flask-api-net redis:alpine
+      ```
+      docker network create flask-api-net
 
-   docker build -f Dockerfile.executor -t plugin-executor .
+      docker run -d --name redis  --network flask-api-net redis:alpine
 
-   docker run -d --name plugin-executor --network flask-api-net -e REDIS_HOST=redis plugin-executor
+      docker build -f Dockerfile.executor -t plugin-executor .
 
-   docker build -f Dockerfile.local -t flask-api-local .
+      docker run -d --name plugin-executor --network flask-api-net -e REDIS_HOST=redis plugin-executor
 
-   docker run -it --rm --name flask-api --network flask-api-net -e REDIS_HOST=redis -p 5000:5000 flask-api-local
-   ```
-   - Use docker compose to run the whole application
-   ```
-   # to run docker compose you have to be in root project directory
-   cd .. 
+      docker build -f Dockerfile.local -t flask-api-local .
 
-   docker compose up --build
-   ```
+      docker run -it --rm --name flask-api --network flask-api-net -e REDIS_HOST=redis -p 5000:5000 flask-api-local
+      ```
+    - Use docker compose to run the whole application
+    
+       ```
+       # to run docker compose you have to be in root project directory
+       cd .. 
+
+       docker compose up --build
+       ```
 
 ## Testing Application
 
