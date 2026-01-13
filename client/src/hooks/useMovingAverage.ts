@@ -1,18 +1,38 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect } from 'react';
 import * as services from '../services';
 import { apiLogger } from '../utils/apiLogger';
 import { metricsCacheManager } from '../utils/metricsCacheManager';
 import type { CacheKey } from '../utils/metricsCacheManager';
 import { errorSimulator } from '../utils/errorSimulator';
 
+// localStorage keys for persistence
+const STORAGE_KEY_MA_ENABLED = 'dashboard_maEnabled';
+const STORAGE_KEY_MA_WINDOW = 'dashboard_maWindow';
+
 export const useMovingAverage = (
     filenamesPerCategory: Record<string, string[]>,
     setError: React.Dispatch<React.SetStateAction<string | null>>
 ) => {
-    const [showMovingAverage, setShowMovingAverage] = useState(false);
-    const [maWindow, setMaWindow] = useState('1d'); // Default value
+    // Initialize from localStorage
+    const [showMovingAverage, setShowMovingAverage] = useState(() => {
+        const stored = localStorage.getItem(STORAGE_KEY_MA_ENABLED);
+        return stored === 'true';
+    });
+    const [maWindow, setMaWindow] = useState(() => {
+        return localStorage.getItem(STORAGE_KEY_MA_WINDOW) || '1d';
+    });
     const [isMaLoading, setIsMaLoading] = useState(false);
     const [rollingMeanChartData, setRollingMeanChartData] = useState<Record<string, services.TimeSeriesEntry[]>>({});
+
+    // Persist showMovingAverage to localStorage
+    useEffect(() => {
+        localStorage.setItem(STORAGE_KEY_MA_ENABLED, String(showMovingAverage));
+    }, [showMovingAverage]);
+
+    // Persist maWindow to localStorage
+    useEffect(() => {
+        localStorage.setItem(STORAGE_KEY_MA_WINDOW, maWindow);
+    }, [maWindow]);
 
     const fetchMaData = useCallback(async (window: string) => {
         if (Object.keys(filenamesPerCategory).length === 0) {

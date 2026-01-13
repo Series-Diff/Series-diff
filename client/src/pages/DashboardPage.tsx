@@ -10,6 +10,9 @@ import * as hooks from '../hooks';
 import { useGlobalCache } from '../contexts/CacheContext';
 import { cacheAPI } from '../utils/cacheApiWrapper';
 
+// localStorage keys for UI state persistence
+const STORAGE_KEY_LAYOUT_MODE = 'dashboard_layoutMode';
+
 function DashboardPage() {
     const [chartMode, setChartMode] = useState<'standard' | 'difference'>('standard');
     const [singleFileDismissed, setSingleFileDismissed] = useState(false);
@@ -117,7 +120,18 @@ function DashboardPage() {
 
     const { scatterPoints, isScatterLoading, isScatterOpen, selectedPair, handleCloseScatter, handleCellClick } = hooks.useScatterPlot();
     const { showTitleModal, setShowTitleModal, reportTitle, setReportTitle, isExporting, handleExportClick, handleExportToPDF } = hooks.useExport(chartData);
-    const [layoutMode, setLayoutMode] = useState<'overlay' | 'stacked'>('overlay');
+    
+    // Initialize layoutMode from localStorage
+    const [layoutMode, setLayoutMode] = useState<'overlay' | 'stacked'>(() => {
+        const stored = localStorage.getItem(STORAGE_KEY_LAYOUT_MODE);
+        return stored === 'stacked' ? 'stacked' : 'overlay';
+    });
+    
+    // Persist layoutMode to localStorage
+    useEffect(() => {
+        localStorage.setItem(STORAGE_KEY_LAYOUT_MODE, layoutMode);
+    }, [layoutMode]);
+    
     const { dataImportPopupRef, resetAllData } = hooks.useDataImportPopup();
     const { userMetrics, selectedMetricsForDisplay, setSelectedMetricsForDisplay, showMetricsModal, setShowMetricsModal, filteredGroupedMetrics, shouldShowMetric } = hooks.useMetricsSelection(groupedMetrics);
 
@@ -587,6 +601,11 @@ function DashboardPage() {
                                         onExportClick={handleExportClick}
                                         isExporting={isExporting}
                                         onRetryStatistic={retryMetric}
+                                        appliedStartDate={startDate}
+                                        appliedEndDate={endDate}
+                                        dataMinDate={defaultMinDate}
+                                        dataMaxDate={defaultMaxDate}
+                                        ignoreTimeRange={ignoreTimeRange}
                                     />
                                 )}
 
