@@ -117,11 +117,18 @@ test.describe('Dashboard Cache & Persistence E2E Tests', () => {
       await dashboardPage.hideWebpackOverlay();
       
       await dashboardPage.selectCategory('Temperature');
-      await page.waitForTimeout(1000);
+      
+      // Wait for Plotly chart to fully render (async initialization)
+      await page.waitForFunction(() => {
+        const plotly = document.querySelector('.js-plotly-plot, .plot-container.plotly');
+        if (!plotly) return false;
+        const style = window.getComputedStyle(plotly);
+        return style.visibility !== 'hidden' && style.display !== 'none';
+      }, { timeout: 15000 });
       
       // Verify chart is visible
-      const chartContainer = page.locator('.chart-container, .plotly, [data-testid="chart"]').first();
-      await expect(chartContainer).toBeVisible({ timeout: 5000 });
+      const chartContainer = page.locator('.js-plotly-plot, .plot-container.plotly').first();
+      await expect(chartContainer).toBeVisible({ timeout: 10000 });
 
       // Re-setup mocks before reload since routes don't persist
       await setupMetricMocksWithDelays(page);
@@ -131,10 +138,17 @@ test.describe('Dashboard Cache & Persistence E2E Tests', () => {
       
       await page.reload();
       await dashboardPage.hideWebpackOverlay();
-      await page.waitForTimeout(1000);
+      
+      // Wait for chart to render after reload
+      await page.waitForFunction(() => {
+        const plotly = document.querySelector('.js-plotly-plot, .plot-container.plotly');
+        if (!plotly) return false;
+        const style = window.getComputedStyle(plotly);
+        return style.visibility !== 'hidden' && style.display !== 'none';
+      }, { timeout: 15000 });
 
       // Chart should still be visible after reload
-      await expect(chartContainer).toBeVisible({ timeout: 5000 });
+      await expect(chartContainer).toBeVisible({ timeout: 10000 });
     });
 
     test('Metric selection persists after reload', async ({ page }) => {

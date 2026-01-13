@@ -63,8 +63,20 @@ export class DashboardPage extends BasePage {
   }
 
   async goto(): Promise<void> {
-    await this.page.goto('/');
-    await this.hideWebpackOverlay();
+    // Retry navigation to handle transient dev server issues (HMR, net::ERR_ABORTED)
+    let lastError: Error | null = null;
+    for (let attempt = 0; attempt < 3; attempt++) {
+      try {
+        await this.page.goto('/', { waitUntil: 'domcontentloaded', timeout: 15000 });
+        await this.page.waitForLoadState('networkidle', { timeout: 10000 }).catch(() => {});
+        await this.hideWebpackOverlay();
+        return;
+      } catch (e) {
+        lastError = e as Error;
+        await this.page.waitForTimeout(1000);
+      }
+    }
+    throw lastError;
   }
 
   /**
@@ -176,10 +188,20 @@ export class DashboardPage extends BasePage {
 
   /**
    * Verify chart is visible.
+   * Handles Plotly's async rendering by waiting for the chart to become visible.
    */
   async expectChartVisible(): Promise<void> {
-    await this.expectVisibleAfterScroll(this.chartContainer);
-    await this.expectVisibleAfterScroll(this.plotlyChart);
+    // Wait for Plotly chart to render (it starts hidden during initialization)
+    await this.page.waitForFunction(() => {
+      const plotly = document.querySelector('.js-plotly-plot, .plot-container.plotly');
+      if (!plotly) return false;
+      const style = window.getComputedStyle(plotly);
+      return style.visibility !== 'hidden' && style.display !== 'none';
+    }, { timeout: 10000 }).catch(() => {});
+    
+    await this.scrollIntoView(this.chartContainer);
+    await expect(this.chartContainer).toBeVisible({ timeout: 10000 });
+    await expect(this.plotlyChart).toBeVisible({ timeout: 10000 });
   }
 
   /**

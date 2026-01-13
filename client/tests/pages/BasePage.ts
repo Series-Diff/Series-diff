@@ -98,6 +98,8 @@ export abstract class BasePage {
    * Useful for ensuring elements are visible in videos/traces.
    */
   async scrollIntoView(locator: Locator): Promise<void> {
+    // Wait for element to exist before scrolling
+    await locator.waitFor({ state: 'attached', timeout: 10000 });
     await locator.evaluate(element => {
       element.scrollIntoView({ behavior: 'smooth', block: 'center' });
     });

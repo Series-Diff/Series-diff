@@ -25,12 +25,13 @@ test.describe('Dashboard Advanced Interactions', () => {
     dashboardPage = new DashboardPage(page);
     // Set up API mocks for any subsequent API calls
     await dashboardPage.setupMocks(MULTI_FILE_DATA);
-    // Go to page first (creates browser context for localStorage)
+    // Go to page first (creates browser context for localStorage) - includes retry logic
     await dashboardPage.goto();
     // Set up localStorage with test data
     await dashboardPage.setupTestData(MULTI_FILE_DATA);
     // Reload to pick up localStorage data
-    await page.reload();
+    await page.reload({ waitUntil: 'domcontentloaded' });
+    await page.waitForLoadState('networkidle').catch(() => {});
     await dashboardPage.hideWebpackOverlay();
   });
 
