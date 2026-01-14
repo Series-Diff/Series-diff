@@ -1,0 +1,13 @@
+name: comparison-tool
+description: AWS Python Pulumi program for SeriesDiff project
+runtime:
+  name: python
+  options:
+    toolchain: poetry
+config:
+  pulumi:tags:
+    value:
+      pulumi:template: aws-python
+main: .
+backend:
+  url: s3://pulumi-state-bucket-5ae360c

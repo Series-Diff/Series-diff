@@ -14,8 +14,8 @@ export const NavigationMenu = (): JSX.Element => {
     { text: "Dashboard", to: "/dashboard" },
     { text: "Data", to: "/data" },
     { text: "Metrics", to: "/metrics" },
-    { text: "Anomaly", to: "/anomaly" },
-    { text: "Settings", to: "/settings" },
+    // { text: "Anomaly", to: "/anomaly" },
+    // { text: "Settings", to: "/settings" },
     { text: "Help", to: "/help" }
   ];
 

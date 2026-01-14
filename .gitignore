@@ -25,6 +25,7 @@ share/python-wheels/
 .installed.cfg
 *.egg
 MANIFEST
+.venv/
 venv/
 env/
 ENV/
@@ -110,3 +111,8 @@ Thumbs.db
 # Documentation builds (if using Sphinx, etc.)
 docs/_build/
 site/
+
+# Linter
+.flake8
+test-results/.last-run.json
+Flask-API/tests/fixtures

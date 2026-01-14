@@ -1,60 +1,158 @@
-export type TimeSeriesEntry = {
-        x: string;
-        y: number;
-    };
+import { apiLogger } from '../utils/apiLogger';
+import { cacheAPI } from '../utils/cacheApiWrapper';
+import { formatRateLimitMessage, formatApiError } from '../utils/apiError';
 
+type TimeSeriesCacheEntry = {
+  data: TimeSeriesResponse;
+  timestamp: number;
+};
+
+const TIME_SERIES_CACHE_DURATION = 60 * 60 * 1000; // 1 hour
+
+export type TimeSeriesEntry = {
+  x: string; // ISO string timestamp
+  y: number;
+};
 
 export type TimeSeriesResponse = Record<string, TimeSeriesEntry[]>;
 
+const API_URL = (process.env.REACT_APP_API_URL || '').replace(/\/$/, '');
 
-export const fetchTimeSeriesData = async (): Promise<TimeSeriesResponse> => {
-  const resp = await fetch("api/timeseries");
-  if (!resp.ok) throw new Error(await resp.text());
+const getAuthHeaders = (): HeadersInit => {
+  const token = localStorage.getItem('session_token');
+  return token ? { 'X-Session-ID': token } : {};
+};
+
+const handleSessionToken = (response: Response) => {
+  const newToken = response.headers.get('X-Session-ID');
+  if (newToken) {
+    localStorage.setItem('session_token', newToken);
+  }
+};
+
+export const clearTimeSeriesCache = async () => {
+  // Clear all time series entries from cacheAPI
+  const keys = await cacheAPI.keys();
+  for (const key of keys) {
+    if (key.startsWith('timeseries:')) {
+      try {
+        await cacheAPI.delete(key);
+      } catch (e) {
+        console.warn(`Failed to delete cache entry ${key}:`, e);
+      }
+    }
+  }
+};
+
+export const fetchTimeSeriesData = async (
+  start?: string,
+  end?: string
+): Promise<TimeSeriesResponse> => {
+  const cacheKey = `timeseries:${start || 'no-start'}|${end || 'no-end'}`;
+  
+  // Check cacheAPI first
+  try {
+    const cached = await cacheAPI.get<TimeSeriesCacheEntry>(cacheKey);
+    if (cached) {
+      apiLogger.logQuery('/api/timeseries', 'GET', {
+        params: { start, end },
+        fromCache: true,
+        cacheKey,
+        duration: 0,
+        status: 200,
+      });
+      return cached.data;
+    }
+  } catch (e) {
+    console.warn('Failed to check timeseries cache:', e);
+  }
+
+  let url = `${API_URL}/api/timeseries`;
+  const params: string[] = [];
+  if (start) params.push(`start=${encodeURIComponent(start)}`);
+  if (end) params.push(`end=${encodeURIComponent(end)}`);
+  if (params.length > 0) url += `?${params.join('&')}`;
+  const startTime = performance.now();
+
+  apiLogger.logQuery('/api/timeseries', 'GET', {
+    params: { start, end },
+  });
+
+  let resp: Response;
+  try {
+    resp = await fetch(url, {
+      headers: {
+        ...getAuthHeaders(),
+        'Content-Type': 'application/json',
+      },
+    });
+  } catch (err) {
+    throw new Error(formatApiError(err, '/api/timeseries'));
+  }
+
+  handleSessionToken(resp);
+
+  if (!resp.ok) {
+    if (resp.status === 429) {
+      throw new Error(formatRateLimitMessage(resp, '/api/timeseries'));
+    }
+    throw new Error(await resp.text());
+  }
+  const duration = Math.round(performance.now() - startTime);
+  apiLogger.logQuery('/api/timeseries', 'GET', {
+    params: { start, end },
+    duration,
+    status: resp.status,
+  });
+
   const json: Record<string, Record<string, Record<string, number>>> = await resp.json();
   const out: TimeSeriesResponse = {};
 
-  // Iterujemy po każdym wpisie w obiekcie, gdzie kluczem jest `timestamp`.
   for (const [timestamp, timestampData] of Object.entries(json)) {
     if (typeof timestampData !== 'object' || timestampData === null) continue;
 
-    // Iterujemy po grupach w danym punkcie czasowym (np. "humidity", "temperature").
     for (const [groupName, seriesData] of Object.entries(timestampData)) {
       if (typeof seriesData !== 'object' || seriesData === null) continue;
 
-      // Iterujemy po konkretnych seriach danych dla danej grupy.
       for (const [seriesName, value] of Object.entries(seriesData)) {
         if (typeof value !== 'number') continue;
 
-        // Tworzymy unikalny, złożony klucz dla serii danych, np. "humidity.data_1".
         const compositeKey = `${groupName}.${seriesName}`;
-
-        // Jeśli tablica dla tego klucza jeszcze nie istnieje w wynikowym obiekcie, tworzymy ją.
-        if (!out[compositeKey]) {
-          out[compositeKey] = [];
-        }
-
-        // Dodajemy nowy punkt danych (wpis szeregu czasowego) do odpowiedniej serii.
-        out[compositeKey].push({
-          x: timestamp, // `x` to nasz klucz główny z oryginalnego JSON
-          y: value,     // `y` to wartość liczbowa
-        });
+        if (!out[compositeKey]) out[compositeKey] = [];
+        out[compositeKey].push({ x: timestamp, y: value });
       }
     }
   }
 
-
-  for (const key in out) {
-      out[key].sort((a, b) => new Date(a.x).getTime() - new Date(b.x).getTime());
+  // Cache the response using cacheAPI
+  const cacheEntry: TimeSeriesCacheEntry = { data: out, timestamp: Date.now() };
+  try {
+    await cacheAPI.set(cacheKey, cacheEntry, TIME_SERIES_CACHE_DURATION);
+  } catch (e) {
+    console.warn('Failed to cache time series data:', e);
   }
 
   return out;
 };
 
-
 export const fetchRawTimeSeriesData = async (): Promise<Record<string, any[]>> => {
-  const resp = await fetch("/timeseries");
-  if (!resp.ok) throw new Error(await resp.text());
+  let resp: Response;
+  try {
+    resp = await fetch(`${API_URL}/api/timeseries`, {
+      headers: getAuthHeaders(),
+    });
+  } catch (err) {
+    throw new Error(formatApiError(err, '/api/timeseries'));
+  }
 
-  const rawJson = await resp.json();
-  return rawJson;
+  handleSessionToken(resp);
+
+  if (!resp.ok) {
+    if (resp.status === 429) {
+      throw new Error(formatRateLimitMessage(resp, '/api/timeseries'));
+    }
+    throw new Error(await resp.text());
+  }
+
+  return await resp.json();
 };

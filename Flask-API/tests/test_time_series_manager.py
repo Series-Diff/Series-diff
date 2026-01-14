@@ -1,293 +1,646 @@
 import unittest
-import services.time_series_manager as tsm
+import uuid
+from unittest.mock import MagicMock
+from logging import Logger
+from services.time_series_manager import TimeSeriesManager, _json_dumps
+
 
 class TestTimeSeriesManagerAddMethod(unittest.TestCase):
     def setUp(self):
-        self.manager = tsm.TimeSeriesManager()
- 
+        self.mock_redis = MagicMock()
+        self.mock_logger = MagicMock(spec=Logger)
+        self.manager = TimeSeriesManager(
+            redis_client=self.mock_redis, logger=self.mock_logger
+        )
+        self.token = str(uuid.uuid4())
+
     def test_add_timeseries_valid(self):
         # Arrange
-        time = "2023-01-01"
+        time = "2023-01-01T00:00:00"
         data = {
             "category1": {"file1": 1.0, "file2": 2.0},
-            "category2": {"file3": 3.0, "file4": 4.0}
+            "category2": {"file3": 3.0, "file4": 4.0},
         }
+        mock_pipeline = MagicMock()
+        mock_pipeline.execute.return_value = [True, True]
+        self.mock_redis.pipeline.return_value = mock_pipeline
 
         # Act
-        result = self.manager.add_timeseries(time, data)
+        result = self.manager.add_timeseries(self.token, time, data)
 
         # Assert
         self.assertTrue(result)
-        self.assertIn(time, self.manager.timeseries)
-        self.assertEqual(self.manager.timeseries[time], data)
+        mock_pipeline.hset.assert_called_once_with(
+            f"session:{self.token}", time, _json_dumps(data)
+        )
+        mock_pipeline.expire.assert_called_once_with(
+            f"session:{self.token}", self.manager._ttl_seconds
+        )
+        mock_pipeline.execute.assert_called_once()
 
     def test_add_timeseries_invalid_data_type(self):
         # Arrange
-        time = "2023-01-01"
+        time = "2023-01-01T00:00:00"
         data = "invalid_data"
 
-        # Act
-        result = self.manager.add_timeseries(time, data)
+        # Act & Assert
+        with self.assertRaises(ValueError) as context:
+            self.manager.add_timeseries(self.token, time, data)
 
-        # Assert
-        self.assertFalse(result)
-        self.assertNotIn(time, self.manager.timeseries)
+        self.assertIn("Expected a dictionary", str(context.exception))
 
     def test_add_timeseries_invalid_category(self):
         # Arrange
-        time = "2023-01-01"
-        data = {
-            "category1": ["invalid_file_data"]
-        }
+        time = "2023-01-01T00:00:00"
+        data = {"category1": ["invalid_file_data"]}
+        mock_pipeline = MagicMock()
+        mock_pipeline.execute.return_value = [True, True]
+        self.mock_redis.pipeline.return_value = mock_pipeline
 
-        # Act & Assert
-        with self.assertRaises(ValueError):
-            self.manager.add_timeseries(time, data)
-    
+        # Act
+        result = self.manager.add_timeseries(self.token, time, data)
+
+        # Assert - data is stored as-is in JSON, validation happens on retrieval
+        self.assertTrue(result)
+
     def test_add_timeseries_invalid_file_data(self):
         # Arrange
-        time = "2023-01-01"
-        data = {
-            "category1": {"file1": "invalid_data"}
-        }
+        time = "2023-01-01T00:00:00"
+        data = {"category1": {"file1": "invalid_data"}}
+        mock_pipeline = MagicMock()
+        mock_pipeline.execute.return_value = [True, True]
+        self.mock_redis.pipeline.return_value = mock_pipeline
 
-        # Act & Assert
-        with self.assertRaises(ValueError):
-            self.manager.add_timeseries(time, data)
-    
+        # Act
+        result = self.manager.add_timeseries(self.token, time, data)
+
+        # Assert - data is stored as-is in JSON
+        self.assertTrue(result)
+
+    def test_add_timeseries_redis_exception(self):
+        # Arrange
+        time = "2023-01-01T00:00:00"
+        data = {"category1": {"file1": 1.0}}
+        self.mock_redis.pipeline.side_effect = Exception("Redis connection error")
+
+        # Act
+        result = self.manager.add_timeseries(self.token, time, data)
+
+        # Assert
+        self.assertFalse(result)
+        self.mock_logger.error.assert_called()
+
+
 class TestTimeSeriesManagerGetMethod(unittest.TestCase):
     def setUp(self):
-        self.manager = tsm.TimeSeriesManager()
-        self.manager.timeseries = {
-            "2023-01-01": {
-                "category1": {
-                    "file1": 1.0, 
-                    "file2": 2.0,
-                    "file3": 3.0
-                },
-                "category2": {
-                    "file1": 3.0, 
-                    "file2": 4.0
+        self.mock_redis = MagicMock()
+        self.mock_logger = MagicMock(spec=Logger)
+        self.manager = TimeSeriesManager(
+            redis_client=self.mock_redis, logger=self.mock_logger
+        )
+        self.token = str(uuid.uuid4())
+
+        # Prepare test data
+        self.test_data = {
+            "2023-01-01T00:00:00": _json_dumps(
+                {
+                    "category1": {"file1": 1.0, "file2": 2.0, "file3": 3.0},
+                    "category2": {"file1": 3.0, "file2": 4.0},
                 }
-            },
-            "2023-01-02": {
-                "category1": { 
-                    "file2": 6.0,
-                    "file3": 7.0
-                }
-            }   
+            ),
+            "2023-01-02T00:00:00": _json_dumps(
+                {"category1": {"file2": 6.0, "file3": 7.0}}
+            ),
         }
-        
+
     def test_get_all_timeseries(self):
+        # Arrange
+        self.mock_redis.hscan_iter.return_value = iter(
+            [(k, v) for k, v in self.test_data.items()]
+        )
+        self.mock_redis.expire.return_value = True
+
         # Act
-        result = self.manager.get_timeseries()
+        result = self.manager.get_timeseries(self.token)
 
         # Assert
         expected = {
-            "2023-01-01": {
-                "category1": {
-                    "file1": 1.0, 
-                    "file2": 2.0,
-                    "file3": 3.0
-                },
-                "category2": {
-                    "file1": 3.0, 
-                    "file2": 4.0
-                }
+            "2023-01-01T00:00:00": {
+                "category1": {"file1": 1.0, "file2": 2.0, "file3": 3.0},
+                "category2": {"file1": 3.0, "file2": 4.0},
             },
-            "2023-01-02": {
-                "category1": { 
-                    "file2": 6.0,
-                    "file3": 7.0
-                }
-            }   
+            "2023-01-02T00:00:00": {"category1": {"file2": 6.0, "file3": 7.0}},
         }
 
         self.assertEqual(result, expected)
+        self.mock_redis.hscan_iter.assert_called_with(f"session:{self.token}")
+        self.mock_redis.expire.assert_called_once()
 
     def test_get_timeseries_with_time(self):
+        # Arrange
+        timestamp = "2023-01-01T00:00:00"
+        mock_pipeline = MagicMock()
+        mock_pipeline.execute.return_value = [[self.test_data[timestamp]], True]
+        self.mock_redis.pipeline.return_value = mock_pipeline
+        # hscan_iter returns iterator of tuples (field, value)
+        self.mock_redis.hscan_iter.return_value = iter(
+            [(k, _json_dumps(v)) for k, v in self.test_data.items()]
+        )
+
         # Act
-        result = self.manager.get_timeseries(time="2023-01-01")
+        result = self.manager.get_timeseries(self.token, timestamp=timestamp)
 
         # Assert
         expected = {
-            "2023-01-01": {
-                "category1": {
-                    "file1": 1.0, 
-                    "file2": 2.0,
-                    "file3": 3.0
-                },
-                "category2": {
-                    "file1": 3.0, 
-                    "file2": 4.0
-                }
+            "2023-01-01T00:00:00": {
+                "category1": {"file1": 1.0, "file2": 2.0, "file3": 3.0},
+                "category2": {"file1": 3.0, "file2": 4.0},
             }
         }
         self.assertEqual(result, expected)
-        
+        self.mock_redis.hscan_iter.assert_called_once()
+        mock_pipeline.hmget.assert_called_once()
+        mock_pipeline.expire.assert_called_once()
+
     def test_get_timeseries_with_category(self):
+        # Arrange
+        self.mock_redis.hscan_iter.return_value = iter(
+            [(k, v) for k, v in self.test_data.items()]
+        )
+        self.mock_redis.expire.return_value = True
+
         # Act
-        result = self.manager.get_timeseries(category="category1")
+        result = self.manager.get_timeseries(self.token, category="category1")
 
         # Assert
         expected = {
-            "2023-01-01": {
-                "category1": {
-                    "file1": 1.0, 
-                    "file2": 2.0,
-                    "file3": 3.0
-                }
+            "2023-01-01T00:00:00": {
+                "category1": {"file1": 1.0, "file2": 2.0, "file3": 3.0}
             },
-            "2023-01-02": {
-                "category1": {
-                    "file2": 6.0,
-                    "file3": 7.0
-                }
-            }
+            "2023-01-02T00:00:00": {"category1": {"file2": 6.0, "file3": 7.0}},
         }
         self.assertEqual(result, expected)
-        
+
     def test_get_timeseries_with_filename(self):
+        # Arrange
+        self.mock_redis.hscan_iter.return_value = iter(
+            [(k, v) for k, v in self.test_data.items()]
+        )
+        self.mock_redis.expire.return_value = True
+
         # Act
-        result = self.manager.get_timeseries(filename="file1")
+        result = self.manager.get_timeseries(self.token, filename="file1")
 
         # Assert
         expected = {
-            "2023-01-01": {
-                "category1": {
-                    "file1": 1.0
-                },
-                "category2": {
-                    "file1": 3.0
-                }
+            "2023-01-01T00:00:00": {
+                "category1": {"file1": 1.0},
+                "category2": {"file1": 3.0},
             }
         }
         self.assertEqual(result, expected)
-        
+
     def test_get_timeseries_with_time_and_category(self):
+        # Arrange
+        timestamp = "2023-01-01T00:00:00"
+        mock_pipeline = MagicMock()
+        mock_pipeline.execute.return_value = [[self.test_data[timestamp]], True]
+        self.mock_redis.pipeline.return_value = mock_pipeline
+        # hscan_iter returns iterator of tuples (field, value)
+        self.mock_redis.hscan_iter.return_value = iter(
+            [(k, _json_dumps(v)) for k, v in self.test_data.items()]
+        )
+
         # Act
-        result = self.manager.get_timeseries(time="2023-01-01", category="category1")
+        result = self.manager.get_timeseries(
+            self.token, timestamp=timestamp, category="category1"
+        )
 
         # Assert
         expected = {
-            "2023-01-01": {
-                "category1": {
-                    "file1": 1.0, 
-                    "file2": 2.0,
-                    "file3": 3.0
-                }
+            "2023-01-01T00:00:00": {
+                "category1": {"file1": 1.0, "file2": 2.0, "file3": 3.0}
             }
         }
         self.assertEqual(result, expected)
-        
+
     def test_get_timeseries_with_time_and_filename(self):
-        # Act
-        result = self.manager.get_timeseries(time="2023-01-01", filename="file1")
+        # Arrange
+        timestamp = "2023-01-01T00:00:00"
+        mock_pipeline = MagicMock()
+        mock_pipeline.execute.return_value = [[self.test_data[timestamp]], True]
+        self.mock_redis.pipeline.return_value = mock_pipeline
+        # hscan_iter returns iterator of tuples (field, value)
+        self.mock_redis.hscan_iter.return_value = iter(
+            [(k, _json_dumps(v)) for k, v in self.test_data.items()]
+        )
 
-        # Assert
-        expected = {         
-            "2023-01-01": {
-                    "category1": {
-                        "file1": 1.0
-                    },
-                    "category2": {
-                        "file1": 3.0
-                    }
-            }
-        }
-        self.assertEqual(result, expected)
-        
-    def test_get_timeseries_with_category_and_filename(self):
         # Act
-        result = self.manager.get_timeseries(category="category1", filename="file1")
+        result = self.manager.get_timeseries(
+            self.token, timestamp=timestamp, filename="file1"
+        )
 
         # Assert
         expected = {
-            "2023-01-01": {
-                "category1": {
-                    "file1": 1.0
-                },
-                "category2": {
-                    "file1": 3.0
-                }
+            "2023-01-01T00:00:00": {
+                "category1": {"file1": 1.0},
+                "category2": {"file1": 3.0},
             }
         }
         self.assertEqual(result, expected)
 
     def test_get_timeseries_with_category_and_filename(self):
+        # Arrange
+        self.mock_redis.hscan_iter.return_value = iter(
+            [(k, v) for k, v in self.test_data.items()]
+        )
+        self.mock_redis.expire.return_value = True
+
         # Act
-        result = self.manager.get_timeseries(category="category1", filename="file1")
+        result = self.manager.get_timeseries(
+            self.token, category="category1", filename="file1"
+        )
 
         # Assert
-        expected = {
-            "2023-01-01": {
-                "category1": {
-                    "file1": 1.0
-                }
-            }
-        }
+        expected = {"2023-01-01T00:00:00": {"category1": {"file1": 1.0}}}
         self.assertEqual(result, expected)
-    
+
     def test_get_timeseries_with_time_category_and_filename(self):
+        # Arrange
+        timestamp = "2023-01-01T00:00:00"
+        mock_pipeline = MagicMock()
+        mock_pipeline.execute.return_value = [[self.test_data[timestamp]], True]
+        self.mock_redis.pipeline.return_value = mock_pipeline
+        # hscan_iter returns iterator of tuples (field, value)
+        self.mock_redis.hscan_iter.return_value = iter(
+            [(k, _json_dumps(v)) for k, v in self.test_data.items()]
+        )
+
         # Act
-        result = self.manager.get_timeseries(time="2023-01-01", category="category1", filename="file1")
+        result = self.manager.get_timeseries(
+            self.token, timestamp=timestamp, category="category1", filename="file1"
+        )
 
         # Assert
-        expected = {
-            "2023-01-01": {
-                "category1": {
-                    "file1": 1.0
-                }
-            }
-        }
+        expected = {"2023-01-01T00:00:00": {"category1": {"file1": 1.0}}}
         self.assertEqual(result, expected)
-        
+
     def test_get_timeseries_no_data(self):
         # Arrange
-        empty_manager = tsm.TimeSeriesManager()
+        mock_pipeline = MagicMock()
+        mock_pipeline.execute.return_value = [{}, True]
+        self.mock_redis.pipeline.return_value = mock_pipeline
 
         # Act & Assert
-        self.assertEqual(empty_manager.get_timeseries(), {})
-            
+        result = self.manager.get_timeseries(self.token)
+        self.assertEqual(result, {})
+
     def test_get_timeseries_invalid_time(self):
-        
+        # Arrange
+        mock_pipeline = MagicMock()
+        mock_pipeline.execute.return_value = [[], True]
+        self.mock_redis.pipeline.return_value = mock_pipeline
+        # hscan_iter returns iterator of tuples (field, value)
+        self.mock_redis.hscan_iter.return_value = iter(
+            [(k, _json_dumps(v)) for k, v in self.test_data.items()]
+        )
+
         # Act
-        result = self.manager.get_timeseries(time="invalid_time")
+        result = self.manager.get_timeseries(self.token, timestamp="invalid_time")
 
         # Assert
         self.assertEqual(result, {})
-        
+
     def test_get_timeseries_invalid_data_type(self):
         # Act & Assert
         with self.assertRaises(ValueError):
-            self.manager.get_timeseries(time=2023-1-1)
-    
+            self.manager.get_timeseries(self.token, timestamp=2023)
+
     def test_get_timeseries_invalid_category(self):
-        # Act & Assert
-        result = self.manager.get_timeseries(category="invalid_category")
+        # Arrange
+        mock_pipeline = MagicMock()
+        mock_pipeline.execute.return_value = [self.test_data, True]
+        self.mock_redis.pipeline.return_value = mock_pipeline
+
+        # Act
+        result = self.manager.get_timeseries(self.token, category="invalid_category")
+
+        # Assert - invalid category returns empty result after filtering
         self.assertEqual(result, {})
-            
+
     def test_get_timeseries_invalid_filename(self):
-        # Act & Assert
-        result = self.manager.get_timeseries(filename="invalid_file")
+        # Arrange
+        mock_pipeline = MagicMock()
+        mock_pipeline.execute.return_value = [self.test_data, True]
+        self.mock_redis.pipeline.return_value = mock_pipeline
+
+        # Act
+        result = self.manager.get_timeseries(self.token, filename="invalid_file")
+
+        # Assert - invalid filename returns empty result after filtering
         self.assertEqual(result, {})
+
+    def test_get_timeseries_with_categories_list(self):
+        # Arrange
+        self.mock_redis.hscan_iter.return_value = iter(
+            [(k, v) for k, v in self.test_data.items()]
+        )
+        self.mock_redis.expire.return_value = True
+
+        # Act
+        result = self.manager.get_timeseries(
+            self.token, categories=["category1", "category2"]
+        )
+
+        # Assert
+        expected = {
+            "2023-01-01T00:00:00": {
+                "category1": {"file1": 1.0, "file2": 2.0, "file3": 3.0},
+                "category2": {"file1": 3.0, "file2": 4.0},
+            },
+            "2023-01-02T00:00:00": {"category1": {"file2": 6.0, "file3": 7.0}},
+        }
+        self.assertEqual(result, expected)
+
+    def test_get_timeseries_with_filenames_list(self):
+        # Arrange
+        self.mock_redis.hscan_iter.return_value = iter(
+            [(k, v) for k, v in self.test_data.items()]
+        )
+        self.mock_redis.expire.return_value = True
+
+        # Act
+        result = self.manager.get_timeseries(self.token, filenames=["file1", "file2"])
+
+        # Assert
+        expected = {
+            "2023-01-01T00:00:00": {
+                "category1": {"file1": 1.0, "file2": 2.0},
+                "category2": {"file1": 3.0, "file2": 4.0},
+            },
+            "2023-01-02T00:00:00": {"category1": {"file2": 6.0}},
+        }
+        self.assertEqual(result, expected)
+
+    def test_get_timeseries_with_date_range(self):
+        # Arrange
+        mock_pipeline = MagicMock()
+        mock_pipeline.execute.return_value = [
+            [self.test_data["2023-01-01T00:00:00"]],
+            True,
+        ]
+        self.mock_redis.pipeline.return_value = mock_pipeline
+        # hscan_iter returns iterator of tuples (field, value)
+        self.mock_redis.hscan_iter.return_value = iter(
+            [(k, _json_dumps(v)) for k, v in self.test_data.items()]
+        )
+
+        # Act
+        result = self.manager.get_timeseries(
+            self.token, start="2023-01-01T00:00:00", end="2023-01-01T23:59:59"
+        )
+
+        # Assert
+        expected = {
+            "2023-01-01T00:00:00": {
+                "category1": {"file1": 1.0, "file2": 2.0, "file3": 3.0},
+                "category2": {"file1": 3.0, "file2": 4.0},
+            }
+        }
+        self.assertEqual(result, expected)
+
 
 class TestTimeSeriesManagerClearTimeseries(unittest.TestCase):
     def setUp(self):
-        self.manager = tsm.TimeSeriesManager()
-        self.manager.timeseries = {
-            "2023-01-01": {
-                "category1": {"file1": 1.0, "file2": 2.0},
-                "category2": {"file3": 3.0, "file4": 4.0}
-            }
-        }
+        self.mock_redis = MagicMock()
+        self.mock_logger = MagicMock(spec=Logger)
+        self.manager = TimeSeriesManager(
+            redis_client=self.mock_redis, logger=self.mock_logger
+        )
+        self.token = str(uuid.uuid4())
 
     def test_clear_timeseries(self):
         # Act
-        self.manager.clear_timeseries()
+        result, status_code = self.manager.clear_timeseries(self.token)
 
         # Assert
-        self.assertEqual(self.manager.timeseries, {})
+        self.assertEqual(status_code, 200)
+        self.assertEqual(result["message"], "All timeseries data cleared successfully.")
+        self.mock_redis.delete.assert_called_once_with(f"session:{self.token}")
+
+    def test_clear_timeseries_exception(self):
+        # Arrange
+        self.mock_redis.delete.side_effect = Exception("Redis error")
+
+        # Act
+        result, status_code = self.manager.clear_timeseries(self.token)
+
+        # Assert
+        self.assertEqual(status_code, 500)
+        self.assertIn("error", result)
+        self.mock_logger.error.assert_called()
+
+
+class TestTimeSeriesManagerStartEndFilters(unittest.TestCase):
+    def setUp(self):
+        self.mock_redis = MagicMock()
+        self.mock_logger = MagicMock(spec=Logger)
+        self.manager = TimeSeriesManager(
+            redis_client=self.mock_redis, logger=self.mock_logger
+        )
+        self.token = str(uuid.uuid4())
+        # Test data in format matching Redis hscan_iter output
+        self.test_data = {
+            "2023-01-01": _json_dumps({"category1": {"file1": 1.0}}),
+            "2023-01-05": _json_dumps({"category1": {"file1": 5.0}}),
+            "2023-01-10": _json_dumps({"category1": {"file1": 10.0}}),
+        }
+        # Mock hscan_iter to return data as iterator of (key, value) tuples
+        self.mock_redis.hscan_iter.return_value = iter(
+            [(k, v) for k, v in self.test_data.items()]
+        )
+        # Mock pipeline for chunked data fetching
+        self.mock_pipeline = MagicMock()
+        self.mock_redis.pipeline.return_value = self.mock_pipeline
+        self.mock_redis.exists.return_value = True
+
+    def test_get_timeseries_with_start_filter(self):
+        # Arrange - mock hscan_iter returns all data, then filter applies
+        self.mock_redis.hscan_iter.return_value = iter(
+            [
+                ("2023-01-01", self.test_data["2023-01-01"]),
+                ("2023-01-05", self.test_data["2023-01-05"]),
+                ("2023-01-10", self.test_data["2023-01-10"]),
+            ]
+        )
+        # Pipeline returns values for filtered keys (2023-01-05, 2023-01-10)
+        self.mock_pipeline.execute.return_value = [
+            [self.test_data["2023-01-05"], self.test_data["2023-01-10"]]
+        ]
+
+        # Act
+        result = self.manager.get_timeseries(self.token, start="2023-01-05")
+
+        # Assert - should filter to only include dates >= 2023-01-05
+        self.assertIsInstance(result, dict)
+        self.assertIn("2023-01-05", result)
+        self.assertIn("2023-01-10", result)
+        self.assertNotIn("2023-01-01", result)
+
+    def test_get_timeseries_with_end_filter(self):
+        # Arrange
+        self.mock_redis.hscan_iter.return_value = iter(
+            [
+                ("2023-01-01", self.test_data["2023-01-01"]),
+                ("2023-01-05", self.test_data["2023-01-05"]),
+                ("2023-01-10", self.test_data["2023-01-10"]),
+            ]
+        )
+        # Pipeline returns values for filtered keys (2023-01-01, 2023-01-05)
+        self.mock_pipeline.execute.return_value = [
+            [self.test_data["2023-01-01"], self.test_data["2023-01-05"]]
+        ]
+
+        # Act
+        result = self.manager.get_timeseries(self.token, end="2023-01-05")
+
+        # Assert
+        self.assertIsInstance(result, dict)
+        self.assertIn("2023-01-01", result)
+        self.assertIn("2023-01-05", result)
+        self.assertNotIn("2023-01-10", result)
+
+    def test_get_timeseries_with_start_and_end(self):
+        # Arrange
+        extended_data = {
+            "2023-01-01": _json_dumps({"category1": {"file1": 1.0}}),
+            "2023-01-02": _json_dumps({"category1": {"file1": 2.0}}),
+            "2023-01-05": _json_dumps({"category1": {"file1": 5.0}}),
+            "2023-01-08": _json_dumps({"category1": {"file1": 8.0}}),
+            "2023-01-10": _json_dumps({"category1": {"file1": 10.0}}),
+        }
+        self.mock_redis.hscan_iter.return_value = iter(
+            [
+                ("2023-01-01", extended_data["2023-01-01"]),
+                ("2023-01-02", extended_data["2023-01-02"]),
+                ("2023-01-05", extended_data["2023-01-05"]),
+                ("2023-01-08", extended_data["2023-01-08"]),
+                ("2023-01-10", extended_data["2023-01-10"]),
+            ]
+        )
+        # Pipeline returns values for filtered keys (2023-01-02, 2023-01-05, 2023-01-08)
+        self.mock_pipeline.execute.return_value = [
+            [
+                extended_data["2023-01-02"],
+                extended_data["2023-01-05"],
+                extended_data["2023-01-08"],
+            ]
+        ]
+
+        # Act
+        result = self.manager.get_timeseries(
+            self.token, start="2023-01-02", end="2023-01-08"
+        )
+
+        # Assert
+        self.assertIsInstance(result, dict)
+        self.assertIn("2023-01-02", result)
+        self.assertIn("2023-01-05", result)
+        self.assertIn("2023-01-08", result)
+        self.assertNotIn("2023-01-01", result)
+        self.assertNotIn("2023-01-10", result)
+
+    def test_start_after_end_raises_error(self):
+        # Act & Assert
+        with self.assertRaises(ValueError):
+            self.manager.get_timeseries(
+                self.token, start="2023-01-10", end="2023-01-01"
+            )
+
+    def test_invalid_start_format_raises_error(self):
+        # Act & Assert
+        with self.assertRaises(ValueError):
+            self.manager.get_timeseries(self.token, start="invalid-date")
+
+    def test_invalid_end_format_raises_error(self):
+        # Act & Assert
+        with self.assertRaises(ValueError):
+            self.manager.get_timeseries(self.token, end="invalid-date")
+
+    def test_invalid_timestamp_parameter_type(self):
+        # Act & Assert
+        with self.assertRaises(ValueError):
+            self.manager.get_timeseries(self.token, timestamp=123)
+
+    def test_invalid_category_parameter_type(self):
+        # Act & Assert
+        with self.assertRaises(ValueError):
+            self.manager.get_timeseries(self.token, category=123)
+
+    def test_invalid_filename_parameter_type(self):
+        # Act & Assert
+        with self.assertRaises(ValueError):
+            self.manager.get_timeseries(self.token, filename=123)
+
+    def test_invalid_start_parameter_type(self):
+        # Act & Assert
+        with self.assertRaises(ValueError):
+            self.manager.get_timeseries(self.token, start=123)
+
+    def test_invalid_end_parameter_type(self):
+        # Act & Assert
+        with self.assertRaises(ValueError):
+            self.manager.get_timeseries(self.token, end=123)
+
+
+class TestTimeSeriesManagerEdgeCases(unittest.TestCase):
+    def setUp(self):
+        # Arrange - create manager with mocked dependencies
+        self.mock_redis = MagicMock()
+        self.mock_logger = MagicMock(spec=Logger)
+        self.manager = TimeSeriesManager(
+            redis_client=self.mock_redis, logger=self.mock_logger
+        )
+        self.token = str(uuid.uuid4())
+
+    def test_clear_timeseries_error_handling(self):
+        # Arrange - configure mock to raise exception on delete
+        self.mock_redis.keys.return_value = [f"ts:{self.token}:test".encode()]
+        self.mock_redis.delete.side_effect = Exception("Redis connection error")
+
+        # Act
+        result, status = self.manager.clear_timeseries(self.token)
+
+        # Assert
+        self.assertEqual(status, 500)
+        self.assertIn("error", result)
+        self.mock_logger.error.assert_called()
+
+    def test_clear_timeseries_success(self):
+        # Arrange - configure mock to return keys and succeed on delete
+        self.mock_redis.keys.return_value = [
+            f"ts:{self.token}:test1".encode(),
+            f"ts:{self.token}:test2".encode(),
+        ]
+        self.mock_redis.delete.return_value = 2
+
+        # Act
+        result, status = self.manager.clear_timeseries(self.token)
+
+        # Assert
+        self.assertEqual(status, 200)
+        self.assertIn("message", result)
+
+    def test_clear_timeseries_no_data(self):
+        # Arrange - no keys found
+        self.mock_redis.keys.return_value = []
+
+        # Act
+        result, status = self.manager.clear_timeseries(self.token)
+
+        # Assert
+        self.assertEqual(status, 200)
+
 
 if __name__ == "__main__":
     unittest.main()

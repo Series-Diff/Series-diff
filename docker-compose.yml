@@ -1,15 +1,33 @@
 services:
+  redis:
+    image: "redis:alpine"
+    ports:
+      - "6379:6379"
+    networks:
+      - comparison-tool-network
+    volumes:
+      - redis-data:/data
   backend:
-    build: ./Flask-API
+    build:
+      context: ./Flask-API
+      dockerfile: Dockerfile.local
     ports:
      - "5000:5000"
     environment:
       - FLASK_APP=main.py
       - FLASK_ENV=development
+      - REDIS_HOST=redis
+      - GUNICORN_LOG_LEVEL=warning
+      - GUNICORN_PRELOAD=false
+      - PYTHONUNBUFFERED=1
+    depends_on:
+      - redis
     networks:
       - comparison-tool-network
     volumes:
       - ./Flask-API:/app
+      - /app/.venv
+      - /var/run/docker.sock:/var/run/docker.sock
   frontend:
     build: ./client
     ports:
@@ -18,12 +36,20 @@ services:
       - backend
     environment:
       - NODE_ENV=development
-      - REACT_APP_API_URL=http://backend:5000/
+      - REACT_APP_API_URL=http://localhost:5000/
     networks:
       - comparison-tool-network
     volumes:
       - ./client:/app
       - /app/node_modules
+  executor-builder:
+    build:
+      context: ./Flask-API
+      dockerfile: Dockerfile.executor
+    image: sandboxed-plugin-executor:latest
 networks:
   comparison-tool-network:
    driver: bridge
+   
+volumes:
+  redis-data:

@@ -1,332 +1,203 @@
-// src/MetricsPage.tsx
-import React, { useState, useEffect, useCallback } from 'react';
-import MyChart from '../components/Chart/Chart';
-import './MetricsPage.css';
-import { fetchAllDifferences } from '../services/fetchAllDifferences';
-import { extractFilenamesPerCategory } from '../services/extractFilenamesPerCategory';
-import { fetchTimeSeriesData, TimeSeriesEntry } from '../services/fetchTimeSeries';
-import Select from '../components/Select/Select';
-import Dropdown from "@/components/Dropdown/Dropdown";
-import {Button, Form} from "react-bootstrap";
+import React, { useState, useEffect } from 'react';
+import { Col, Button, Modal } from "react-bootstrap";
+import { MetricModal, Header, MetricInfoModal, MetricsListPanel } from '../components';
+import { Metric, METRIC_CATEGORIES, PREDEFINED_METRICS } from '../constants/metricsConfig';
+import { useLocalPlugins } from '../hooks/useLocalPlugins';
+import { getMetricDescription, hasMetricDescription } from '../constants/metricsDescriptions';
 
 function MetricsPage() {
-    const [allChartData, setAllChartData] = useState<Record<string, TimeSeriesEntry[]>>({});
-    const [filenamesPerCategory, setFilenamesPerCategory] = useState<Record<string, string[]>>({});
-    const [differenceValues, setDifferenceValues] = useState<Record<string, Record<string, TimeSeriesEntry[]>>>({});
-    const [isLoading, setIsLoading] = useState(true);
-    const [error, setError] = useState<string | null>(null);
+    const [selectedCategory, setSelectedCategory] = useState<string>("All");
+    const [userSelectedCategory, setUserSelectedCategory] = useState<string>("All");
+    const [activeTab, setActiveTab] = useState("predefined");
+    const [searchQuery, setSearchQuery] = useState("");
+    const [userSearchQuery, setUserSearchQuery] = useState("");
 
-    const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
-    const [selectedDifferences, setSelectedDifferences] = useState<string[]>([]);
-    const [reversedDifferences, setReversedDifferences] = useState<Record<string, boolean>>({});
+    const {
+        plugins,
+        createPlugin,
+        updatePlugin,
+        deletePlugin
+    } = useLocalPlugins();
 
-    const [activeTolerance, setActiveTolerance] = useState<number | null>(null);
-    const [customToleranceValue, setCustomToleranceValue] = useState("");
+    const [showModal, setShowModal] = useState(false);
+    const [editingMetric, setEditingMetric] = useState<Metric | null>(null);
+    const [metricToDelete, setMetricToDelete] = useState<Metric | null>(null);
+    const [showInfoModal, setShowInfoModal] = useState(false);
+    const [selectedMetricKey, setSelectedMetricKey] = useState<string | null>(null);
 
-    const fetchAllData = useCallback(async () => {
-        setIsLoading(true);
-        setError(null);
-        try {
-            const chartData = await fetchTimeSeriesData();
-            setAllChartData(chartData);
+    const categories: string[] = [...METRIC_CATEGORIES];
 
-            const names = extractFilenamesPerCategory(chartData);
-            setFilenamesPerCategory(names);
-
-            setDifferenceValues({});
-
-            if (Object.keys(names).length > 0) {
-                setSelectedCategory(Object.keys(names)[0]);
-            }
-        } catch (err: any) {
-            setError(err.message || 'Failed to fetch data.');
-        } finally {
-            setIsLoading(false);
-        }
-    }, []);
-
+    // Sync selectedCategory if it becomes invalid when categories change
     useEffect(() => {
-        fetchAllData();
-    }, [fetchAllData]);
-
-    useEffect(() => {
-       const fetchDifferencesForCategory = async (category: string, Tolerance: number | null) => {
-    const filesForCategory = filenamesPerCategory[category];
-    if (!category || differenceValues[category] || !filesForCategory?.length) return;
-
-    if (filesForCategory.length < 2) {
-        setSelectedDifferences([]);
-        setReversedDifferences({});
-        return;
-    }
-
-    setIsLoading(true);
-    try {
-        const diffs = await fetchAllDifferences({ [category]: filesForCategory }, Tolerance);
-        setDifferenceValues(prev => ({ ...prev, [category]: diffs[category] }));
-
-        const defaultSelection = Object.keys(diffs[category]).slice(0, 2).map(diffKey => `${category}.${diffKey}`);
-        setSelectedDifferences(defaultSelection);
-
-        const resetReversed: Record<string, boolean> = {};
-        defaultSelection.forEach(key => (resetReversed[key] = false));
-        setReversedDifferences(resetReversed);
-    } catch (err: any) {
-        setError(err.message || 'Failed to fetch differences.');
-    } finally {
-        setIsLoading(false);
-    }
-};
-
-
-        if (selectedCategory) {
-            fetchDifferencesForCategory(selectedCategory, activeTolerance);
+        if (!categories.includes(selectedCategory)) {
+            setSelectedCategory(categories[0] || 'All');
         }
-    }, [selectedCategory, differenceValues, filenamesPerCategory, activeTolerance]);
+        // categories is derived from METRIC_CATEGORIES constant, so the lint warning can be ommited
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [selectedCategory]);
 
-        const handleCategoryChange = async (event: React.ChangeEvent<HTMLSelectElement>) => {
-        const newCategory = event.target.value;
-        setSelectedCategory(newCategory);
-
-        if (filenamesPerCategory[newCategory]?.length < 2) {
-    setSelectedDifferences([]);
-    setReversedDifferences({});
-    return;
-}
-
-        if (!differenceValues[newCategory] && filenamesPerCategory[newCategory]) {
-            setIsLoading(true);
-            try {
-                const diffs = await fetchAllDifferences({ [newCategory]: filenamesPerCategory[newCategory] }, activeTolerance);
-                setDifferenceValues(prev => ({ ...prev, [newCategory]: diffs[newCategory] }));
-
-                const defaultSelection = Object.keys(diffs[newCategory]).slice(0, 2).map(diffKey => `${newCategory}.${diffKey}`);
-                setSelectedDifferences(defaultSelection);
-
-                const resetReversed: Record<string, boolean> = {};
-                defaultSelection.forEach(key => (resetReversed[key] = false));
-                setReversedDifferences(resetReversed);
-            } catch (err: any) {
-                setError(err.message || 'Failed to fetch differences.');
-            } finally {
-                setIsLoading(false);
-            }
-        } else if (differenceValues[newCategory]) {
-            const defaultSelection = Object.keys(differenceValues[newCategory]).slice(0, 2).map(diffKey => `${newCategory}.${diffKey}`);
-            setSelectedDifferences(defaultSelection);
-
-            const resetReversed: Record<string, boolean> = {};
-            defaultSelection.forEach(key => (resetReversed[key] = false));
-            setReversedDifferences(resetReversed);
-        } else {
-            setSelectedDifferences([]);
-            setReversedDifferences({});
-        }
+    const handleCategoryChange = (event: React.ChangeEvent<HTMLSelectElement>) => {
+        setSelectedCategory(event.target.value);
     };
 
+    const handleUserCategoryChange = (event: React.ChangeEvent<HTMLSelectElement>) => {
+        setUserSelectedCategory(event.target.value);
+    };
 
-    const handleDifferenceCheckboxChange = (diffFullName: string) => {
-        setSelectedDifferences(prev => {
-            const newSelection = prev.includes(diffFullName)
-                ? prev.filter(d => d !== diffFullName)
-                : [...prev, diffFullName];
+    const handleOpenModal = (metric: Metric | null = null) => {
+        setEditingMetric(metric);
+        setShowModal(true);
+    };
 
-            setReversedDifferences(prevRev => {
-                const updated = { ...prevRev };
-                if (!(diffFullName in updated)) updated[diffFullName] = false;
-                Object.keys(updated).forEach(key => {
-                    if (!newSelection.includes(key)) delete updated[key];
+    const handleCloseModal = () => {
+        setShowModal(false);
+        setEditingMetric(null);
+    };
+
+    const handleSaveMetric = (metricData: {
+        label: string;
+        description: string;
+        category: string;
+        code?: string;
+    }) => {
+        try {
+            if (editingMetric) {
+                // Editing an existing metric
+                updatePlugin(editingMetric.value, {
+                    name: metricData.label,
+                    description: metricData.description,
+                    category: metricData.category,
+                    code: metricData.code
                 });
-                return updated;
-            });
-
-            return newSelection;
-        });
-    };
-
-    const handleReverseToggle = (diffFullName: string) => {
-        setReversedDifferences(prev => ({
-            ...prev,
-            [diffFullName]: !prev[diffFullName]
-        }));
-    };
-
-    const handleSelectAllToggle = () => {
-        const options = getDifferenceOptions();
-        const allSelected = options.every(opt => selectedDifferences.includes(opt.value));
-
-        if (allSelected) {
-            setSelectedDifferences([]);
-            setReversedDifferences({});
-        } else {
-            const allKeys = options.map(opt => opt.value);
-            setSelectedDifferences(allKeys);
-
-            const allReversed: Record<string, boolean> = {};
-            allKeys.forEach(key => (allReversed[key] = false));
-            setReversedDifferences(allReversed);
-        }
-    };
-
-const handleApplyTolerance = async () => {
-    const numericValue = parseFloat(customToleranceValue);
-    const tol = customToleranceValue === "" || isNaN(numericValue) ? null : Math.abs(numericValue);
-    setActiveTolerance(tol);
-
-    if (selectedCategory && filenamesPerCategory[selectedCategory]?.length > 1) {
-        setIsLoading(true);
-        try {
-            const diffs = await fetchAllDifferences({ [selectedCategory]: filenamesPerCategory[selectedCategory] }, tol);
-            setDifferenceValues(prev => ({ ...prev, [selectedCategory]: diffs[selectedCategory] }));
-
-            const defaultSelection = Object.keys(diffs[selectedCategory]).slice(0, 2).map(diffKey => `${selectedCategory}.${diffKey}`);
-            setSelectedDifferences(defaultSelection);
-
-            const resetReversed: Record<string, boolean> = {};
-            defaultSelection.forEach(key => (resetReversed[key] = false));
-            setReversedDifferences(resetReversed);
+            } else {
+                // Creating a new metric
+                // Note: createPlugin auto-adds the new plugin to selectedMetricsForDisplay
+                createPlugin(
+                    metricData.label,
+                    metricData.description,
+                    metricData.category,
+                    metricData.code || ''
+                );
+            }
+            handleCloseModal();
         } catch (err: any) {
-            setError(err.message || 'Failed to fetch differences.');
-        } finally {
-            setIsLoading(false);
+            console.error(err);
+            alert(err.message || 'Failed to save metric locally');
         }
-    }
-};
+    };
 
+    const handleDeleteMetric = (metric: Metric) => {
+        setMetricToDelete(metric);
+    };
 
-    const handleResetTolerance = () => {
-        setCustomToleranceValue("");
-        setActiveTolerance(null);
+    const handleShowInfo = (metricKey: string) => {
+        if (hasMetricDescription(metricKey)) {
+            setSelectedMetricKey(metricKey);
+            setShowInfoModal(true);
+        }
+    };
 
-        setDifferenceValues({});
-        setSelectedDifferences([]);
-        setReversedDifferences({});
+    const confirmDeleteMetric = () => {
+        if (metricToDelete) {
+            // metric.value is the plugin ID (from the mapping in getUserMetricsFiltered)
+            deletePlugin(metricToDelete.value);
+            setMetricToDelete(null);
+        }
+    };
+
+    const getPredefinedMetrics = (): Metric[] => {
+        return PREDEFINED_METRICS
+            .filter(metric => (selectedCategory === 'All' || metric.category === selectedCategory))
+            .filter(metric => metric.label.toLowerCase().includes(searchQuery.toLowerCase()));
     };
 
 
-    const chartPrimaryData: Record<string, TimeSeriesEntry[]> = {};
-    selectedDifferences.forEach(diffFullName => {
-        const [categoryName, diffKey] = diffFullName.split('.');
-        const diffData = differenceValues[categoryName]?.[diffKey];
-        const isReversed = reversedDifferences[diffFullName];
-
-        if (diffData) {
-            chartPrimaryData[`Difference: ${diffKey}${isReversed ? " (reversed)" : ""}`] = isReversed
-                ? diffData.map(entry => ({ ...entry, y: -entry.y }))
-                : diffData;
-        }
-    });
-
-    const getDifferenceOptions = () => {
-        if (!selectedCategory || !differenceValues[selectedCategory]) return [];
-        return Object.keys(differenceValues[selectedCategory]).map(diffKey => ({
-            value: `${selectedCategory}.${diffKey}`,
-            label: diffKey
+    const getUserMetricsFiltered = (): Metric[] => {
+        const metricsFromPlugins: Metric[] = plugins.map(p => ({
+            value: p.id,
+            label: p.name,
+            description: p.description,
+            category: p.category,
+            code: p.code // Przekazujemy kod, aby można go było edytować
         }));
+
+        return metricsFromPlugins
+            .filter(metric => (userSelectedCategory === 'All' || metric.category === userSelectedCategory))
+            .filter(metric => metric.label.toLowerCase().includes(userSearchQuery.toLowerCase()));
     };
 
-    const chartTitle =
-        selectedDifferences.length > 0
-            ? `Difference Series (${selectedDifferences.length} selected)`
-            : "Select Difference Series to Compare";
+    const predefinedMetricsList = getPredefinedMetrics();
+    const userMetricsList = getUserMetricsFiltered();
 
     return (
-        <div>
-            <h1>Difference chart</h1>
+        <Col className="section-container d-flex flex-column p-5 gap-3 w-100 overflow-hidden" style={{ height: "calc(100vh - var(--nav-height) - 2 * var(--section-margin))" }}>
+            <Header title="Metrics" subtitle="Manage and configure analysis metrics for your time series data" />
 
+            <MetricsListPanel
+                activeTab={activeTab}
+                onTabChange={setActiveTab}
+                searchQuery={searchQuery}
+                onSearchChange={setSearchQuery}
+                selectedCategory={selectedCategory}
+                onCategoryChange={handleCategoryChange}
+                categories={categories}
+                predefinedMetrics={predefinedMetricsList}
+                userMetrics={userMetricsList}
+                showAddMetricButton={true}
+                onAddMetric={() => handleOpenModal()}
+                showEditDelete={true}
+                onEdit={handleOpenModal}
+                onDelete={handleDeleteMetric}
+                onShowInfo={handleShowInfo}
+                userSearchQuery={userSearchQuery}
+                onUserSearchChange={setUserSearchQuery}
+                userSelectedCategory={userSelectedCategory}
+                onUserCategoryChange={handleUserCategoryChange}
+                emptyStatePredefined="No metrics found matching your search criteria."
+                emptyStateUser={plugins.length === 0
+                    ? "No custom metrics yet. Click 'Add Your Custom Metric' to get started."
+                    : "No metrics found matching your search criteria."}
+                containerClassName=""
+            />
 
-        <div className="d-flex" style={{ gap: "16px" }}>
+            <MetricModal
+                show={showModal}
+                onHide={handleCloseModal}
+                onSave={handleSaveMetric}
+                editingMetric={editingMetric}
+                categories={categories.filter(c => c !== 'All')}
+                existingLabels={plugins
+                    .filter(p => !editingMetric || p.id !== editingMetric.value)
+                    .map(p => p.name)
+                }
+            />
 
-            <div className="flex-grow-1">
-                <div className="section-container chart-section">
-                    {isLoading && <p className="text-center p-4">Loading data and differences...</p>}
-                    {!isLoading && !error && Object.keys(chartPrimaryData).length === 0 && (
-                        <p className="text-center p-4">Select a category and one or more difference series to visualize.</p>
-                    )}
-                    {!isLoading && !error && Object.keys(chartPrimaryData).length > 0 && (
-                        <MyChart primaryData={chartPrimaryData} title={chartTitle} />
-                    )}
-                    {error && <p className="text-danger text-center">Error: {error}</p>}
-                </div>
-            </div>
-            <div className="section-container group-menu d-flex flex-column align-items-center p-3 rounded" style={{ minWidth: 350 }}>
-                <h4>Difference Selection</h4>
-                <Select
-                    id="category-select-metrics"
-                    label="Select Category"
-                    selected={selectedCategory || ""}
-                    categories={Object.keys(filenamesPerCategory)}
-                    onChange={handleCategoryChange}
-                />
-                <div
-                    className="difference-checkboxes mt-2"
-                    style={{
-                        border: "1px solid #ccc",
-                        borderRadius: "8px",
-                        padding: "8px",
-                        maxHeight: "400px",
-                        overflowY: "auto",
-                        background: "#f9f9f9",
-                        width: "100%"
-                    }}
-                >
-                    <div className="d-flex justify-content-between align-items-center mb-2">
-                        <Form.Label className="me-2 m-0 text-center">Tolerance</Form.Label>
-                        <Form.Control type="number" value={customToleranceValue} onChange={(e) => setCustomToleranceValue(e.target.value)} className="me-2" style={{ width: '60px' }} />
-
-                        <Button variant="primary" onClick={handleApplyTolerance} className="me-2">Apply</Button>
-                        <Button variant="primary" onClick={handleResetTolerance} className="me-2">Reset</Button>
-                        </div>
-
-                    <div className="d-flex justify-content-between align-items-center mb-2">
-                        <span>{selectedDifferences.length} selected</span>
-                    <Button
-                      variant="primary"
-                      onClick={handleSelectAllToggle}
-                      className="me-2"
-                    >
-                      {getDifferenceOptions().every(opt => selectedDifferences.includes(opt.value))
-                        ? "Deselect All"
-                        : "Select All"}
+            <Modal show={!!metricToDelete} onHide={() => setMetricToDelete(null)} centered>
+                <Modal.Header closeButton>
+                    <Modal.Title>Confirm Delete</Modal.Title>
+                </Modal.Header>
+                <Modal.Body>
+                    Are you sure you want to delete the metric <strong>"{metricToDelete?.label}"</strong>?
+                    This action cannot be undone.
+                </Modal.Body>
+                <Modal.Footer>
+                    <Button variant="secondary" onClick={() => setMetricToDelete(null)}>
+                        Cancel
                     </Button>
+                    <Button variant="danger" onClick={confirmDeleteMetric}>
+                        Delete
+                    </Button>
+                </Modal.Footer>
+            </Modal>
 
-
-                    </div>
-                    <table style={{ width: "100%", borderCollapse: "collapse" }}>
-                        <thead>
-                            <tr style={{ borderBottom: "1px solid #ccc", textAlign: "left" }}>
-                                <th style={{ width: "20%", textAlign: "center" }}>Show</th>
-                                <th style={{ width: "20%", textAlign: "center" }}>Reverse</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            {getDifferenceOptions().map(opt => (
-                                <tr key={opt.value} style={{ borderBottom: "1px solid #eee" }}>
-                                    <td>
-                                        <input
-                                            type="checkbox"
-                                            checked={selectedDifferences.includes(opt.value)}
-                                            onChange={() => handleDifferenceCheckboxChange(opt.value)}
-                                        />
-                                    </td>
-                                    <td>
-                                        <input
-                                            type="checkbox"
-                                            disabled={!selectedDifferences.includes(opt.value)}
-                                            checked={!!reversedDifferences[opt.value]}
-                                            onChange={() => handleReverseToggle(opt.value)}
-                                        />
-                                    </td>
-
-                                    <td>{opt.label}</td>
-                                </tr>
-                            ))}
-                        </tbody>
-                    </table>
-                </div>
-            </div>
-        </div>
-        </div>
+            {selectedMetricKey && getMetricDescription(selectedMetricKey) && (
+                <MetricInfoModal
+                    show={showInfoModal}
+                    onHide={() => setShowInfoModal(false)}
+                    metricInfo={getMetricDescription(selectedMetricKey)!}
+                />
+            )}
+        </Col>
     );
 }
 

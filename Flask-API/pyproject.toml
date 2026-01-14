@@ -1,0 +1,38 @@
+[project]
+name = "flask-api"
+version = "0.1.0"
+description = "Backend application for SeriesDiff app."
+authors = [
+    {name = "misko02",email = "misko20023@wp.pl"}
+]
+license = {text = "GNU General Public License"}
+readme = "README.md"
+requires-python = "^3.11"
+dependencies = [
+    "flask (>=3.1.2,<4.0.0)",
+    "flask-cors (>=6.0.1,<7.0.0)",
+    "pandas (>=2.3.3,<3.0.0)",
+    "statsmodels (>=0.14.5,<0.15.0)",
+    "scipy (>=1.16.3,<2.0.0)",
+    "numpy (>=2.3.4,<3.0.0)",
+    "gunicorn (>=23.0.0,<24.0.0)",
+    "coverage (>=7.6.0,<8.0.0)",
+    "flask-limiter (>=4.1.1,<5.0.0)",
+    "redis[hiredis] (>=7.1.0,<8.0.0)",
+    "orjson (>=3.10.13,<4.0.0)",
+    "boto3 (>=1.35.0,<2.0.0)",
+    "fastdtw (>=0.3.4)"
+]
+
+[tool.poetry]
+package-mode = false
+
+[build-system]
+requires = ["poetry-core>=2.0.0,<3.0.0"]
+build-backend = "poetry.core.masonry.api"
+
+[dependency-groups]
+dev = [
+    "flake8-bugbear>=24.0.0",
+    "black (>=25.12.0,<26.0.0)"
+]

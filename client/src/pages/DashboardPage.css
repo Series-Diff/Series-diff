@@ -11,7 +11,7 @@ body{
 
 
 .App-main-content {
-  overflow-y: auto;
+  overflow-y: clip;
 }
 
 
@@ -24,22 +24,24 @@ button,
 .custom-file-upload {
   border: none;
   cursor: pointer;
-  font-size: 0.9rem;
   transition: background-color 0.2s ease-in-out;
 
 }
 
-button:hover,
-.custom-file-upload:hover {
-  background-color: #0056b3;
-}
-
 .group-menu {
   width: 256px;
+  min-width: 256px;
   max-width: 256px;
   gap: 10px;
   flex-shrink: 0;
   align-self: stretch;
   background-color: #f8f9fa;
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+  overflow-y: auto;
+  overflow-x: hidden;
+}
+
+/* Ensure DatePicker calendar/time popper is above other elements (Y-axis controls) */
+.react-datepicker-popper {
+  z-index: 9999 !important;
 }

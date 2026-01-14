@@ -1,16 +1,22 @@
 // src/components/ScatterPlotModal/ScatterPlotModal.tsx
 import React from "react";
 import Plot from "react-plotly.js";
-import { Modal, Button } from "react-bootstrap";
-import { TimeSeriesEntry } from "../../services/fetchTimeSeries";
+import { Modal, Button, Spinner } from "react-bootstrap";
+
+// Definicja punktu z backendu
+export interface ScatterPoint {
+  x: number;
+  y: number;
+  time: string;
+}
 
 interface ScatterPlotModalProps {
-  show: boolean;                // Czy modal ma być widoczny
-  onHide: () => void;           // Funkcja zamykająca modal
-  file1: string | null;         // Nazwa pierwszego pliku
-  file2: string | null;         // Nazwa drugiego pliku
-  data1?: TimeSeriesEntry[];    // Dane pierwszej serii czasowej
-  data2?: TimeSeriesEntry[];    // Dane drugiej serii czasowej
+  show: boolean;
+  onHide: () => void;
+  file1: string | null;
+  file2: string | null;
+  points: ScatterPoint[]; // Gotowe punkty zamiast surowych serii
+  isLoading: boolean;     // Dodajemy stan ładowania
 }
 
 const ScatterPlotModal: React.FC<ScatterPlotModalProps> = ({
@@ -18,18 +24,10 @@ const ScatterPlotModal: React.FC<ScatterPlotModalProps> = ({
   onHide,
   file1,
   file2,
-  data1,
-  data2,
+  points,
+  isLoading
 }) => {
-
-  // Jeśli brak danych lub nazw plików – nie renderuj komponentu
-  if (!data1 || !data2 || !file1 || !file2) return null;
-
-  // Dopasowanie długości serii (na wypadek gdyby różniły się ilością próbek)
-  const minLength = Math.min(data1.length, data2.length);
-  const x = data1.slice(0, minLength).map((d) => d.y);
-  const y = data2.slice(0, minLength).map((d) => d.y);
-
+  if (!file1 || !file2) return null;
 
   return (
     <Modal show={show} onHide={onHide} size="lg" centered>
@@ -38,40 +36,43 @@ const ScatterPlotModal: React.FC<ScatterPlotModalProps> = ({
           Scatter Plot: <strong>{file1}</strong> vs <strong>{file2}</strong>
         </Modal.Title>
       </Modal.Header>
-      <Modal.Body>
-        {/* Wykres rozrzutu utworzony przy pomocy Plotly */}
-        <Plot
-          data={[
-            {
-              x,
-              y,
-              mode: "markers",
-              type: "scatter",
-              marker: { size: 6, color: "blue" },
-              text: data1.slice(0, minLength).map((d1, i) => {
-                const d2 = data2[i];
-                const time = new Date(d1.x).toLocaleString(); // używamy x jako timestamp
-                const val1 = d1.y;
-                const val2 = d2.y;
-                return `${file1}: ${val1}, ${file2}: ${val2}, time: ${time}`;
-              }),
-              hovertemplate: "%{text}<extra></extra>", // niestandardowy tooltip
-            },
-          ]}
-          layout={{
-            title: { text: `Scatter plot: ${file1} vs ${file2}` },
-            xaxis: { title: { text: file1 } },
-            yaxis: { title: { text: file2 } },
-            autosize: true,
-          }}
-          style={{ width: "100%", height: "100%" }}
-          useResizeHandler={true}
-        />
+      <Modal.Body style={{ minHeight: "450px", display: "flex", alignItems: "center", justifyContent: "center" }}>
+        {isLoading ? (
+          <div className="w-100 h-100 d-flex justify-content-center align-items-center" style={{ minHeight: "450px" }}>
+        <Spinner animation="border" role="status" />
+        <span className="ms-2">Loading aligned data...</span>
+          </div>
+        ) : points.length === 0 ? (
+          <div className="text-center p-5 w-100">No common points (check tolerance).</div>
+        ) : (
+          <Plot
+        data={[
+          {
+            x: points.map(p => p.x),
+            y: points.map(p => p.y),
+            mode: "markers",
+            type: "scatter",
+            marker: { size: 6, color: "blue", opacity: 0.6 },
+            text: points.map(p => {
+          return `${file1}: ${p.x}<br>${file2}: ${p.y}<br>Time: ${new Date(p.time).toLocaleString()}`;
+            }),
+            hovertemplate: "%{text}<extra></extra>",
+          },
+        ]}
+        layout={{
+          title: { text: `Correlation View (Aligned)` },
+          xaxis: { title: { text: file1 } },
+          yaxis: { title: { text: file2 } },
+          autosize: true,
+          margin: { l: 50, r: 30, b: 50, t: 50 },
+        }}
+        style={{ width: "100%", height: "100%" }}
+        useResizeHandler={true}
+          />
+        )}
       </Modal.Body>
       <Modal.Footer>
-        <Button variant="secondary" onClick={onHide}>
-          Close
-        </Button>
+        <Button variant="secondary" onClick={onHide}>Close</Button>
       </Modal.Footer>
     </Modal>
   );

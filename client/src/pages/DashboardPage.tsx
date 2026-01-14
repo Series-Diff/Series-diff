@@ -1,598 +1,791 @@
-    // src/DashboardPage.tsx
-    import React, {useState, useCallback, useEffect} from 'react';
-    import './DashboardPage.css';
-    import '../components/Chart/Chart.css';
-    import '../components/Metric/Metrics.css';
-    import '../components/Dropdown/Dropdown.css';
-    import {sendProcessedTimeSeriesData} from '../services/uploadTimeSeries';
-    import MyChart from '../components/Chart/Chart';
-    import {fetchTimeSeriesData, TimeSeriesEntry} from '../services/fetchTimeSeries';
-    import {DataImportPopup} from '../components/DataImportPopup/DataImportPopup';
-    import Metrics, {CombinedMetric} from "../components/Metric/Metrics";
-    import {fetchAllMeans} from "../services/fetchAllMeans";
-    import {extractFilenamesPerCategory} from "../services/extractFilenamesPerCategory";
-    import {fetchAllMedians} from "../services/fetchAllMedians";
-    import {fetchAllVariances} from "../services/fetchAllVariances";
-    import {fetchAllStdDevs} from "../services/fetchAllStdDevs";
-    import {fetchAllRollingMeans} from "../services/fetchAllRollingMeans";
-    import Select from '../components/Select/Select';
-    import Dropdown from '../components/Dropdown/Dropdown';
-    import {fetchAllAutoCorrelations} from "../services/fetchAllAutoCorrelations";
-    import {fetchAllPearsonCorrelations} from "../services/fetchAllPearsonCorrelations";
-    import CorrelationTable from "../components/CorrelationTable/CorrelationTable";
-    import ScatterPlotModal from "../components/ScatterPlotModal/ScatterPlotModal";
-    
-    
-    function DashboardPage() {
-        const [chartData, setChartData] = useState<Record<string, TimeSeriesEntry[]>>({});
-        const [error, setError] = useState<string | null>(null);
-        const [isPopupOpen, setIsPopupOpen] = useState(false);
-        const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
-        const [isLoading, setIsLoading] = useState(false);
-        const [meanValues, setMeanValues] = useState<Record<string, Record<string, number>>>({});
-        const [medianValues, setMedianValues] = useState<Record<string, Record<string, number>>>({});
-        const [varianceValues, setVarianceValues] = useState<Record<string, Record<string, number>>>({});
-        const [rollingMeanChartData, setRollingMeanChartData] = useState<Record<string, TimeSeriesEntry[]>>({});
-        const [stdDevsValues, setStdDevsValues] = useState<Record<string, Record<string, number>>>({});
-        const [filenamesPerCategory, setFilenamesPerCategory] = useState<Record<string, string[]>>({});
-        const [showMovingAverage, setShowMovingAverage] = useState(false);
-        const [maWindow, setMaWindow] = useState('1d'); // Domyślna wartość
-        const [isMaLoading, setIsMaLoading] = useState(false);
-        const [dataPreview, setDataPreview] = useState<Record<string, any> | null>(null);
-        const [groupedMetrics, setGroupedMetrics] = useState<Record<string, CombinedMetric[]>>({});
-    
-        const [filteredData, setFilteredData] = useState<{
-            primary: Record<string, TimeSeriesEntry[]>;
-            secondary: Record<string, TimeSeriesEntry[]> | null;
-        }>({primary: {}, secondary: null});
-        const [selectedCategory, setSelectedCategory] = useState(() => {
-            const savedCategory = localStorage.getItem('selectedCategory');
-            return savedCategory ? savedCategory : null;
-        });
-        const [secondaryCategory, setSecondaryCategory] = useState(() => {
-            const savedCategory = localStorage.getItem('secondaryCategory');
-            return savedCategory ? savedCategory : null;
-        });
-    
-        const [autoCorrelationValues, setAutoCorrelationValues] = useState<Record<string, Record<string, number>>>({});
-        const [PearsonCorrelationValues, setPearsonCorrelationValues] = useState<Record<string, Record<string, Record<string, number>>>>({});
-    
-        // Stan przechowujący aktualnie wybraną parę plików do porównania dla wykresu rozrzutu
-        const [selectedPair, setSelectedPair] = useState<{
-            file1: string | null;
-            file2: string | null;
-            category: string | null;
-        }>({
-            file1: null,
-            file2: null,
-            category: null,
-        });
-    
-        // czy okno ze scatter plotem jest otwarte
-        const [isScatterOpen, setIsScatterOpen] = useState(false);
-    
-        // Ustawia aktualną parę plików (file1, file2), a następnie otwiera okno scatter plotu
-        const handleCellClick = (file1: string, file2: string, category: string) => {
-            setSelectedPair({file1, file2, category});
-            setIsScatterOpen(true);
-        };
-    
-        // Czyści wybraną parę plików oraz ustawia flagę modalnego okna na false
-        const handleCloseScatter = () => {
-            setIsScatterOpen(false);
-            setSelectedPair({file1: null, file2: null, category: null});
-        };
-    
-        // Funkcja pomocnicza, tworząca pełny klucz dla danych złożony z kategorii i nazwy pliku
-        const getFullKey = (category: string | null, file: string | null) =>
-            category && file ? `${category}.${file}` : null;
-    
-        // Jeśli istnieje pełny klucz (category.file1), dane są pobierane z chartData, jeśli nie, zwracane jest undefined
-        const data1 =
-            selectedPair.category && selectedPair.file1
-                ? chartData[`${selectedPair.category}.${selectedPair.file1}`]
-                : undefined;
-    
-        const data2 =
-            selectedPair.category && selectedPair.file2
-                ? chartData[`${selectedPair.category}.${selectedPair.file2}`]
-                : undefined;
-    
-    
-        const handleFetchData = useCallback(async (showLoadingIndicator = true) => {
-            if (showLoadingIndicator) setIsLoading(true);
-            setError(null);
+import { useState, useEffect, useCallback, useMemo } from 'react';
+import { useCompactMode, getControlsPanelStyles } from '../hooks/useCompactMode';
+import { Button, Modal, Form, Spinner, Alert } from 'react-bootstrap';
+import './DashboardPage.css';
+import '../components/Chart/Chart.css';
+import '../components/Metric/Statistics.css';
+import '../components/Dropdown/Dropdown.css';
+import * as components from '../components';
+import * as hooks from '../hooks';
+import { useGlobalCache } from '../contexts/CacheContext';
+import { cacheAPI } from '../utils/cacheApiWrapper';
+
+// localStorage keys for UI state persistence
+const STORAGE_KEY_LAYOUT_MODE = 'dashboard_layoutMode';
+
+function DashboardPage() {
+    const [chartMode, setChartMode] = useState<'standard' | 'difference'>('standard');
+    const [singleFileDismissed, setSingleFileDismissed] = useState(false);
+    const globalCache = useGlobalCache();
+
+    const { chartData, error, setError, isLoading, setIsLoading, filenamesPerCategory, handleFetchData, handleReset: baseReset } = hooks.useDataFetching();
+
+    // Load cached data on mount (same as DataPage)
+    useEffect(() => {
+        const storedData = localStorage.getItem('chartData');
+        const storedFilenames = localStorage.getItem('filenamesPerCategory');
+
+        if (storedData && storedFilenames) {
             try {
-                const allSeries = await fetchTimeSeriesData();
-                setChartData(allSeries);
-    
-                const names = extractFilenamesPerCategory(allSeries);
-                setFilenamesPerCategory(names);
-    
-                const means = await fetchAllMeans(names);
-                setMeanValues(means);
-    
-                const medians = await fetchAllMedians(names);
-                setMedianValues(medians);
-    
-                const variances = await fetchAllVariances(names);
-                setVarianceValues(variances);
-    
-                const stdDevs = await fetchAllStdDevs(names);
-                setStdDevsValues(stdDevs);
-    
-                setSelectedCategory(Object.keys(names)[0] || null);
-                setSecondaryCategory(null);
-    
-                const autoCorrelations = await fetchAllAutoCorrelations(names);
-                setAutoCorrelationValues(autoCorrelations);
-    
-                const allPearsonCorrelations: Record<string, Record<string, Record<string, number>>> = {};
-    
-                for (const category of Object.keys(names)) {
-                    const files = names[category];
-                    allPearsonCorrelations[category] = await fetchAllPearsonCorrelations(files, category);
-                }
-    
-                setPearsonCorrelationValues(allPearsonCorrelations);
-    
-    
-            } catch (err: any) {
-                setError(err.message || 'Failed to fetch data.');
-                setChartData({}); // Wyczyść dane w przypadku błędu
-            } finally {
-                if (showLoadingIndicator) setIsLoading(false);
+                JSON.parse(storedData);
+                JSON.parse(storedFilenames);
+                // Data is already loaded by useDataFetching hook
+            } catch (e) {
+                console.warn('Failed to parse cached data on DashboardPage', e);
             }
-        }, []);
+        }
+    }, []);
+
+    const { manualData, addManualData, clearManualData, removeByFileId, removeTimestampFromGroup, updateManualPoint } = hooks.useManualData();
+    const [showManualModal, setShowManualModal] = useState(false);
+    const [showManualEdit, setShowManualEdit] = useState(false);
+
+    const { showMovingAverage, maWindow, setMaWindow, isMaLoading, rollingMeanChartData, handleToggleMovingAverage, handleApplyMaWindow, resetMovingAverage, } = hooks.useMovingAverage(filenamesPerCategory, setError);
+
+    const { isPopupOpen, selectedFiles, handleFileUpload, handlePopupComplete, handlePopupClose, resetFileUpload } = hooks.useFileUpload(handleFetchData, setError, setIsLoading);
+
+    const { startDate, endDate, pendingStartDate, pendingEndDate, handleStartChange, handleEndChange, setPendingStartDate, setPendingEndDate, applyPendingDates, resetDates, defaultMinDate, defaultMaxDate, ignoreTimeRange, setIgnoreTimeRange, } = hooks.useDateRange(
+        Object.entries(chartData).map(([_, entries]) => ({ entries })),
+        manualData,
+        (msg: string) => setError(prev => (prev && prev.includes('Storage quota exceeded')) ? prev : msg)
+    );
+
+    const { selectedCategory, secondaryCategory, tertiaryCategory, handleRangeChange, syncColorsByFile, colorSyncMode, setColorSyncMode, syncColorsByGroup, filteredData, filteredManualData, handleDropdownChange, handleSecondaryDropdownChange, handleTertiaryDropdownChange, resetChartConfig } = hooks.useChartConfiguration(filenamesPerCategory, chartData, rollingMeanChartData, showMovingAverage, maWindow, ignoreTimeRange ? null : startDate, ignoreTimeRange ? null : endDate, manualData);
+
+    // Determine if time range is pending (we want to avoid firing requests without start/end)
+    const startChanged = !!(pendingStartDate && startDate && pendingStartDate.getTime() !== startDate.getTime());
+    const endChanged =   !!(pendingEndDate && endDate && pendingEndDate.getTime() !== endDate.getTime());
+    const timeRangePending: boolean = !ignoreTimeRange && !!Object.keys(chartData).length && (
+        !startDate || !endDate || startChanged || endChanged
+    );
+
+    const { maeValues, rmseValues, PearsonCorrelationValues, DTWValues, EuclideanValues, CosineSimilarityValues, groupedMetrics, resetMetrics, metricLoading, metricError, retryMetric } = hooks.useMetricCalculations(
+        filenamesPerCategory,
+        selectedCategory,
+        secondaryCategory,
+        tertiaryCategory,
+        ignoreTimeRange ? null : startDate,
+        ignoreTimeRange ? null : endDate,
+        timeRangePending,
+        defaultMinDate,
+        defaultMaxDate
+    );
+
+    const { scatterPoints, isScatterLoading, isScatterOpen, selectedPair, handleCloseScatter, handleCellClick } = hooks.useScatterPlot();
+    const { showTitleModal, setShowTitleModal, reportTitle, setReportTitle, isExporting, handleExportClick, handleExportToPDF } = hooks.useExport(chartData);
     
-        const fetchMaData = useCallback(async (window: string) => {
-            if (Object.keys(filenamesPerCategory).length === 0) {
-                console.log("Cannot fetch MA, categories not loaded.");
-                return;
-            }
-            setIsMaLoading(true);
-            setError(null);
-            try {
-                // Przekaż aktualnie wybrane okno
-                const rollingMeans = await fetchAllRollingMeans(filenamesPerCategory, window);
-                setRollingMeanChartData(rollingMeans);
-            } catch (err: any) {
-                setError(`Failed to fetch moving average data: ${err.message}`);
-                setRollingMeanChartData({}); // Wyczyść w razie błędu
-            } finally {
-                setIsMaLoading(false);
-            }
-        }, [filenamesPerCategory]); // Zależne tylko od nazw plików
+    // Initialize layoutMode from localStorage
+    const [layoutMode, setLayoutMode] = useState<'overlay' | 'stacked'>(() => {
+        const stored = localStorage.getItem(STORAGE_KEY_LAYOUT_MODE);
+        return stored === 'stacked' ? 'stacked' : 'overlay';
+    });
     
-        const handleToggleMovingAverage = () => {
-            const newState = !showMovingAverage;
-            setShowMovingAverage(newState);
+    // Persist layoutMode to localStorage
+    useEffect(() => {
+        localStorage.setItem(STORAGE_KEY_LAYOUT_MODE, layoutMode);
+    }, [layoutMode]);
     
-            if (newState) {
-                // Włączanie: pobierz dane, jeśli jeszcze ich nie ma
-                if (Object.keys(rollingMeanChartData).length === 0) {
-                    fetchMaData(maWindow);
-                }
-            }
-            // Wyłączanie: dane pozostają w stanie, ale useEffect ich nie użyje
-        };
-    
-        const handleApplyMaWindow = () => {
-            // Wymuś ponowne pobranie danych z nowym oknem,
-            // tylko jeśli MA jest aktualnie włączone
-            if (showMovingAverage) {
-                fetchMaData(maWindow);
-            }
-        };
-    
-        useEffect(() => {
-    
-            const storedData = localStorage.getItem('chartData');
-            const storedMeanValues = localStorage.getItem('meanValues');
-            const storedMedianValues = localStorage.getItem('medianValues');
-            const storedVarianceValues = localStorage.getItem('varianceValues');
-            const storedStdDevsValues = localStorage.getItem('stdDevsValues');
-            const storedAutoCorrelationsValues = localStorage.getItem('autoCorrelationValues');
-            const storedFilenames = localStorage.getItem('filenamesPerCategory');
-            const storedPearsonCorrelationsValues = localStorage.getItem('PearsonCorrelationValues');
-    
-            if (storedData && storedMeanValues && storedMedianValues && storedVarianceValues && storedStdDevsValues && storedAutoCorrelationsValues && storedFilenames) {
-                try {
-                    const parsedData = JSON.parse(storedData);
-                    const parsedMeanValues = JSON.parse(storedMeanValues);
-                    const parsedMedianValues = JSON.parse(storedMedianValues);
-                    const parsedVarianceValues = JSON.parse(storedVarianceValues);
-                    const parsedStdDevsValues = JSON.parse(storedStdDevsValues);
-                    const parsedAutoCorrelations = JSON.parse(storedAutoCorrelationsValues);
-                    const parsedPearsonCorrelations = storedPearsonCorrelationsValues ? JSON.parse(storedPearsonCorrelationsValues) : {};
-                    const parsedFilenames = JSON.parse(storedFilenames);
-    
-                    setChartData(parsedData);
-                    setMeanValues(parsedMeanValues);
-                    setMedianValues(parsedMedianValues);
-                    setVarianceValues(parsedVarianceValues);
-                    setStdDevsValues(parsedStdDevsValues);
-                    setAutoCorrelationValues(parsedAutoCorrelations);
-                    setPearsonCorrelationValues(parsedPearsonCorrelations);
-                    setFilenamesPerCategory(parsedFilenames);
-                } catch (e) {
-                    localStorage.removeItem('chartData');
-                    handleFetchData();
-                }
+    const { dataImportPopupRef, resetAllData } = hooks.useDataImportPopup();
+    const { userMetrics, selectedMetricsForDisplay, setSelectedMetricsForDisplay, showMetricsModal, setShowMetricsModal, filteredGroupedMetrics, shouldShowMetric } = hooks.useMetricsSelection(groupedMetrics);
+
+    const { plugins } = hooks.useLocalPlugins();
+
+    const hasData = Object.keys(chartData).length > 0;
+    const enabledPlugins = useMemo(() => plugins.filter(p => p.enabled), [plugins]);
+
+    // Execute plugins based on selection - filtering happens inside usePluginResults
+    const {
+        pluginResults,
+        pluginErrors,
+        isLoadingPlugins,
+        refreshPluginResults,
+        resetPluginResults
+    } = hooks.usePluginResults(
+        filenamesPerCategory,
+        plugins,
+        selectedMetricsForDisplay,
+        ignoreTimeRange ? null : (startDate && endDate ? startDate.toISOString() : null),
+        ignoreTimeRange ? null : (startDate && endDate ? endDate.toISOString() : null),
+        timeRangePending,
+        defaultMinDate,
+        defaultMaxDate
+    );
+
+    // Filter plugins for display after execution
+    const visiblePlugins = useMemo(
+        () => enabledPlugins.filter(p => shouldShowMetric(p.id)),
+        [enabledPlugins, shouldShowMetric]
+    );
+
+    // Difference chart hook
+    const {
+        selectedDiffCategory,
+        selectedDifferences,
+        reversedDifferences,
+        customToleranceValue,
+        isDiffLoading,
+        diffError,
+        setDiffError,
+        differenceChartData,
+        differenceOptions,
+        handleDiffCategoryChange,
+        handleDifferenceCheckboxChange,
+        handleReverseToggle,
+        handleSelectAllToggle,
+        setCustomToleranceValue,
+        handleApplyTolerance,
+        handleResetTolerance,
+        resetDifferenceChart,
+    } = hooks.useDifferenceChart(
+        filenamesPerCategory,
+        undefined, // Don't propagate diff errors to global error state
+        ignoreTimeRange ? null : (startDate && endDate ? startDate.toISOString() : null),
+        ignoreTimeRange ? null : (startDate && endDate ? endDate.toISOString() : null),
+        timeRangePending,
+        defaultMinDate,
+        defaultMaxDate
+    );
+
+    const handleReset = async () => {
+        setChartMode('standard');
+
+        // Get cache stats before clearing
+        const metricsStats = globalCache.metricsCache.size;
+        const pluginStats = globalCache.pluginCache.size;
+        const scatterStats = globalCache.scatterCache.size;
+        const totalSize = metricsStats + pluginStats + scatterStats;
+
+        const cacheApiKeysBefore = (await cacheAPI.keys()).length;
+
+        // Clear global cache (now async)
+        await globalCache.clearAllCaches();
+
+        const cacheApiKeysAfter = (await cacheAPI.keys()).length;
+
+        // Log cleanup with cache API stats
+        console.log(
+            `Caches cleared: ${totalSize} entries removed (Metrics: ${metricsStats}, Plugin: ${pluginStats}, Scatter: ${scatterStats}); ` +
+            `CacheAPI entries: ${cacheApiKeysBefore} -> ${cacheApiKeysAfter}`
+        );
+
+        await baseReset();
+        resetMetrics();
+        resetChartConfig();
+        resetMovingAverage();
+        resetFileUpload();
+        resetPluginResults();
+        resetDifferenceChart();
+        resetDates();
+        clearManualData();
+        resetAllData();
+    };
+
+    const hasDifferenceData = Object.keys(differenceChartData).length > 0;
+    const isInDifferenceMode = chartMode === 'difference';
+
+    const { isCompact } = useCompactMode();
+    const styles = getControlsPanelStyles(isCompact);
+
+    const hasEnoughFilesForDifference = Object.values(filenamesPerCategory).some(files => files.length >= 2);
+    // Count unique files across all categories (don't duplicate count if same file appears in multiple categories)
+    const uniqueFileSet = new Set(Object.values(filenamesPerCategory).flat());
+    const totalFilesLoaded = uniqueFileSet.size;
+    const shouldShowSingleFileAlert = uniqueFileSet.size === 1 && !singleFileDismissed;
+
+    useEffect(() => {
+        setSingleFileDismissed(false);
+    }, [totalFilesLoaded]);
+
+    const needsFullHeight = isInDifferenceMode || !hasData;
+
+    const mainStyle = {
+        gap: "16px",
+        minHeight: `calc(100vh - var(--nav-height) - 2 * var(--section-margin))`,
+        height: "auto",
+        overflowY: "auto" as const,
+        paddingBottom: "20px"
+    };
+
+    const chartLayoutClass = `d-flex flex-column gap-3 w-100 flex-grow-1${needsFullHeight ? ' h-100' : ''}`;
+    const chartContainerClass = `Chart-container section-container position-relative flex-grow-1`;
+
+    const toggleChartMode = useCallback(() => {
+        setChartMode(prev => {
+            const newMode = prev === 'standard' ? 'difference' : 'standard';
+            // Clear errors when switching modes - errors are independent per view
+            if (newMode === 'standard') {
+                setDiffError(null);
             } else {
-                handleFetchData();
-            }
-        }, [handleFetchData]);
-        useEffect(() => {
-            const primary: Record<string, TimeSeriesEntry[]> = {};
-            const secondary: Record<string, TimeSeriesEntry[]> = {};
-            if (selectedCategory) {
-                for (const [key, series] of Object.entries(chartData)) {
-                    if (key.startsWith(`${selectedCategory}.`)) {
-                        primary[key] = series;
-                    }
-                }
-    
-              if (showMovingAverage) {
-                for (const [key, series] of Object.entries(rollingMeanChartData)) {
-                  if (key.startsWith(`${selectedCategory}.`)) {
-    
-                    // key to np. "Value.RZ3221108.rolling_mean"
-                    const parts = key.split('.');
-                    const baseKey = parts.slice(0, -1).join('.');
-    
-                    const legendKey = `${baseKey} (MA ${maWindow})`;
-    
-                    primary[legendKey] = series;
-                  }
-                }
-              }
-            }
-    
-    
-            if (secondaryCategory) {
-                for (const [key, series] of Object.entries(chartData)) {
-                    if (key.startsWith(`${secondaryCategory}.`)) {
-                        secondary[key] = series;
-                    }
-                }
-              if (showMovingAverage) {
-                for (const [key, series] of Object.entries(rollingMeanChartData)) {
-                  if (key.startsWith(`${secondaryCategory}.`)) {
-    
-                    // Ta sama logika, co dla osi głównej
-                    const parts = key.split('.');
-                    const baseKey = parts.slice(0, -1).join('.');
-                    const legendKey = `${baseKey} (MA ${maWindow})`;
-    
-                    secondary[legendKey] = series;
-                  }
-                }
-              }
-            }
-            setFilteredData({
-                primary,
-                secondary: Object.keys(secondary).length > 0 ? secondary : null
-            });
-        }, [chartData, selectedCategory, secondaryCategory, rollingMeanChartData, showMovingAverage, maWindow]);
-    
-        useEffect(() => {
-            if (Object.keys(filenamesPerCategory).length > 0 && !selectedCategory) {
-                setSelectedCategory(Object.keys(filenamesPerCategory)[0]);
-            }
-        }, [filenamesPerCategory, selectedCategory]);
-    
-    
-        useEffect(() => {
-            if (selectedCategory) {
-                localStorage.setItem('selectedCategory', selectedCategory);
-            }
-        }, [selectedCategory]);
-        useEffect(() => {
-            if (secondaryCategory) {
-                localStorage.setItem('secondaryCategory', secondaryCategory);
-            } else {
-                localStorage.removeItem('secondaryCategory');
-            }
-        }, [secondaryCategory]);
-    
-        useEffect(() => {
-            if (Object.keys(chartData).length > 0) {
-                localStorage.setItem('chartData', JSON.stringify(chartData));
-            }
-        }, [chartData]);
-    
-        useEffect(() => {
-            // Zapisujemy metryki, tylko jeśli nie są puste
-            if (Object.keys(meanValues).length > 0) {
-                localStorage.setItem('meanValues', JSON.stringify(meanValues));
-            }
-            if (Object.keys(medianValues).length > 0) {
-                localStorage.setItem('medianValues', JSON.stringify(medianValues));
-            }
-            if (Object.keys(varianceValues).length > 0) {
-                localStorage.setItem('varianceValues', JSON.stringify(varianceValues));
-            }
-            if (Object.keys(stdDevsValues).length > 0) {
-                localStorage.setItem('stdDevsValues', JSON.stringify(stdDevsValues));
-            }
-            if (Object.keys(autoCorrelationValues).length > 0) {
-                localStorage.setItem('autoCorrelationValues', JSON.stringify(autoCorrelationValues));
-            }
-            if (Object.keys(PearsonCorrelationValues).length > 0) {
-                localStorage.setItem('PearsonCorrelationValues', JSON.stringify(PearsonCorrelationValues));
-            }
-            if (Object.keys(filenamesPerCategory).length > 0) {
-                localStorage.setItem('filenamesPerCategory', JSON.stringify(filenamesPerCategory));
-            }
-    
-        }, [meanValues, medianValues, varianceValues, stdDevsValues, autoCorrelationValues, PearsonCorrelationValues, filenamesPerCategory]);
-    
-        const handleDropdownChange = (event: React.ChangeEvent<HTMLSelectElement>) => {
-            setSelectedCategory(event.target.value);
-        };
-        const handleSecondaryDropdownChange = (event: React.ChangeEvent<HTMLSelectElement>) => {
-            setSecondaryCategory(event.target.value || null);
-        };
-    
-    
-        const handleFileUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
-            setError(null);
-            const files = Array.from(event.target.files || []);
-            if (files.length > 0) {
-                setSelectedFiles(files);
-                setIsPopupOpen(true);
-            }
-            event.target.value = '';
-        };
-    
-        const handlePopupComplete = async (groupedData: Record<string, any>) => {
-            setIsPopupOpen(false); // Zamknij popup najpierw
-    
-            // Show preview of the first 3 entries
-            const previewDates = Object.keys(groupedData).slice(0, 3);
-            const preview: Record<string, any> = {};
-            previewDates.forEach(date => {
-                preview[date] = groupedData[date];
-            });
-            setDataPreview(preview);
-    
-            if (Object.keys(groupedData).length > 0) {
-                setIsLoading(true);
                 setError(null);
-                await sendProcessedTimeSeriesData(groupedData, async (success) => {
-                    if (!success) {
-                        setError("Przetwarzanie danych lub wysyłanie na serwer nie powiodło się.");
-                    } else {
-                        await handleFetchData();
-                    }
-                    setIsLoading(false);
-                });
-            } else {
-                console.log("No data processed from files.");
             }
+            return newMode;
+        });
+    }, [setDiffError, setError]);
+
+    // Compute metric visibility flags to avoid circular dependencies
+    const canShowMovingAverage = shouldShowMetric('moving_average');
+    const canShowDifferenceChart = shouldShowMetric('difference_chart');
+
+    // Auto-disable features when deselected in modal
+    useEffect(() => {
+        // If moving_average is deselected and currently active, turn it off
+        if (!canShowMovingAverage && showMovingAverage) {
+            handleToggleMovingAverage();
+        }
+
+        // If difference_chart is deselected and in difference mode, switch to standard
+        if (!canShowDifferenceChart && isInDifferenceMode) {
+            setChartMode('standard');
+        }
+    }, [canShowMovingAverage, canShowDifferenceChart, showMovingAverage, isInDifferenceMode, handleToggleMovingAverage]);
+
+    // Global error capture: forward to Alert before chart
+    useEffect(() => {
+        const onWindowError = (event: ErrorEvent) => {
+            const message = event?.error?.message || event.message || 'Unexpected runtime error occurred.';
+            setError(`Runtime error: ${message}`);
         };
-    
-    
-        const handlePopupClose = () => {
-            setIsPopupOpen(false);
-            setSelectedFiles([]);
+        const onUnhandledRejection = (event: PromiseRejectionEvent) => {
+            const reason: any = event?.reason;
+            const message = (reason && (reason.message || reason.toString())) || 'Unhandled promise rejection occurred.';
+            setError(`Runtime error: ${message}`);
         };
-    
-        const handleReset = async () => {
-            setIsLoading(true); // Pokaż wskaźnik ładowania podczas resetowania
-            setError(null);
-            setChartData({}); // Wyczyść dane na wykresie
-            setMeanValues({});
-            setMedianValues({});
-            setVarianceValues({});
-            setStdDevsValues({});
-            setAutoCorrelationValues({});
-            setGroupedMetrics({});
-            setSelectedCategory(null);
-            setSecondaryCategory(null);
-            setRollingMeanChartData({});
-            setShowMovingAverage(false);
-            setMaWindow("1d");
-            setFilenamesPerCategory({}); // Wyczyść kategorie plików
-            setDataPreview(null);
-            localStorage.removeItem('chartData');
-    
-            try {
-                const resp = await fetch('/api/clear-timeseries', {method: 'DELETE'});
-                if (!resp.ok) {
-                    const errorText = await resp.text();
-                    console.error("Failed to clear timeseries on backend:", errorText);
-                    setError(`Nie udało się wyczyścić danych na serwerze: ${errorText}. Dane na wykresie zostały zresetowane.`);
-                } else {
-                    console.log("Timeseries data cleared on backend.");
-                }
-            } catch (err: any) {
-                console.error("Error clearing timeseries on backend:", err);
-                setError(`Error while clearing data on server: ${err.message}. Chart data has been reset.`);
-            } finally {
-                setIsLoading(false);
-            }
+        window.addEventListener('error', onWindowError);
+        window.addEventListener('unhandledrejection', onUnhandledRejection);
+        return () => {
+            window.removeEventListener('error', onWindowError);
+            window.removeEventListener('unhandledrejection', onUnhandledRejection);
         };
-    
-        useEffect(() => {
-            const updatedGroupedMetrics: Record<string, CombinedMetric[]> = {};
-    
-            const visibleCategories = [selectedCategory, secondaryCategory].filter(Boolean) as string[];
-    
-            visibleCategories.forEach((category) => {
-                const meanMetricNames = Object.keys(meanValues[category] || {});
-                const medianMetricNames = Object.keys(medianValues[category] || {});
-                const varianceMetricNames = Object.keys(varianceValues[category] || {});
-                const stdDevMetricNames = Object.keys(stdDevsValues[category] || {});
-                const autoCorrelationMetricNames = Object.keys(autoCorrelationValues[category] || {});
-    
-                const allUniqueMetricNames = new Set([
-                    ...meanMetricNames,
-                    ...medianMetricNames,
-                    ...varianceMetricNames,
-                    ...stdDevMetricNames,
-                    ...autoCorrelationMetricNames
-                ]);
-    
-                updatedGroupedMetrics[category] = Array.from(allUniqueMetricNames).map((metricName) => ({
-                    id: metricName,
-                    name: metricName,
-                    mean: meanValues[category]?.[metricName],
-                    median: medianValues[category]?.[metricName],
-                    variance: varianceValues[category]?.[metricName],
-                    stdDev: stdDevsValues[category]?.[metricName],
-                    autoCorrelation: autoCorrelationValues[category]?.[metricName],
-                }));
-            });
-    
-            setGroupedMetrics(updatedGroupedMetrics);
-        }, [meanValues, medianValues, varianceValues, stdDevsValues, autoCorrelationValues, selectedCategory, secondaryCategory]);
-    
-    
-        return (
-            <div className="d-flex" style={{gap: "16px"}}>
-                <div className="App-main-content flex-grow-1 d-flex align-items-start w-100 rounded">
-                    <div className="d-flex flex-column gap-3 w-100">
-                        <div className="d-flex justify-content-between align-items-center w-100 mb-3">
-                            <div className="d-flex align-items-center gap-3">
-                                {Object.keys(filenamesPerCategory).length > 0 && (
+    }, [setError]);
+
+    return (
+        <div className="d-flex" style={mainStyle}>
+            <div className="App-main-content flex-grow-1 d-flex align-items-start w-100 rounded">
+                <div className={chartLayoutClass}>
+                    <div style={{
+                        display: 'flex',
+                        flexDirection: 'column',
+                        gap: '16px',
+                        height: 'auto',
+                        minHeight: `calc(100vh - var(--nav-height) - 2 * var(--section-margin))`,
+                        overflow: 'visible'
+                    }}>
+                        {/* Controls Panel */}
+                        {isInDifferenceMode ? (
+                            <components.ControlsPanel
+                                mode="difference"
+                                filenamesPerCategory={filenamesPerCategory}
+                                selectedDiffCategory={selectedDiffCategory}
+                                handleDiffCategoryChange={handleDiffCategoryChange}
+                                customToleranceValue={customToleranceValue}
+                                setCustomToleranceValue={setCustomToleranceValue}
+                                handleApplyTolerance={handleApplyTolerance}
+                                handleResetTolerance={handleResetTolerance}
+                                isDiffLoading={isDiffLoading}
+                                isLoading={isLoading}
+                                handleFileUpload={handleFileUpload}
+                                handleReset={handleReset}
+                            />
+                        ) : (
+                            <components.ControlsPanel
+                                mode="standard"
+                                selectedCategory={selectedCategory}
+                                secondaryCategory={secondaryCategory}
+                                tertiaryCategory={tertiaryCategory}
+                                filenamesPerCategory={filenamesPerCategory}
+                                handleDropdownChange={handleDropdownChange}
+                                handleSecondaryDropdownChange={handleSecondaryDropdownChange}
+                                handleTertiaryDropdownChange={handleTertiaryDropdownChange}
+                                showMovingAverage={shouldShowMetric('moving_average') ? showMovingAverage : undefined}
+                                handleToggleMovingAverage={shouldShowMetric('moving_average') ? handleToggleMovingAverage : undefined}
+                                isMaLoading={isMaLoading}
+                                maWindow={maWindow}
+                                setMaWindow={setMaWindow}
+                                handleApplyMaWindow={handleApplyMaWindow}
+                                colorSyncMode={colorSyncMode}
+                                setColorSyncMode={setColorSyncMode}
+                                isLoading={isLoading}
+                                handleFileUpload={handleFileUpload}
+                                handleReset={handleReset}
+                                layoutMode={layoutMode}
+                                setLayoutMode={setLayoutMode}
+                            />
+                        )}
+
+                        {/* Standard mode error alert - show general errors */}
+                        {!isInDifferenceMode && error && !error.includes('no units specified') && (
+                            <Alert
+                                variant={error.includes('Storage quota exceeded') ? 'warning' : 'danger'}
+                                className="mb-0"
+                                dismissible
+                                onClose={() => setError(null)}
+                            >
+                                <strong>{error.includes('Storage quota exceeded') ? 'Storage Warning:' : 'Error:'}</strong> {error}
+                                {error.includes('Storage quota exceeded') && (
                                     <>
-                                        <Select
-                                            id="category-select"
-                                            label="Main Y-Axis"
-                                            selected={selectedCategory || Object.keys(filenamesPerCategory)[0]}
-                                            categories={Object.keys(filenamesPerCategory)}
-                                            onChange={handleDropdownChange}
-                                            disabledCategory={secondaryCategory ?? undefined}
-                                        />
-                                        <Select
-                                            id="secondary-category-select"
-                                            label="Second Y-Axis"
-                                            selected={secondaryCategory || ""}
-                                            categories={Object.keys(filenamesPerCategory)}
-                                            onChange={handleSecondaryDropdownChange}
-                                            disabledCategory={selectedCategory ?? undefined}
-                                            allowNoneOption
-                                        />
+                                        <br />
+                                        <small className="mt-2 d-block">
+                                            You can still display your data on the chart, but metrics and statistics may not work, and the data might not be saved after refresh.
+                                        </small>
+                                    </>
+                                )}
+                            </Alert>
+                        )}
+
+                        {/* Difference mode error alert */}
+                        {isInDifferenceMode && diffError && (
+                            <Alert
+                                variant="danger"
+                                className="mb-0"
+                                dismissible
+                                onClose={() => setDiffError(null)}
+                            >
+                                <strong>Difference Chart Error:</strong> {diffError.includes('No overlapping timestamps')
+                                ? 'No overlapping timestamps within tolerance. Try adjusting the tolerance value or resetting it.'
+                                : diffError}
+                            </Alert>
+                        )}
+
+                        {shouldShowSingleFileAlert && (
+                            <Alert
+                                variant="warning"
+                                className="mb-0"
+                                dismissible
+                                onClose={() => setSingleFileDismissed(true)}
+                            >
+                                <strong>More files needed:</strong> Comparison metrics require at least two files in the same category. Upload at least two files to view metric pairwise tables and difference charts.
+                            </Alert>
+                        )}
+
+                        {/* Chart Container wrapped in error boundary to surface runtime errors in Alert */}
+                        <components.ErrorBoundary onError={(msg) => setError(msg)}>
+                            <div
+                                className={chartContainerClass}
+                                style={{
+                                    flex: 1,
+                                    minHeight: '60vh',
+                                    display: 'flex',
+                                    flexDirection: 'column'
+                                }}                            >
+                                {/* Switch to Standard Chart button - always visible in difference mode */}
+                                {isInDifferenceMode && canShowDifferenceChart && (
+                                    <Button
+                                        variant="outline-secondary"
+                                        size="sm"
+                                        onClick={toggleChartMode}
+                                        style={{
+                                            position: 'absolute',
+                                            top: '16px',
+                                            right: '16px',
+                                            zIndex: 10
+                                        }}
+                                    >
+                                        Switch to Standard Chart
+                                    </Button>
+                                )}
+                                {!isInDifferenceMode && (
+                                    <>
+
+                                        {isLoading && !hasData &&
+                                            <div className="d-flex align-items-center justify-content-center text-muted flex-grow-1">
+                                                <Spinner animation="border" size="sm" className="me-2" />
+                                                Loading chart...
+                                            </div>}
+                                        {!isLoading && !hasData && !error &&
+                                            <div className="d-flex align-items-center justify-content-center text-muted flex-grow-1">
+                                                Load data to visualize
+                                            </div>}
+                                        {!isLoading && hasData && (
+                                            <>
+                                                {hasData && shouldShowMetric('difference_chart') && (
+                                                    <Button
+                                                        variant="outline-secondary"
+                                                        size="sm"
+                                                        onClick={toggleChartMode}
+                                                        className="position-absolute top-0 end-0 m-3"
+                                                        style={{zIndex: 1050}}
+                                                    >
+                                                        {isInDifferenceMode ? 'Switch to Standard Chart' : 'Switch to Difference Chart'}
+                                                    </Button>
+                                                )}
+                                                <div
+                                                    className="chart-wrapper flex-grow-1 d-flex flex-column"
+                                                    style={{ minHeight: '400px' }}
+                                                >
+                                                    <components.MyChart
+                                                        primaryData={filteredData.primary}
+                                                        secondaryData={filteredData.secondary || undefined}
+                                                        tertiaryData={filteredData.tertiary || undefined}
+                                                        syncColorsByFile={syncColorsByFile}
+                                                        syncColorsByGroup={syncColorsByGroup}
+                                                        layoutMode={layoutMode}
+                                                        manualData={filteredManualData}
+                                                        toggleChartMode={toggleChartMode}
+                                                        isInDifferenceMode={isInDifferenceMode}
+                                                        canShowDifferenceChart={canShowDifferenceChart}
+                                                    />
+                                                </div>
+                                                <div className={`d-flex w-100 px-2 mt-3`}>
+                                                    <div className={`d-flex gap-2 w-100`}>
+                                                        <components.DateTimePicker
+                                                            label="Start"
+                                                            value={pendingStartDate}
+                                                            onChange={handleStartChange}
+                                                            minDate={defaultMinDate}
+                                                            maxDate={pendingEndDate ?? endDate ?? defaultMaxDate}
+                                                            openToDate={pendingStartDate ?? defaultMinDate}
+                                                            minWidth={styles.datePickerMinWidth}
+                                                            />
+
+                                                        <components.DateTimePicker
+                                                            label="End"
+                                                            value={pendingEndDate}
+                                                            onChange={handleEndChange}
+                                                            minDate={pendingStartDate ?? startDate ?? defaultMinDate}
+                                                            maxDate={defaultMaxDate}
+                                                            openToDate={pendingEndDate ?? defaultMaxDate}
+                                                            minWidth={styles.datePickerMinWidth}
+                                                        />
+
+                                                        {!ignoreTimeRange && (
+                                                            <div className="d-flex align-items-center">
+                                                                <Button
+                                                                    variant="primary"
+                                                                    size="sm"
+                                                                    className={styles.textClass}
+                                                                    disabled={!pendingStartDate || !pendingEndDate}
+                                                                    onClick={applyPendingDates}
+                                                                >
+                                                                    Apply
+                                                                </Button>
+                                                            </div>
+                                                        )}
+
+                                                        <div className="d-flex align-items-center">
+                                                            <Form.Check
+                                                                type="switch"
+                                                                id="date-filter-toggle"
+                                                                label={<span className={`text-nowrap ${styles.textClass} text-muted`}>Calculate metrics on full date range</span>}
+                                                                title="Enabling this option will recalculate metrics and statistics based on all available data. Disabling it will allow calculations only based on the selected date range."
+                                                                checked={ignoreTimeRange}
+                                                                onChange={(e) => setIgnoreTimeRange(e.target.checked)}
+                                                                className="mb-0" />
+                                                        </div>
+                                                        <div className="ms-auto d-flex align-items-center gap-2">
+                                                            <Button
+                                                                variant="outline-secondary"
+                                                                size="sm"
+                                                                onClick={() => Object.keys(manualData).length === 0 ? setShowManualModal(true) : setShowManualEdit(true)}
+                                                            >
+                                                                Manual Measurements
+                                                            </Button>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            </>
+                                        )}
+                                    </>
+                                )}
+                                {/* Difference Chart Mode */}
+                                {isInDifferenceMode && canShowDifferenceChart && (
+                                    <>
+                                        {!hasData && !isLoading && !error && (
+                                            <div className="d-flex align-items-center justify-content-center text-muted flex-grow-1 flex-fill">
+                                                Load data to visualize differences
+                                            </div>
+                                        )}
+                                        {hasData && !hasEnoughFilesForDifference && (
+                                            <div className="d-flex flex-column align-items-center justify-content-center text-muted flex-grow-1 flex-fill">
+                                                <div>
+                                                    <p className="mb-2">Difference chart requires at least 2 files in the same category.</p>
+                                                </div>
+                                                <div className="text-muted small">
+                                                    {totalFilesLoaded} file{totalFilesLoaded !== 1 ? 's' : ''} across {Object.keys(filenamesPerCategory).length} categor{Object.keys(filenamesPerCategory).length !== 1 ? 'ies' : 'y'}
+                                                </div>
+                                            </div>
+                                        )}
+                                        {hasData && hasEnoughFilesForDifference && (
+                                            <>
+                                                {isDiffLoading && (
+                                                    <div className="d-flex align-items-center justify-content-center text-muted flex-grow-1 flex-fill">
+                                                        <Spinner animation="border" size="sm" className="me-2" />
+                                                        Loading difference data...
+                                                    </div>
+                                                )}
+                                                {/* Error state - show placeholder when diff error exists (error alert shown above) */}
+                                                {!isDiffLoading && diffError && (
+                                                    <div className="d-flex align-items-center justify-content-center text-muted flex-grow-1 flex-fill">
+                                                        Fix the error above to display the chart
+                                                    </div>
+                                                )}
+                                                {!isDiffLoading && !diffError && !hasDifferenceData && (
+                                                    <div className="d-flex align-items-center justify-content-center text-muted flex-grow-1 flex-fill">
+                                                        Select differences to visualize
+                                                    </div>
+                                                )}
+                                                {!isDiffLoading && !diffError && hasDifferenceData && (
+                                                    <div className="chart-wrapper flex-grow-1" style={{ height: 'auto'}}>
+                                                        <components.MyChart
+                                                            primaryData={differenceChartData}
+                                                            toggleChartMode={toggleChartMode}
+                                                            isInDifferenceMode={isInDifferenceMode}
+                                                            canShowDifferenceChart={canShowDifferenceChart}
+                                                        />
+                                                    </div>
+                                                )}
+                                            </>
+                                        )}
                                     </>
                                 )}
                             </div>
-                          <div className="d-flex align-items-center gap-2">
-                <div className="form-check form-switch">
-                    <input
-                        className="form-check-input"
-                        type="checkbox"
-                        role="switch"
-                        id="ma-toggle"
-                        checked={showMovingAverage}
-                        onChange={handleToggleMovingAverage}
-                        disabled={isMaLoading}
-                    />
-                    <label className="form-check-label" htmlFor="ma-toggle">
-                        {isMaLoading ? "Loading MA..." : "Show Moving Avg"}
-                    </label>
-                </div>
-                <input
-                    type="text"
-                    className="form-control"
-                    style={{ width: '80px' }}
-                    value={maWindow}
-                    onChange={(e) => setMaWindow(e.target.value)}
-                    placeholder="e.g. 1d"
-                    disabled={isMaLoading}
-                />
-                <button
-                    onClick={handleApplyMaWindow}
-                    className="btn btn-secondary btn-sm"
-                    disabled={isMaLoading || !showMovingAverage}
-                >
-                    Apply
-                </button>
-            </div>
-                            <div className="d-flex align-items-center gap-3">
-                                <label htmlFor="file-upload"
-                                       className={`custom-file-upload btn btn-primary rounded p-2 px-3 text-center ${isLoading ? "disabled" : ""}`}>
-                                    {isLoading ? "Loading..." : "Upload files"}
-                                </label>
-                                <input id="file-upload" type="file" multiple accept=".json,.csv"
-                                       onChange={handleFileUpload} className="d-none" disabled={isLoading}/>
-                                <button onClick={handleReset}
-                                        className="custom-file-upload btn btn-primary rounded p-2 px-3 text-center"
-                                        disabled={isLoading}>
-                                    Reset data
-                                </button>
-                            </div>
-                        </div>
-                        {error && <p className="text-danger text-center">Error: {error}</p>}
-                        <div className="Chart-container section-container">
-                            {isLoading && Object.keys(chartData).length === 0 &&
-                                <p className="text-center p-4">Loading chart...</p>}
-                            {!isLoading && Object.keys(chartData).length === 0 && !error &&
-                                <p className="text-center p-4">Load data to visualize</p>}
-                            {!isLoading && Object.keys(chartData).length > 0 && (
-                                <div className="chart-wrapper">
-                                    <MyChart primaryData={filteredData.primary}
-                                             secondaryData={filteredData.secondary || undefined}
-                                             title="Time Series Analysis"/>
-                                </div>
-                            )}
-                        </div>
-                        {Object.keys(groupedMetrics).length > 0 && (
-                            <div className="section-container" style={{padding: "16px"}}>
-                                <Metrics groupedMetrics={groupedMetrics}/>
-                            </div>
-                        )}
-                        {/* Tabele korelacji – jedna lub dwie (dla wybranych osi) */}
-                        {selectedCategory && PearsonCorrelationValues[selectedCategory] && (
-                            <div className="section-container" style={{padding: "16px"}}>
-                                <CorrelationTable
-                                    data={PearsonCorrelationValues[selectedCategory]}
-                                    category={selectedCategory}
-                                    onCellClick={(file1, file2) =>
-                                        handleCellClick(file1, file2, selectedCategory)
-                                    }
-                                />
-    
-                                {/* Jeśli wybrano drugą kategorię, pokaż jej tabelę pod spodem */}
-                                {secondaryCategory && PearsonCorrelationValues[secondaryCategory] && (
-                                    <div style={{marginTop: "32px"}}>
-                                        <CorrelationTable
-                                            data={PearsonCorrelationValues[secondaryCategory]}
-                                            category={secondaryCategory}
-                                            onCellClick={(file1, file2) =>
-                                                handleCellClick(file1, file2, secondaryCategory)
-                                            }
-                                        />
-                                    </div>
-                                )}
-                            </div>
-                        )}
-    
-                        {/* Scatter plot modal */}
-                        <ScatterPlotModal
-                            show={isScatterOpen}
-                            onHide={handleCloseScatter}
-                            file1={selectedPair.file1}
-                            file2={selectedPair.file2}
-                            data1={data1}
-                            data2={data2}
-                        />
-    
-    
-                        <DataImportPopup show={isPopupOpen} onHide={handlePopupClose} files={selectedFiles}
-                                         onComplete={handlePopupComplete}/>
+                        </components.ErrorBoundary>
                     </div>
+
+                    {/* Standard mode specific sections wrapped to catch runtime errors in metrics rendering */}
+                    {!isInDifferenceMode && (
+                        <>
+                            <components.ErrorBoundary onError={(msg) => setError(msg)}>
+                                {hasData && Object.keys(groupedMetrics).length > 0 && (
+                                    <components.StatisticsWrapper
+                                        groupedStatistics={filteredGroupedMetrics}
+                                        statisticLoading={metricLoading}
+                                        statisticError={metricError}
+                                        selectedStatisticsForDisplay={selectedMetricsForDisplay}
+                                        filenamesPerCategory={filenamesPerCategory}
+                                        selectedCategory={selectedCategory}
+                                        secondaryCategory={secondaryCategory}
+                                        tertiaryCategory={tertiaryCategory}
+                                        onOpenStatisticsModal={() => setShowMetricsModal(true)}
+                                        onExportClick={handleExportClick}
+                                        isExporting={isExporting}
+                                        onRetryStatistic={retryMetric}
+                                        appliedStartDate={startDate}
+                                        appliedEndDate={endDate}
+                                        dataMinDate={defaultMinDate}
+                                        dataMaxDate={defaultMaxDate}
+                                        ignoreTimeRange={ignoreTimeRange}
+                                    />
+                                )}
+
+                                {/* Render metric matrices via helper which also enforces ">=2 files" rule */}
+                                {(() => {
+                                    return (
+                                        <>
+                                            {/* Metric-Matrix-Wrapper */}
+                                            <components.MetricMatrixWrapper
+                                                metricId="pearson_correlation"
+                                                Comp={components.CorrelationMatrix}
+                                                dataMap={PearsonCorrelationValues}
+                                                metricLabel="Pearson Correlation"
+                                                metricKey="pearson_correlation"
+                                                isLoading={!!metricLoading['PearsonCorrelationValues']}
+                                                error={metricError['PearsonCorrelationValues'] ?? undefined}
+                                                correlationClick={true}
+                                                selectedCategory={selectedCategory}
+                                                secondaryCategory={secondaryCategory}
+                                                tertiaryCategory={tertiaryCategory}
+                                                totalFilesLoaded={totalFilesLoaded}
+                                                onCellClick={(file1: string, file2: string, cat: string) => handleCellClick(file1, file2, cat, ignoreTimeRange ? null : startDate, ignoreTimeRange ? null : endDate)}
+                                                shouldShow={shouldShowMetric('pearson_correlation')}
+                                                onRetry={() => retryMetric('PearsonCorrelationValues')}
+                                            />
+                                            <components.MetricMatrixWrapper
+                                                metricId="cosine_similarity"
+                                                Comp={components.CorrelationMatrix}
+                                                dataMap={CosineSimilarityValues}
+                                                metricLabel="Cosine Similarity"
+                                                metricKey="cosine_similarity"
+                                                isLoading={!!metricLoading['CosineSimilarityValues']}
+                                                error={metricError['CosineSimilarityValues'] ?? undefined}
+                                                extraProps={{ clickable: false }}
+                                                selectedCategory={selectedCategory}
+                                                secondaryCategory={secondaryCategory}
+                                                tertiaryCategory={tertiaryCategory}
+                                                totalFilesLoaded={totalFilesLoaded}
+                                                shouldShow={shouldShowMetric('cosine_similarity')}
+                                                onRetry={() => retryMetric('CosineSimilarityValues')}
+                                            />
+                                            <components.MetricMatrixWrapper
+                                                metricId="mae"
+                                                Comp={components.StandardMatrix}
+                                                dataMap={maeValues}
+                                                metricLabel="MAE"
+                                                metricKey="mae"
+                                                isLoading={!!metricLoading['maeValues']}
+                                                error={metricError['maeValues'] ?? undefined}
+                                                selectedCategory={selectedCategory}
+                                                secondaryCategory={secondaryCategory}
+                                                tertiaryCategory={tertiaryCategory}
+                                                totalFilesLoaded={totalFilesLoaded}
+                                                shouldShow={shouldShowMetric('mae')}
+                                                onRetry={() => retryMetric('maeValues')}
+                                            />
+                                            <components.MetricMatrixWrapper
+                                                metricId="rmse"
+                                                Comp={components.StandardMatrix}
+                                                dataMap={rmseValues}
+                                                metricLabel="RMSE"
+                                                metricKey="rmse"
+                                                isLoading={!!metricLoading['rmseValues']}
+                                                error={metricError['rmseValues'] ?? undefined}
+                                                selectedCategory={selectedCategory}
+                                                secondaryCategory={secondaryCategory}
+                                                tertiaryCategory={tertiaryCategory}
+                                                totalFilesLoaded={totalFilesLoaded}
+                                                shouldShow={shouldShowMetric('rmse')}
+                                                onRetry={() => retryMetric('rmseValues')}
+                                            />
+                                            <components.MetricMatrixWrapper
+                                                metricId="dtw"
+                                                Comp={components.StandardMatrix}
+                                                dataMap={DTWValues}
+                                                metricLabel="DTW"
+                                                metricKey="dtw"
+                                                isLoading={!!metricLoading['DTWValues']}
+                                                error={metricError['DTWValues'] ?? undefined}
+                                                fallbackEmpty={true}
+                                                selectedCategory={selectedCategory}
+                                                secondaryCategory={secondaryCategory}
+                                                tertiaryCategory={tertiaryCategory}
+                                                totalFilesLoaded={totalFilesLoaded}
+                                                shouldShow={shouldShowMetric('dtw')}
+                                                onRetry={() => retryMetric('DTWValues')}
+                                            />
+                                            <components.MetricMatrixWrapper
+                                                metricId="euclidean"
+                                                Comp={components.StandardMatrix}
+                                                dataMap={EuclideanValues}
+                                                metricLabel="Euclidean"
+                                                metricKey="euclidean"
+                                                isLoading={!!metricLoading['EuclideanValues']}
+                                                error={metricError['EuclideanValues'] ?? undefined}
+                                                selectedCategory={selectedCategory}
+                                                secondaryCategory={secondaryCategory}
+                                                tertiaryCategory={tertiaryCategory}
+                                                totalFilesLoaded={totalFilesLoaded}
+                                                shouldShow={shouldShowMetric('euclidean')}
+                                                onRetry={() => retryMetric('EuclideanValues')}
+                                            />
+
+
+                                            <components.PluginResultsSection
+                                                visiblePlugins={visiblePlugins}
+                                                pluginResults={pluginResults}
+                                                pluginErrors={pluginErrors}
+                                                selectedCategory={selectedCategory}
+                                                secondaryCategory={secondaryCategory}
+                                                tertiaryCategory={tertiaryCategory}
+                                                isLoadingPlugins={isLoadingPlugins}
+                                                refreshPluginResults={refreshPluginResults}
+                                                totalFilesLoaded={totalFilesLoaded}
+                                            />
+                                        </>
+                                    );
+                                })()}
+                            </components.ErrorBoundary>
+                        </>
+                    )}
+
+                    <components.ScatterPlotModal
+                        show={isScatterOpen}
+                        onHide={handleCloseScatter}
+                        file1={selectedPair.file1}
+                        file2={selectedPair.file2}
+                        points={scatterPoints}
+                        isLoading={isScatterLoading}
+                    />
+
+                    <components.DataImportPopup ref={dataImportPopupRef} show={isPopupOpen} onHide={handlePopupClose} files={selectedFiles} onComplete={handlePopupComplete} />
+
+                    <components.ManualDataImport
+                        show={showManualModal}
+                        onHide={() => setShowManualModal(false)}
+                        onHideToEdit={() => {
+                            setShowManualModal(false);
+                            setShowManualEdit(true);
+                        }}
+                        existingData={chartData}
+                        onAddData={addManualData}
+                    />
+
+                    <components.ManualDataEdit
+                        show={showManualEdit}
+                        onHide={() => setShowManualEdit(false)}
+                        manualData={manualData}
+                        chartData={chartData}
+                        onRemoveTimestamp={(fileId, ts, rowIdx) => removeTimestampFromGroup(fileId, ts, rowIdx)}
+                        onRemoveGroup={(fileId) => removeByFileId(fileId)}
+                        onUpdatePoint={(seriesKey, ts, val, idx) => updateManualPoint(seriesKey, ts, val, idx)}
+                        onClearAll={() => clearManualData()}
+                        onAddManualData={addManualData}
+                        onOpenImport={() => {
+                            setShowManualEdit(false);
+                            setShowManualModal(true);
+                        }}
+                    />
                 </div>
-                <div className="section-container group-menu d-flex flex-column align-items-center p-3 rounded">
+            </div>
+
+            {/* Sidebar */}
+            {isInDifferenceMode ? (
+                <components.DifferenceSelectionPanel
+                    differenceOptions={differenceOptions}
+                    selectedDifferences={selectedDifferences}
+                    reversedDifferences={reversedDifferences}
+                    onDifferenceCheckboxChange={handleDifferenceCheckboxChange}
+                    onReverseToggle={handleReverseToggle}
+                    onSelectAllToggle={handleSelectAllToggle}
+                    isLoading={isDiffLoading}
+                />
+            ) : (
+                <div className="section-container group-menu d-flex flex-column align-items-center rounded">
                     <h4>Groups</h4>
                     {Object.entries(filenamesPerCategory).map(([category, files]) => (
-                        <Dropdown key={category} category={category} files={files} onFileClick={() => {
-                        }}/>
+                        <components.Dropdown
+                            key={category}
+                            category={category}
+                            files={files}
+                            onFileClick={(file) => console.log('Kliknięto plik:', file)}
+                            onRangeChange={handleRangeChange}
+                        />
                     ))}
                 </div>
-            </div>
-        );
-    }
-    
-    export default DashboardPage;
+            )}
+
+            <Modal show={showTitleModal} onHide={() => setShowTitleModal(false)} centered>
+                <Modal.Header closeButton>
+                    <Modal.Title>Enter report title</Modal.Title>
+                </Modal.Header>
+                <Modal.Body>
+                    <Form.Control
+                        type="text"
+                        value={reportTitle}
+                        onChange={(e) => setReportTitle(e.target.value.slice(0, 30))}
+                        placeholder="Enter title (max 30 characters)"
+                        required
+                        isInvalid={reportTitle.length === 0 || reportTitle.length > 30}
+                    />
+                    <Form.Control.Feedback type="invalid">
+                        Title must be 1-30 characters long.
+                    </Form.Control.Feedback>
+                </Modal.Body>
+                <Modal.Footer>
+                    <Button variant="secondary" onClick={() => setShowTitleModal(false)}>Cancel</Button>
+                    <Button variant="primary" onClick={handleExportToPDF} disabled={reportTitle.length === 0 || reportTitle.length > 30}>
+                        Export
+                    </Button>
+                </Modal.Footer>
+            </Modal>
+
+            <components.MetricsSelectionModal
+                show={showMetricsModal}
+                onHide={() => setShowMetricsModal(false)}
+                userMetrics={userMetrics}
+                selectedMetrics={selectedMetricsForDisplay}
+                onApply={setSelectedMetricsForDisplay}
+            />
+        </div>
+    );
+}
+
+export default DashboardPage;

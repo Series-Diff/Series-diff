@@ -1,10 +1,11 @@
 """
 ECS Cluster, Task Definition, and Service.
 """
+
 import pulumi
 import pulumi_aws as aws
 from typing import Dict, Any
-
+import json
 from infra_config import InfraConfig
 
 
@@ -15,33 +16,43 @@ def create_ecs_cluster() -> aws.ecs.Cluster:
     Returns:
         ECS Cluster resource
     """
+    config = InfraConfig()
+
     cluster = aws.ecs.Cluster(
-        "comparison-tool",
-        name="comparison-tool-cluster",
+        f"comparison-tool-{config.environment}",
+        name=f"comparison-tool-{config.environment}-cluster",
         tags={
-            "Name": "comparison-tool-cluster"
-        }
+            "Name": f"comparison-tool-{config.environment}-cluster",
+            "Environment": config.environment,
+        },
     )
 
     return cluster
 
 
-def create_ecs_task_definition(image_ref: pulumi.Output[str], region: str) -> aws.ecs.TaskDefinition:
+def create_ecs_task_definition(
+        image_ref: pulumi.Output[str],
+        region: str,
+        redis_endpoint: pulumi.Output[str],
+        plugin_executor_function_name: pulumi.Output[str] = None,
+) -> aws.ecs.TaskDefinition:
     """
     Create an ECS task definition for the Flask API.
 
     Args:
         image_ref: Docker image reference
         region: AWS region
+        plugin_executor_function_name: Optional Lambda function name for plugin execution
+        redis_endpoint: Redis endpoint for environment variable
 
     Returns:
         ECS Task Definition resource
     """
     config = InfraConfig()
 
-    # IAM role for ECS task execution
     task_exec_role = aws.iam.Role(
-        "task-exec-role",
+        f"task-exec-role-{config.environment}",
+        name=f"ecs-task-execution-{config.environment}",
         assume_role_policy="""{
             "Version": "2012-10-17",
             "Statement": [{
@@ -51,84 +62,138 @@ def create_ecs_task_definition(image_ref: pulumi.Output[str], region: str) -> aw
             }]
         }""",
         tags={
-            "Name": "ecs-task-execution-role"
-        }
+            "Name": f"ecs-task-execution-{config.environment}",
+            "Environment": config.environment,
+        },
     )
 
     aws.iam.RolePolicyAttachment(
-        "task-exec-policy",
+        f"task-exec-policy-{config.environment}",
         role=task_exec_role.name,
-        policy_arn="arn:aws:iam::aws:policy/service-role/AmazonECSTaskExecutionRolePolicy"
+        policy_arn="arn:aws:iam::aws:policy/service-role/AmazonECSTaskExecutionRolePolicy",
+    )
+
+    # IAM role for ECS task runtime (invoking Lambda for plugins)
+    task_role = aws.iam.Role(
+        f"task-role-{config.environment}",
+        name=f"ecs-task-role-{config.environment}",
+        assume_role_policy="""{
+            "Version": "2012-10-17",
+            "Statement": [{
+                "Action": "sts:AssumeRole",
+                "Principal": {"Service": "ecs-tasks.amazonaws.com"},
+                "Effect": "Allow"
+            }]
+        }""",
+        tags={
+            "Name": f"ecs-task-role-{config.environment}",
+            "Environment": config.environment,
+        },
+    )
+
+    # Policy to invoke plugin executor Lambda
+    aws.iam.RolePolicy(
+        f"task-lambda-invoke-policy-{config.environment}",
+        name=f"lambda-invoke-policy-{config.environment}",
+        role=task_role.id,
+        policy=pulumi.Output.json_dumps({
+            "Version": "2012-10-17",
+            "Statement": [{
+                "Effect": "Allow",
+                "Action": ["lambda:InvokeFunction"],
+                "Resource": f"arn:aws:lambda:*:*:function:plugin-executor-{config.environment}"
+            }]
+        }),
     )
 
     # CloudWatch log group for container logs
     log_group = aws.cloudwatch.LogGroup(
-        "flask-api-log-group",
-        name="/ecs/flask-api-logs",
+        f"flask-api-log-group-{config.environment}",
+        name=f"/ecs/flask-api-{config.environment}-logs",
         retention_in_days=config.ecs_log_retention_days,
         tags={
-            "Name": "flask-api-logs"
-        }
+            "Name": f"flask-api-{config.environment}-logs",
+            "Environment": config.environment,
+        },
     )
+
+    plugin_arg = plugin_executor_function_name if plugin_executor_function_name else pulumi.Output.from_input(None)
+
+    # Build environment variables list
+    def build_final_container_def(args):
+        image, reg, log_grp, redis_host, plugin_lambda = args
+
+        env_vars = [
+            {"name": "FLASK_APP", "value": "main.py"},
+            {"name": "FLASK_ENV", "value": config.environment},
+            {"name": "ENVIRONMENT", "value": config.environment},
+            {"name": "REDIS_HOST", "value": redis_host},
+            {"name": "GUNICORN_WORKERS", "value": "3"},
+            {"name": "GUNICORN_THREADS", "value": "4"},
+            {"name": "GUNICORN_LOG_LEVEL", "value": "warning"}
+        ]
+        if plugin_lambda:
+            env_vars.append({"name": "PLUGIN_EXECUTOR_LAMBDA", "value": plugin_lambda})
+
+        container_def = {
+            "name": "flask-api",
+            "image": image,
+            "portMappings": [{
+                "containerPort": 5000,
+                "protocol": "tcp"
+            }],
+            "logConfiguration": {
+                "logDriver": "awslogs",
+                "options": {
+                    "awslogs-group": log_grp,
+                    "awslogs-region": reg,
+                    "awslogs-stream-prefix": "app"
+                }
+            },
+            "environment": env_vars,
+            "healthCheck": {
+                "command": ["CMD-SHELL", "curl -f http://localhost:5000/health || exit 1"],
+                "interval": 30,
+                "timeout": 5,
+                "retries": 3,
+                "startPeriod": 60
+            }
+        }
+
+        return json.dumps([container_def])
 
     # Task definition
     task_definition = aws.ecs.TaskDefinition(
-        "task-def",
-        family="flask-api",
+        f"task-def-{config.environment}",
+        family=f"flask-api-{config.environment}",
         cpu=config.ecs_task_cpu,
         memory=config.ecs_task_memory,
         network_mode="awsvpc",
         requires_compatibilities=["FARGATE"],
         execution_role_arn=task_exec_role.arn,
+        task_role_arn=task_role.arn,
         container_definitions=pulumi.Output.all(
             image_ref,
             region,
-            log_group.name
-        ).apply(
-            lambda args: f"""
-            [{{
-                "name": "flask-api",
-                "image": "{args[0]}",
-                "portMappings": [{{
-                    "containerPort": 5000,
-                    "protocol": "tcp"
-                }}],
-                "logConfiguration": {{
-                    "logDriver": "awslogs",
-                    "options": {{
-                        "awslogs-group": "{args[2]}",
-                        "awslogs-region": "{args[1]}",
-                        "awslogs-stream-prefix": "app"
-                    }}
-                }},
-                "environment": [
-                    {{"name": "FLASK_APP", "value": "main.py"}},
-                    {{"name": "FLASK_ENV", "value": "production"}}
-                ],
-                "healthCheck": {{
-                    "command": ["CMD-SHELL", "curl -f http://localhost:5000/health || exit 1"],
-                    "interval": 30,
-                    "timeout": 5,
-                    "retries": 3,
-                    "startPeriod": 60
-                }}
-            }}]
-            """
-        ),
+            log_group.name,
+            redis_endpoint,
+            plugin_arg
+        ).apply(build_final_container_def),
         tags={
-            "Name": "flask-api-task-definition"
-        }
+            "Name": f"flask-api-{config.environment}-task-definition",
+            "Environment": config.environment,
+        },
     )
 
     return task_definition
 
 
 def create_ecs_service(
-    cluster: aws.ecs.Cluster,
-    task_definition: aws.ecs.TaskDefinition,
-    networking: Dict[str, Any],
-    target_group: aws.lb.TargetGroup,
-    alb_resources: Dict[str, Any]
+        cluster: aws.ecs.Cluster,
+        task_definition: aws.ecs.TaskDefinition,
+        networking: Dict[str, Any],
+        target_group: aws.lb.TargetGroup,
+        alb_resources: Dict[str, Any],
 ) -> aws.ecs.Service:
     """
     Create an ECS service.
@@ -146,8 +211,8 @@ def create_ecs_service(
     config = InfraConfig()
 
     service = aws.ecs.Service(
-        "flask-api",
-        name="flask-api-service",
+        f"flask-api-{config.environment}",
+        name=f"flask-api-{config.environment}-service",
         cluster=cluster.arn,
         task_definition=task_definition.arn,
         desired_count=config.ecs_desired_count,
@@ -155,22 +220,22 @@ def create_ecs_service(
         network_configuration=aws.ecs.ServiceNetworkConfigurationArgs(
             assign_public_ip=True,
             subnets=networking["subnet_ids"],
-            security_groups=[networking["fargate_sg"].id]
+            security_groups=[networking["fargate_sg"].id],
         ),
-        load_balancers=[aws.ecs.ServiceLoadBalancerArgs(
-            target_group_arn=target_group.arn,
-            container_name="flask-api",
-            container_port=5000
-        )],
+        load_balancers=[
+            aws.ecs.ServiceLoadBalancerArgs(
+                target_group_arn=target_group.arn,
+                container_name="flask-api",
+                container_port=5000,
+            )
+        ],
         tags={
-            "Name": "flask-api-service"
+            "Name": f"flask-api-{config.environment}-service",
+            "Environment": config.environment,
         },
         opts=pulumi.ResourceOptions(
-            depends_on=[
-                alb_resources["https_listener"],
-                alb_resources["http_listener"]
-            ]
-        )
+            depends_on=[alb_resources["https_listener"], alb_resources["http_listener"]]
+        ),
     )
 
     return service

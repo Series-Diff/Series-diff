@@ -1,20 +1,58 @@
-# Use an official Python runtime as a parent image
-FROM python:3.11-slim
+# Build stage - with compilers for building Python packages with C extensions
+FROM python:3.11-slim AS builder
 
-# Set the working directory in the container
 WORKDIR /app
 
-# Copy the requirements file into the container at /app
-COPY requirements.txt ./main.py ./
+# Install curl for health checks (Docker not needed on AWS - using Lambda)
+RUN apt-get update && \
+    apt-get install -y --no-install-recommends curl && \
+    rm -rf /var/lib/apt/lists/*
 
-# Install any dependencies
-RUN pip install --no-cache-dir -r requirements.txt
+# Setup environment
+ENV POETRY_VERSION=2.2.1
+ENV PIP_BREAK_SYSTEM_PACKAGES=1
+ENV PYTHONUNBUFFERED=1
+ENV PYTHONDONTWRITEBYTECODE=1
 
-# Copy the current directory contents into the container at /app
-COPY . /app
+# Install build dependencies (gcc/g++ needed for orjson, numpy, scipy, etc.)
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    gcc \
+    g++ \
+    && rm -rf /var/lib/apt/lists/*
 
-# Make port 5000 available to the world outside this container
-EXPOSE 5000
+# Install Poetry
+RUN pip install poetry==$POETRY_VERSION
 
-# Run app.py when the container launches
-CMD ["flask", "run", "--host=0.0.0.0", "--port=5000", "--reload"]
+# Configure Poetry to create virtualenv in project
+RUN poetry config virtualenvs.in-project true
+
+# Copy dependency files
+COPY pyproject.toml poetry.lock ./
+
+# Install dependencies (Poetry 2.x syntax)
+RUN poetry install --no-root --without dev
+
+# Runtime stage - minimal image without build tools
+FROM python:3.11-slim
+
+WORKDIR /app
+
+# Install curl for container health checks (required by ECS)
+RUN apt-get update && \
+    apt-get install -y --no-install-recommends curl && \
+    rm -rf /var/lib/apt/lists/*
+
+ENV PYTHONUNBUFFERED=1
+ENV PYTHONDONTWRITEBYTECODE=1
+
+# Copy virtual environment from builder
+COPY --from=builder /app/.venv /app/.venv
+
+# Copy application code
+COPY . .
+
+# Use the virtual environment
+ENV PATH="/app/.venv/bin:$PATH"
+
+# Run gunicorn directly (no need for poetry run since we have .venv in PATH)
+CMD ["gunicorn", "-c", "gunicorn_config.py", "main:app"]

@@ -5,6 +5,7 @@
   flex-direction: column;
   justify-content: center;
   box-sizing: border-box;
+  overflow: hidden;
 }
 
 .chart-wrapper {
@@ -13,23 +14,23 @@
 }
 
 /* Ensure Plotly chart respects parent container */
-.js-plotly-plot,
-.plot-container,
-.main-svg {
+.chart-wrapper .js-plotly-plot {
   width: 100% !important;
-  box-sizing: border-box;
+  height: 100% !important;
+  flex: 1 1 auto;
+  min-height: 400px;
 }
 
-button,
-.button {
-  background-color: #007bff;
-  color: white;
-  border: none;
-  padding: 10px 20px;
-  margin-left: 10px;
-  border-radius: 5px;
-  cursor: pointer;
-  font-size: 0.9rem;
-  transition: background-color 0.2s ease-in-out;
-  text-align: center;
+.chart-wrapper .plot-container {
+  width: 100% !important;
+  height: 100% !important;
+}
+
+.chart-wrapper .main-svg {
+  width: 100% !important;
+}
+
+.js-plotly-plot .plotly .modebar {
+  top: 5vh !important;
+  right: 0 !important;
 }
