@@ -127,6 +127,18 @@ export const useMovingAverage = (
         }
     }, [filenamesPerCategory, setError]);
 
+    // Auto-fetch MA data when toggle is restored from localStorage and filenamesPerCategory becomes available
+    useEffect(() => {
+        if (
+            showMovingAverage &&
+            Object.keys(filenamesPerCategory).length > 0 &&
+            Object.keys(rollingMeanChartData).length === 0 &&
+            !isMaLoading
+        ) {
+            fetchMaData(maWindow);
+        }
+    }, [showMovingAverage, filenamesPerCategory, rollingMeanChartData, isMaLoading, maWindow, fetchMaData]);
+
     const handleToggleMovingAverage = () => {
         // Check if moving_average is selected
         const selectedMetricsJson = localStorage.getItem('selectedMetricsForDisplay');

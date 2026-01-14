@@ -19,6 +19,8 @@ interface MyChartProps {
     toggleChartMode?: () => void;
     isInDifferenceMode?: boolean;
     canShowDifferenceChart?: boolean;
+    onVisibleRangeChange?: (start: Date | null, end: Date | null) => void;
+    visibleDateRange?: [Date | null, Date | null];
 }
 
 const MyChart: React.FC<MyChartProps> = ({
