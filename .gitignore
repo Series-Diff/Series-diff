@@ -114,3 +114,5 @@ site/
 
 # Linter
 .flake8
+test-results/.last-run.json
+Flask-API/tests/fixtures

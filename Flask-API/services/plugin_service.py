@@ -6,6 +6,8 @@ NOTE: Plugins are stored on the frontend (localStorage) for privacy.
 This service only handles validation and sandboxed execution.
 """
 
+import textwrap
+
 
 def validate_plugin_code(code: str) -> dict:
     """
@@ -17,6 +19,9 @@ def validate_plugin_code(code: str) -> dict:
     Returns:
         dict with 'valid' (bool) and optionally 'error' (str)
     """
+    # Normalize code: remove common leading indentation and leading/trailing newlines
+    normalized_code = textwrap.dedent(code).strip()
+
     # Enhanced dangerous pattern check
     dangerous_patterns = [
         # File operations
@@ -63,7 +68,7 @@ def validate_plugin_code(code: str) -> dict:
         "popen",
     ]
 
-    code_lower = code.lower()
+    code_lower = normalized_code.lower()
     for pattern in dangerous_patterns:
         if pattern.lower() in code_lower:
             return {
@@ -73,7 +78,7 @@ def validate_plugin_code(code: str) -> dict:
             }
 
     # Check that 'def calculate' exists
-    if "def calculate(" not in code:
+    if "def calculate(" not in normalized_code:
         return {
             "valid": False,
             "error": "Plugin must define a 'calculate(series1, series2)' function",
@@ -81,7 +86,7 @@ def validate_plugin_code(code: str) -> dict:
 
     # Try to compile the code
     try:
-        compile(code, "<plugin>", "exec")
+        compile(normalized_code, "<plugin>", "exec")
     except SyntaxError as e:
         return {"valid": False, "error": f"Syntax error in plugin code: {e}"}
 
@@ -100,8 +105,9 @@ def execute_plugin_code(code: str, series1, series2) -> dict:
     Returns:
         dict with 'result' (float) or 'error' (str)
     """
-    # Validate code before execution
-    validation_result = validate_plugin_code(code)
+    # Normalize and validate code before execution
+    normalized_code = textwrap.dedent(code).strip()
+    validation_result = validate_plugin_code(normalized_code)
     if not validation_result["valid"]:
         return {"error": validation_result["error"]}
 
@@ -122,4 +128,4 @@ def execute_plugin_code(code: str, series1, series2) -> dict:
     executor = get_executor()
 
     pairs = [{"series1": series1_dict, "series2": series2_dict, "key": "single_run"}]
-    return executor.execute(code, pairs)
+    return executor.execute(normalized_code, pairs)
