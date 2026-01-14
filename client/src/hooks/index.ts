@@ -12,3 +12,4 @@ export * from './useDataImportPopup';
 export * from './useMetricsSelection';
 export * from './useDateRange';
 export * from './useManualData';
+export * from './useCompactMode';

@@ -1286,9 +1286,9 @@ export const DataImportPopup = forwardRef<DataImportPopupHandle, Props>(
               </Form.Group>
 
               {/* --- SEKCJA PIVOT START --- */}
-              {!errorParsingFile && validationResults[currentFileKey]?.isValid !== false && (
+              {!errorParsingFile && currentFile && fileConfigs[currentFileKey]?.rawData && fileConfigs[currentFileKey]?.rawData.length > 0 && (
                 <>
-                  {currentFile && pivotWarnings[getFileId(currentFile)] && !isPivotMode[getFileId(currentFile)] && (
+                  {pivotWarnings[getFileId(currentFile)] && !isPivotMode[getFileId(currentFile)] && (
                     <Alert variant="info" className="py-2 mb-0">
                       <small>{pivotWarnings[getFileId(currentFile)]}</small>
                     </Alert>

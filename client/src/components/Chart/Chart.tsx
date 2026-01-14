@@ -19,6 +19,8 @@ interface MyChartProps {
     toggleChartMode?: () => void;
     isInDifferenceMode?: boolean;
     canShowDifferenceChart?: boolean;
+    onVisibleRangeChange?: (start: Date | null, end: Date | null) => void;
+    visibleDateRange?: [Date | null, Date | null];
 }
 
 const MyChart: React.FC<MyChartProps> = ({
@@ -32,7 +34,7 @@ const MyChart: React.FC<MyChartProps> = ({
                                              layoutMode = 'overlay',
                                              toggleChartMode,
                                              isInDifferenceMode,
-                                             canShowDifferenceChart
+                                             canShowDifferenceChart,
                                          }) => {
 
     const manualDataSafe = useMemo(() => manualData ?? {}, [manualData]);
@@ -181,6 +183,7 @@ const MyChart: React.FC<MyChartProps> = ({
             spikedash: "solid",
             spikethickness: 1,
             side: 'left',
+            fixedrange: true,
             domain: isStacked ? stackedDomains.y1 : undefined,
             autorange: !(customRange && customYMin !== '' && customYMax !== ''),
             range: customRange && customYMin !== '' && customYMax !== ''
@@ -200,6 +203,7 @@ const MyChart: React.FC<MyChartProps> = ({
             spikemode: 'across',
             spikedash: "solid",
             spikethickness: 1,
+            fixedrange: true,
             side: isStacked ? 'left' : 'right',
             overlaying: isStacked ? undefined : 'y',
             domain: isStacked ? stackedDomains.y2 : undefined,
@@ -222,6 +226,7 @@ const MyChart: React.FC<MyChartProps> = ({
             spikedash: "solid",
             spikethickness: 1,
             side: 'left',
+            fixedrange: true,
             overlaying: isStacked ? undefined : 'y',
             domain: isStacked ? stackedDomains.y3 : undefined,
             anchor: isStacked ? 'x' : 'free',
@@ -233,24 +238,33 @@ const MyChart: React.FC<MyChartProps> = ({
     };
 
     return (
-        <div className="d-flex flex-column h-100 ">
-            <div id='pdf-content-chart' ref={containerRef} style={{width: "100%", height: "100%", minHeight: 0, flex: "1 1 auto"}}>
-                <Plot
-                    data={traces}
-                    layout={chartLayout}
-                    useResizeHandler={true}
-                    style={{width: '100%', height: '100%'}}
-                    config={{
-                        autosizable: true,
-                        
-                        responsive: true,
-                        scrollZoom: true,
-                        displaylogo: false,
-                        modeBarButtonsToRemove: ['select2d', 'lasso2d']
-                    }}
-                    onRelayout={handleRelayout}
-                    onLegendClick={handleLegendClick}
-                />
+        <div className="d-flex flex-column flex-grow-1" style={{ minHeight: '100%' }}>
+            <div
+                id='pdf-content-chart'
+                ref={containerRef}
+                style={{
+                    width: "100%",
+                    flex: "1 1 auto",
+                    minHeight: "350px",
+                    display: 'flex',
+                    flexDirection: 'column'
+                }}
+            >                <Plot
+                data={traces}
+                layout={chartLayout}
+                useResizeHandler={true}
+                style={{width: '100%', height: '100%', flex: 1}}
+                config={{
+                    autosizable: true,
+
+                    responsive: true,
+                    scrollZoom: true,
+                    displaylogo: false,
+                    modeBarButtonsToRemove: ['select2d', 'lasso2d']
+                }}
+                onRelayout={handleRelayout}
+                onLegendClick={handleLegendClick}
+            />
             </div>
             <ChartControls
                 customYMin={customYMin} setCustomYMin={setCustomYMin}

@@ -3,6 +3,9 @@ import * as services from '../services';
 
 export type ColorSyncMode = 'default' | 'group' | 'file';
 
+// localStorage key for color sync mode persistence
+const STORAGE_KEY_COLOR_SYNC_MODE = 'dashboard_colorSyncMode';
+
 export const useChartConfiguration = (
     filenamesPerCategory: Record<string, string[]>,
     chartData: Record<string, services.TimeSeriesEntry[]>,
@@ -29,7 +32,18 @@ export const useChartConfiguration = (
     });
 
     const [rangePerCategory, setRangePerCategory] = useState<{ [key: string]: { min: number | '', max: number | '' } }>({});
-    const [colorSyncMode, setColorSyncMode] = useState<ColorSyncMode>('default');
+    
+    // Initialize colorSyncMode from localStorage
+    const [colorSyncMode, setColorSyncMode] = useState<ColorSyncMode>(() => {
+        const stored = localStorage.getItem(STORAGE_KEY_COLOR_SYNC_MODE);
+        if (stored === 'group' || stored === 'file') return stored;
+        return 'default';
+    });
+
+    // Persist colorSyncMode to localStorage
+    useEffect(() => {
+        localStorage.setItem(STORAGE_KEY_COLOR_SYNC_MODE, colorSyncMode);
+    }, [colorSyncMode]);
 
     const syncColorsByFile = colorSyncMode === 'file';
     const syncColorsByGroup = colorSyncMode === 'group';

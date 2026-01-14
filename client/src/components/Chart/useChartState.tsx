@@ -2,6 +2,22 @@ import {useCallback, useEffect, useMemo, useRef, useState} from "react";
 import { TimeSeriesEntry } from "@/services/fetchTimeSeries";
 
 /**
+ * Format date for Plotly without timezone conversion.
+ * Plotly interprets dates without timezone suffix as local time.
+ * Using toISOString() would convert to UTC (suffix "Z") causing timezone shift issues.
+ */
+const formatDateForPlotly = (date: Date): string => {
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const day = String(date.getDate()).padStart(2, '0');
+    const hours = String(date.getHours()).padStart(2, '0');
+    const minutes = String(date.getMinutes()).padStart(2, '0');
+    const seconds = String(date.getSeconds()).padStart(2, '0');
+    const ms = String(date.getMilliseconds()).padStart(3, '0');
+    return `${year}-${month}-${day}T${hours}:${minutes}:${seconds}.${ms}`;
+};
+
+/**
  * Custom hook for managing chart state.
  * 
  * Handles:
@@ -88,19 +104,48 @@ export const useChartState = (
         };
     }, [tertiaryData]);
 
+    // Use a ref to track current xaxis range timestamps for comparison (avoids stale closure)
+    const xaxisRangeRef = useRef<[string | null, string | null]>([null, null]);
+    const xaxisRangeTimestampRef = useRef<[number | null, number | null]>([null, null]);
+
     // Memoize relayout handler to avoid new reference on each render
     const handleRelayout = useCallback((event: any) => {
+        // Handle different Plotly event formats for x-axis range:
+        // 1. Individual properties: xaxis.range[0], xaxis.range[1] (from zoom, pan, scroll)
+        // 2. Array property: xaxis.range (from rangeslider, rangeselector buttons)
+        let rangeStart: Date | null = null;
+        let rangeEnd: Date | null = null;
+        
         if (event['xaxis.range[0]'] && event['xaxis.range[1]']) {
-            const rangeStart = new Date(event['xaxis.range[0]']);
-            const rangeEnd = new Date(event['xaxis.range[1]']);
-            const diffMs = rangeEnd.getTime() - rangeStart.getTime();
+            rangeStart = new Date(event['xaxis.range[0]']);
+            rangeEnd = new Date(event['xaxis.range[1]']);
+        } else if (event['xaxis.range'] && Array.isArray(event['xaxis.range'])) {
+            rangeStart = new Date(event['xaxis.range'][0]);
+            rangeEnd = new Date(event['xaxis.range'][1]);
+        }
+        
+        if (rangeStart && rangeEnd && !isNaN(rangeStart.getTime()) && !isNaN(rangeEnd.getTime())) {
+            const startTs = rangeStart.getTime();
+            const endTs = rangeEnd.getTime();
+            const diffMs = endTs - startTs;
             const diffHours = diffMs / (1000 * 60 * 60);
 
-            const nextRange: [string, string] = [event['xaxis.range[0]'], event['xaxis.range[1]']];
-            if (xaxisRange[0] === nextRange[0] && xaxisRange[1] === nextRange[1]) {
+            // Use timestamps for comparison (more reliable than string comparison)
+            // Allow small tolerance (1 second) for floating point / rounding differences
+            const tolerance = 1000;
+            const currentStartTs = xaxisRangeTimestampRef.current[0];
+            const currentEndTs = xaxisRangeTimestampRef.current[1];
+            
+            if (currentStartTs !== null && currentEndTs !== null &&
+                Math.abs(currentStartTs - startTs) < tolerance &&
+                Math.abs(currentEndTs - endTs) < tolerance) {
                 return; // No-op to prevent relayout-induced loops
             }
 
+            // Format dates for Plotly without UTC conversion to avoid timezone shift
+            const nextRangeStart = formatDateForPlotly(rangeStart);
+            const nextRangeEnd = formatDateForPlotly(rangeEnd);
+            
             const estimatedPointsOnScreen = diffHours / (averageStepHours || 0.001);
 
             const shouldShowMarkers = diffHours < 3 || estimatedPointsOnScreen < 50;
@@ -113,18 +158,36 @@ export const useChartState = (
             } else {
                 setTickFormat('%d.%m.%Y');
             }
-            setXaxisRange([event['xaxis.range[0]'], event['xaxis.range[1]']]);
+            
+            // Update both state and refs
+            xaxisRangeRef.current = [nextRangeStart, nextRangeEnd];
+            xaxisRangeTimestampRef.current = [startTs, endTs];
+            setXaxisRange([nextRangeStart, nextRangeEnd]);
         } else if (event['xaxis.autorange'] === true) {
+            // Use ref for comparison
+            if (xaxisRangeRef.current[0] === null && xaxisRangeRef.current[1] === null) {
+                return; // Already in autorange
+            }
+            
+            xaxisRangeRef.current = [null, null];
+            xaxisRangeTimestampRef.current = [null, null];
             setXaxisRange([null, null]); // Resetting X-axis range
             setTickFormat('%d.%m.%Y'); // Restoring default format
             setShowMarkers(false); // Restoring default markers
         }
-    }, [xaxisRange, averageStepHours]);
+    }, [averageStepHours]);
 
-    // Use a ref to avoid triggering effect on every xaxisRange change
-    const xaxisRangeRef = useRef<[string | null, string | null]>([null, null]);
+    // Keep xaxisRange state in sync with refs
     useEffect(() => {
         xaxisRangeRef.current = xaxisRange;
+        if (xaxisRange[0] && xaxisRange[1]) {
+            xaxisRangeTimestampRef.current = [
+                new Date(xaxisRange[0]).getTime(),
+                new Date(xaxisRange[1]).getTime()
+            ];
+        } else {
+            xaxisRangeTimestampRef.current = [null, null];
+        }
     }, [xaxisRange]);
 
     // Only run initial X-range setup when allData transitions from empty to non-empty
@@ -142,15 +205,23 @@ export const useChartState = (
             }));
             const minTs = Math.min(...stringsWithTimestamps.map(item => item.ts));
             const maxTs = Math.max(...stringsWithTimestamps.map(item => item.ts));
-            const minXString = stringsWithTimestamps.find(item => item.ts === minTs)?.str || allXStrings[0];
-            const maxXString = stringsWithTimestamps.find(item => item.ts === maxTs)?.str || allXStrings[allXStrings.length - 1];
+            
+            // Use timestamps for comparison to avoid string format mismatches
+            const currentStartTs = xaxisRangeTimestampRef.current[0];
+            const currentEndTs = xaxisRangeTimestampRef.current[1];
+            const tolerance = 1000; // 1 second tolerance
+            if (currentStartTs !== null && currentEndTs !== null &&
+                Math.abs(currentStartTs - minTs) < tolerance &&
+                Math.abs(currentEndTs - maxTs) < tolerance) {
+                return; // Already aligned with data
+            }
 
-            // Avoid relayout loop when range is already aligned with data
-            if (xaxisRangeRef.current[0] === minXString && xaxisRangeRef.current[1] === maxXString) return;
-
+            // Format dates for Plotly using local time (avoid UTC conversion)
+            const minDate = new Date(minTs);
+            const maxDate = new Date(maxTs);
             const fakeEvent = {
-                'xaxis.range[0]': minXString,
-                'xaxis.range[1]': maxXString,
+                'xaxis.range[0]': formatDateForPlotly(minDate),
+                'xaxis.range[1]': formatDateForPlotly(maxDate),
             };
 
             handleRelayout(fakeEvent);

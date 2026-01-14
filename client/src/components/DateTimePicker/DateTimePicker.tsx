@@ -1,6 +1,7 @@
 import React, { useEffect } from "react";
 import DatePicker from "react-datepicker";
 import "react-datepicker/dist/react-datepicker.css";
+import { useCompactMode, getControlsPanelStyles } from '../../hooks/useCompactMode';
 interface DateTimePickerProps {
   label: string;
   value: Date | null;
@@ -16,11 +17,14 @@ const DateTimePicker: React.FC<DateTimePickerProps> = ({
   value,
   onChange,
   placeholder = "DD.MM.YYYY HH:MM",
-  minWidth = 180,
+  minWidth,
   openToDate,
   minDate,
   maxDate,
 }) => {
+  const { isCompact } = useCompactMode();
+  const styles = getControlsPanelStyles(isCompact);
+  const effectiveMinWidth = minWidth ?? styles.datePickerMinWidth;
   // Regex patterns for date parsing
   const DATE_TIME_PATTERN = /(\d{1,2})\.(\d{1,2})\.(\d{4})\s+(\d{1,2}):(\d{1,2})/;
   const DATE_ONLY_PATTERN = /(\d{1,2})\.(\d{1,2})\.(\d{4})/;
@@ -35,6 +39,14 @@ const DateTimePicker: React.FC<DateTimePickerProps> = ({
       onChange(openToDate || null);
       return true;
     }
+    
+    // Helper to clamp date to min/max bounds
+    const clampDate = (date: Date): Date => {
+      if (minDate && date < minDate) return minDate;
+      if (maxDate && date > maxDate) return maxDate;
+      return date;
+    };
+    
     // Parse dd.MM.yyyy HH:mm format
     const dateTimeParts = trimmed.match(DATE_TIME_PATTERN);
     if (dateTimeParts) {
@@ -53,7 +65,7 @@ const DateTimePicker: React.FC<DateTimePickerProps> = ({
       );
 
       if (!isNaN(date.getTime())) {
-        onChange(date);
+        onChange(clampDate(date));
         return true;
       }
     }
@@ -70,7 +82,7 @@ const DateTimePicker: React.FC<DateTimePickerProps> = ({
       );
 
       if (!isNaN(date.getTime())) {
-        onChange(date);
+        onChange(clampDate(date));
         return true;
       }
     }
@@ -103,8 +115,8 @@ const DateTimePicker: React.FC<DateTimePickerProps> = ({
     }
   };
   return (
-    <div className="d-flex align-items-center" style={{ minWidth }}>
-      <label className="mb-0 me-2" style={{ whiteSpace: 'nowrap' }}>{label}</label>
+    <div className={`d-flex align-items-center ${styles.textClass}`} style={{ minWidth: effectiveMinWidth }}>
+      <label className={`mb-0 me-2 text-nowrap ${styles.textClass}`}>{label}</label>
       <div style={{ flex: 1 }}>
         <DatePicker
           selected={value}
@@ -117,7 +129,7 @@ const DateTimePicker: React.FC<DateTimePickerProps> = ({
           timeIntervals={15}
           dateFormat="dd.MM.yyyy HH:mm"
           placeholderText={placeholder}
-          className="form-control"
+          className={`form-control ${isCompact ? 'form-control-sm small' : ''}`}
           popperPlacement="bottom-start"
           minDate={minDate ?? undefined}
           maxDate={maxDate ?? undefined}

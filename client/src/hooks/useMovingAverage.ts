@@ -1,19 +1,40 @@
-import {useState, useCallback, useEffect} from 'react';
+import { useState, useCallback, useEffect } from 'react';
 import * as services from '../services';
 import { apiLogger } from '../utils/apiLogger';
 import { metricsCacheManager } from '../utils/metricsCacheManager';
 import type { CacheKey } from '../utils/metricsCacheManager';
 import { errorSimulator } from '../utils/errorSimulator';
 
+// localStorage keys for persistence
+const STORAGE_KEY_MA_ENABLED = 'dashboard_maEnabled';
+const STORAGE_KEY_MA_WINDOW = 'dashboard_maWindow';
+
 export const useMovingAverage = (
     filenamesPerCategory: Record<string, string[]>,
     setError: React.Dispatch<React.SetStateAction<string | null>>
 ) => {
-    const [showMovingAverage, setShowMovingAverage] = useState(false);
-    const [maWindow, setMaWindow] = useState('1d'); // Default value
+    // Initialize from localStorage
+    const [showMovingAverage, setShowMovingAverage] = useState(() => {
+        const stored = localStorage.getItem(STORAGE_KEY_MA_ENABLED);
+        return stored === 'true';
+    });
+    const [maWindow, setMaWindow] = useState(() => {
+        return localStorage.getItem(STORAGE_KEY_MA_WINDOW) || '1d';
+    });
     const [isMaLoading, setIsMaLoading] = useState(false);
     const [rollingMeanChartData, setRollingMeanChartData] = useState<Record<string, services.TimeSeriesEntry[]>>({});
 
+    // Persist showMovingAverage to localStorage
+    useEffect(() => {
+        localStorage.setItem(STORAGE_KEY_MA_ENABLED, String(showMovingAverage));
+    }, [showMovingAverage]);
+
+    // Persist maWindow to localStorage
+    useEffect(() => {
+        localStorage.setItem(STORAGE_KEY_MA_WINDOW, maWindow);
+    }, [maWindow]);
+
+    // Sync showMovingAverage with metric selection changes
     useEffect(() => {
         const handleMetricSelectionChange = (event: Event) => {
             const customEvent = event as CustomEvent;
@@ -105,6 +126,18 @@ export const useMovingAverage = (
             setIsMaLoading(false);
         }
     }, [filenamesPerCategory, setError]);
+
+    // Auto-fetch MA data when toggle is restored from localStorage and filenamesPerCategory becomes available
+    useEffect(() => {
+        if (
+            showMovingAverage &&
+            Object.keys(filenamesPerCategory).length > 0 &&
+            Object.keys(rollingMeanChartData).length === 0 &&
+            !isMaLoading
+        ) {
+            fetchMaData(maWindow);
+        }
+    }, [showMovingAverage, filenamesPerCategory, rollingMeanChartData, isMaLoading, maWindow, fetchMaData]);
 
     const handleToggleMovingAverage = () => {
         // Check if moving_average is selected

@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
+import { useCompactMode, getControlsPanelStyles } from '../hooks/useCompactMode';
 import { Button, Modal, Form, Spinner, Alert } from 'react-bootstrap';
 import './DashboardPage.css';
 import '../components/Chart/Chart.css';
@@ -8,6 +9,9 @@ import * as components from '../components';
 import * as hooks from '../hooks';
 import { useGlobalCache } from '../contexts/CacheContext';
 import { cacheAPI } from '../utils/cacheApiWrapper';
+
+// localStorage keys for UI state persistence
+const STORAGE_KEY_LAYOUT_MODE = 'dashboard_layoutMode';
 
 function DashboardPage() {
     const [chartMode, setChartMode] = useState<'standard' | 'difference'>('standard');
@@ -40,7 +44,7 @@ function DashboardPage() {
 
     const { isPopupOpen, selectedFiles, handleFileUpload, handlePopupComplete, handlePopupClose, resetFileUpload } = hooks.useFileUpload(handleFetchData, setError, setIsLoading);
 
-    const { startDate, endDate, pendingStartDate, pendingEndDate, handleStartChange, handleEndChange, applyPendingDates, resetDates, defaultMinDate, defaultMaxDate, ignoreTimeRange, setIgnoreTimeRange, } = hooks.useDateRange(
+    const { startDate, endDate, pendingStartDate, pendingEndDate, handleStartChange, handleEndChange, setPendingStartDate, setPendingEndDate, applyPendingDates, resetDates, defaultMinDate, defaultMaxDate, ignoreTimeRange, setIgnoreTimeRange, } = hooks.useDateRange(
         Object.entries(chartData).map(([_, entries]) => ({ entries })),
         manualData,
         (msg: string) => setError(prev => (prev && prev.includes('Storage quota exceeded')) ? prev : msg)
@@ -69,7 +73,18 @@ function DashboardPage() {
 
     const { scatterPoints, isScatterLoading, isScatterOpen, selectedPair, handleCloseScatter, handleCellClick } = hooks.useScatterPlot();
     const { showTitleModal, setShowTitleModal, reportTitle, setReportTitle, isExporting, handleExportClick, handleExportToPDF } = hooks.useExport(chartData);
-    const [layoutMode, setLayoutMode] = useState<'overlay' | 'stacked'>('overlay');
+    
+    // Initialize layoutMode from localStorage
+    const [layoutMode, setLayoutMode] = useState<'overlay' | 'stacked'>(() => {
+        const stored = localStorage.getItem(STORAGE_KEY_LAYOUT_MODE);
+        return stored === 'stacked' ? 'stacked' : 'overlay';
+    });
+    
+    // Persist layoutMode to localStorage
+    useEffect(() => {
+        localStorage.setItem(STORAGE_KEY_LAYOUT_MODE, layoutMode);
+    }, [layoutMode]);
+    
     const { dataImportPopupRef, resetAllData } = hooks.useDataImportPopup();
     const { userMetrics, selectedMetricsForDisplay, setSelectedMetricsForDisplay, showMetricsModal, setShowMetricsModal, filteredGroupedMetrics, shouldShowMetric } = hooks.useMetricsSelection(groupedMetrics);
 
@@ -168,6 +183,9 @@ function DashboardPage() {
     const hasDifferenceData = Object.keys(differenceChartData).length > 0;
     const isInDifferenceMode = chartMode === 'difference';
 
+    const { isCompact } = useCompactMode();
+    const styles = getControlsPanelStyles(isCompact);
+
     const hasEnoughFilesForDifference = Object.values(filenamesPerCategory).some(files => files.length >= 2);
     // Count unique files across all categories (don't duplicate count if same file appears in multiple categories)
     const uniqueFileSet = new Set(Object.values(filenamesPerCategory).flat());
@@ -180,13 +198,12 @@ function DashboardPage() {
 
     const needsFullHeight = isInDifferenceMode || !hasData;
 
-    const mainStyle = needsFullHeight ? {
+    const mainStyle = {
         gap: "16px",
-        height: `calc(100vh - var(--nav-height) - 2 * var(--section-margin))`,
-        overflow: "hidden" as const
-    } : {
-        gap: "16px",
-        minHeight: `calc(100vh - var(--nav-height) - 2 * var(--section-margin))`
+        minHeight: `calc(100vh - var(--nav-height) - 2 * var(--section-margin))`,
+        height: "auto",
+        overflowY: "auto" as const,
+        paddingBottom: "20px"
     };
 
     const chartLayoutClass = `d-flex flex-column gap-3 w-100 flex-grow-1${needsFullHeight ? ' h-100' : ''}`;
@@ -249,8 +266,9 @@ function DashboardPage() {
                         display: 'flex',
                         flexDirection: 'column',
                         gap: '16px',
-                        height: `calc(100vh - var(--nav-height) - 2 * var(--section-margin))`,
-                        overflow: 'hidden'
+                        height: 'auto',
+                        minHeight: `calc(100vh - var(--nav-height) - 2 * var(--section-margin))`,
+                        overflow: 'visible'
                     }}>
                         {/* Controls Panel */}
                         {isInDifferenceMode ? (
@@ -343,8 +361,12 @@ function DashboardPage() {
                         <components.ErrorBoundary onError={(msg) => setError(msg)}>
                             <div
                                 className={chartContainerClass}
-                                style={{ flex: 1, minHeight: 0 }}
-                            >
+                                style={{
+                                    flex: 1,
+                                    minHeight: '60vh',
+                                    display: 'flex',
+                                    flexDirection: 'column'
+                                }}                            >
                                 {/* Switch to Standard Chart button - always visible in difference mode */}
                                 {isInDifferenceMode && canShowDifferenceChart && (
                                     <Button
@@ -386,7 +408,10 @@ function DashboardPage() {
                                                         {isInDifferenceMode ? 'Switch to Standard Chart' : 'Switch to Difference Chart'}
                                                     </Button>
                                                 )}
-                                                <div className="chart-wrapper flex-grow-1" style={{ height: '100%' }}>
+                                                <div
+                                                    className="chart-wrapper flex-grow-1 d-flex flex-column"
+                                                    style={{ minHeight: '400px' }}
+                                                >
                                                     <components.MyChart
                                                         primaryData={filteredData.primary}
                                                         secondaryData={filteredData.secondary || undefined}
@@ -400,23 +425,26 @@ function DashboardPage() {
                                                         canShowDifferenceChart={canShowDifferenceChart}
                                                     />
                                                 </div>
-                                                <div className="d-flex w-100 px-2 pb-1 mt-3">
-                                                    <div className="d-flex gap-3 w-100">
+                                                <div className={`d-flex w-100 px-2 mt-3`}>
+                                                    <div className={`d-flex gap-2 w-100`}>
                                                         <components.DateTimePicker
                                                             label="Start"
                                                             value={pendingStartDate}
                                                             onChange={handleStartChange}
                                                             minDate={defaultMinDate}
-                                                            maxDate={(pendingEndDate ?? endDate) ?? defaultMaxDate}
-                                                            openToDate={pendingStartDate ?? defaultMinDate} />
+                                                            maxDate={pendingEndDate ?? endDate ?? defaultMaxDate}
+                                                            openToDate={pendingStartDate ?? defaultMinDate}
+                                                            minWidth={styles.datePickerMinWidth}
+                                                            />
 
                                                         <components.DateTimePicker
                                                             label="End"
                                                             value={pendingEndDate}
                                                             onChange={handleEndChange}
-                                                            minDate={(pendingStartDate ?? startDate) ?? defaultMinDate}
+                                                            minDate={pendingStartDate ?? startDate ?? defaultMinDate}
                                                             maxDate={defaultMaxDate}
                                                             openToDate={pendingEndDate ?? defaultMaxDate}
+                                                            minWidth={styles.datePickerMinWidth}
                                                         />
 
                                                         {!ignoreTimeRange && (
@@ -424,6 +452,7 @@ function DashboardPage() {
                                                                 <Button
                                                                     variant="primary"
                                                                     size="sm"
+                                                                    className={styles.textClass}
                                                                     disabled={!pendingStartDate || !pendingEndDate}
                                                                     onClick={applyPendingDates}
                                                                 >
@@ -436,7 +465,7 @@ function DashboardPage() {
                                                             <Form.Check
                                                                 type="switch"
                                                                 id="date-filter-toggle"
-                                                                label={<span className="text-nowrap small text-muted">Calculate metrics on full date range</span>}
+                                                                label={<span className={`text-nowrap ${styles.textClass} text-muted`}>Calculate metrics on full date range</span>}
                                                                 title="Enabling this option will recalculate metrics and statistics based on all available data. Disabling it will allow calculations only based on the selected date range."
                                                                 checked={ignoreTimeRange}
                                                                 onChange={(e) => setIgnoreTimeRange(e.target.checked)}
@@ -495,7 +524,7 @@ function DashboardPage() {
                                                     </div>
                                                 )}
                                                 {!isDiffLoading && !diffError && hasDifferenceData && (
-                                                    <div className="chart-wrapper flex-grow-1" style={{ height: '100%' }}>
+                                                    <div className="chart-wrapper flex-grow-1" style={{ height: 'auto'}}>
                                                         <components.MyChart
                                                             primaryData={differenceChartData}
                                                             toggleChartMode={toggleChartMode}
@@ -530,6 +559,11 @@ function DashboardPage() {
                                         onExportClick={handleExportClick}
                                         isExporting={isExporting}
                                         onRetryStatistic={retryMetric}
+                                        appliedStartDate={startDate}
+                                        appliedEndDate={endDate}
+                                        dataMinDate={defaultMinDate}
+                                        dataMaxDate={defaultMaxDate}
+                                        ignoreTimeRange={ignoreTimeRange}
                                     />
                                 )}
 
