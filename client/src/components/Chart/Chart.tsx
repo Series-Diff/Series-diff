@@ -99,11 +99,24 @@ const MyChart: React.FC<MyChartProps> = ({
 
     const stackedDomains = getStackedDomains();
 
+    const maxItemsInGroup = useMemo(() => {
+        const counts: Record<string, number> = {};
+        allKeys.forEach(key => {
+            const group = key.split('.')[0];
+            counts[group] = (counts[group] || 0) + 1;
+        });
+        return Math.max(...Object.values(counts), 0);
+    }, [allKeys]);
+
+    const MANY_ITEMS_THRESHOLD = 3;
+    const isLegendCrowded = maxItemsInGroup > MANY_ITEMS_THRESHOLD;
+    const dynamicRightMargin = isLegendCrowded ? 200 : 20;
+
     const chartLayout: Partial<Layout> = {
         margin: {
             l: 60, // lewy (na osie Y)
-            r: 20, // prawy
-            t: 30, // górny (tytuł)
+            r: dynamicRightMargin, // prawy
+            t: isLegendCrowded ? 30 : 50, // górny (tytuł)
             b: 40  // dolny (oś X)
         },
         title: {text: title},
@@ -125,13 +138,23 @@ const MyChart: React.FC<MyChartProps> = ({
             pattern: 'independent'
         } : undefined,
 
-        legend: {
+legend: isLegendCrowded ? {
+            orientation: "v",
+            y: 1,
+            x: 1.15,
+            xanchor: 'left',
+            yanchor: 'top',
+            bgcolor: 'rgba(255, 255, 255, 0.5)',
+            traceorder: "grouped"
+        } : {
             orientation: "h",
             y: 1.3,
             x: 0,
             xanchor: 'left',
             yanchor: 'top',
-            bgcolor: 'rgba(255, 255, 255, 0.5)'
+            bgcolor: 'rgba(255, 255, 255, 0.5)',
+            traceorder: "grouped"
+
         },
 
         xaxis: {
@@ -158,7 +181,7 @@ const MyChart: React.FC<MyChartProps> = ({
                 ],
                 x: 0,
                 xanchor: 'left',
-                y: 1.35,
+                y: isLegendCrowded ? 1.1 : 1.35,
                 yanchor: 'top'
             },
             rangeslider: {
@@ -256,7 +279,6 @@ const MyChart: React.FC<MyChartProps> = ({
                 style={{width: '100%', height: '100%', flex: 1}}
                 config={{
                     autosizable: true,
-
                     responsive: true,
                     scrollZoom: true,
                     displaylogo: false,

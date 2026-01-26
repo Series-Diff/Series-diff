@@ -102,6 +102,7 @@ export const buildTraces = (
             type: 'scattergl' as const,
             mode: isManual ? 'markers' : (showMarkers ? 'lines+markers' : 'lines') as 'lines' | 'lines+markers' | 'markers',
             name: displayName,
+            uid: name,
             legendgroup: groupName,
             legendgrouptitle: {
                 text: `<b>${groupName}</b>`,
