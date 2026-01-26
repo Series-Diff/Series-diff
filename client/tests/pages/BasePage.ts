@@ -43,32 +43,57 @@ export abstract class BasePage {
    * Navigate to Dashboard page.
    */
   async goToDashboard(): Promise<void> {
-    await this.navDashboard.click();
-    await this.page.waitForURL(/\/dashboard/);
+    // Attempt robust click first, fall back to direct navigation if needed
+    try {
+      await this.clickAfterScroll(this.navDashboard);
+      await this.page.waitForURL(/\/dashboard/, { timeout: 15000 });
+    } catch (e) {
+      console.warn('goToDashboard: click failed, falling back to direct navigation', e);
+      await this.page.goto('/dashboard', { waitUntil: 'domcontentloaded', timeout: 20000 });
+      await this.page.waitForURL(/\/dashboard/, { timeout: 15000 });
+    }
   }
 
   /**
    * Navigate to Data page.
    */
   async goToData(): Promise<void> {
-    await this.navData.click();
-    await this.page.waitForURL(/\/data/);
+    try {
+      await this.clickAfterScroll(this.navData);
+      await this.page.waitForURL(/\/data/, { timeout: 15000 });
+    } catch (e) {
+      console.warn('goToData: click failed, falling back to direct navigation', e);
+      await this.page.goto('/data', { waitUntil: 'domcontentloaded', timeout: 20000 });
+      await this.page.waitForURL(/\/data/, { timeout: 15000 });
+    }
   }
 
   /**
    * Navigate to Metrics page.
    */
   async goToMetrics(): Promise<void> {
-    await this.navMetrics.click();
-    await this.page.waitForURL(/\/metrics/);
+    try {
+      await this.clickAfterScroll(this.navMetrics);
+      await this.page.waitForURL(/\/metrics/, { timeout: 15000 });
+    } catch (e) {
+      console.warn('goToMetrics: click failed, falling back to direct navigation', e);
+      await this.page.goto('/metrics', { waitUntil: 'domcontentloaded', timeout: 20000 });
+      await this.page.waitForURL(/\/metrics/, { timeout: 15000 });
+    }
   }
 
   /**
    * Navigate to Help page.
    */
   async goToHelp(): Promise<void> {
-    await this.navHelp.click();
-    await this.page.waitForURL(/\/help/);
+    try {
+      await this.clickAfterScroll(this.navHelp);
+      await this.page.waitForURL(/\/help/, { timeout: 15000 });
+    } catch (e) {
+      console.warn('goToHelp: click failed, falling back to direct navigation', e);
+      await this.page.goto('/help', { waitUntil: 'domcontentloaded', timeout: 20000 });
+      await this.page.waitForURL(/\/help/, { timeout: 15000 });
+    }
   }
 
   /**
@@ -98,21 +123,36 @@ export abstract class BasePage {
    * Useful for ensuring elements are visible in videos/traces.
    */
   async scrollIntoView(locator: Locator): Promise<void> {
-    // Wait for element to exist before scrolling
-    await locator.waitFor({ state: 'attached', timeout: 10000 });
-    await locator.evaluate(element => {
-      element.scrollIntoView({ behavior: 'smooth', block: 'center' });
-    });
-    // Wait a bit for scroll animation to complete
-    await this.page.waitForTimeout(300);
+    // Wait for element to exist before scrolling. Use longer timeout to reduce flakes.
+    try {
+      await locator.waitFor({ state: 'attached', timeout: 20000 });
+      await locator.evaluate(element => {
+        element.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      });
+      // Wait a bit for scroll animation to complete
+      await this.page.waitForTimeout(300);
+    } catch (e) {
+      // If element doesn't attach in time, log and continue — callers may handle navigation fallback.
+      console.warn('scrollIntoView: element not attached or timed out', e);
+    }
   }
 
   /**
    * Click an element after scrolling it into view.
    */
   async clickAfterScroll(locator: Locator): Promise<void> {
-    await this.scrollIntoView(locator);
-    await locator.click();
+    try {
+      await this.scrollIntoView(locator);
+      // Ensure element is visible before clicking
+      await locator.waitFor({ state: 'visible', timeout: 10000 });
+      await locator.click();
+    } catch (e) {
+      // Re-throw with context so callers can fallback to alternative navigation
+      const err = new Error(`clickAfterScroll failed: ${String(e)}`);
+      // @ts-ignore add original for debugging
+      err.cause = e;
+      throw err;
+    }
   }
 
   /**

@@ -21,7 +21,9 @@ import {
   setupLocalStorageWithData,
   setupMetricMocksWithErrors,
   clearAllStorage,
-  clickAfterScroll
+  clickAfterScroll,
+  safeReload,
+  safeGoto
 } from './helpers/dashboard-test-helpers';
 
 test.describe('Dashboard Error Handling & Network E2E Tests', () => {
@@ -34,7 +36,7 @@ test.describe('Dashboard Error Handling & Network E2E Tests', () => {
   
   test.describe('Individual Statistic Errors', () => {
     test.beforeEach(async ({ page }) => {
-      await page.goto('/');
+      await safeGoto(page);
       await clearAllStorage(page);
     });
 
@@ -47,7 +49,7 @@ test.describe('Dashboard Error Handling & Network E2E Tests', () => {
       });
 
       await setupLocalStorageWithData(page, MULTI_FILE_TEST_DATA);
-      await page.reload();
+      await safeReload(page);
       await dashboardPage.hideWebpackOverlay();
       await dashboardPage.selectCategory('Temperature');
       await page.waitForTimeout(2000);
@@ -66,7 +68,7 @@ test.describe('Dashboard Error Handling & Network E2E Tests', () => {
       });
 
       await setupLocalStorageWithData(page, MULTI_FILE_TEST_DATA);
-      await page.reload();
+      await safeReload(page);
       await dashboardPage.hideWebpackOverlay();
       await dashboardPage.selectCategory('Temperature');
       await page.waitForTimeout(2000);
@@ -84,7 +86,7 @@ test.describe('Dashboard Error Handling & Network E2E Tests', () => {
       });
 
       await setupLocalStorageWithData(page, MULTI_FILE_TEST_DATA);
-      await page.reload();
+      await safeReload(page);
       await dashboardPage.hideWebpackOverlay();
       await dashboardPage.selectCategory('Temperature');
       await page.waitForTimeout(2000);
@@ -101,7 +103,7 @@ test.describe('Dashboard Error Handling & Network E2E Tests', () => {
       });
 
       await setupLocalStorageWithData(page, MULTI_FILE_TEST_DATA);
-      await page.reload();
+      await safeReload(page);
       await dashboardPage.hideWebpackOverlay();
       await dashboardPage.selectCategory('Temperature');
       await page.waitForTimeout(2000);
@@ -118,7 +120,7 @@ test.describe('Dashboard Error Handling & Network E2E Tests', () => {
       });
 
       await setupLocalStorageWithData(page, MULTI_FILE_TEST_DATA);
-      await page.reload();
+      await safeReload(page);
       await dashboardPage.hideWebpackOverlay();
       await dashboardPage.selectCategory('Temperature');
       await page.waitForTimeout(2000);
@@ -146,7 +148,7 @@ test.describe('Dashboard Error Handling & Network E2E Tests', () => {
       });
 
       await setupLocalStorageWithData(page, MULTI_FILE_TEST_DATA);
-      await page.reload();
+      await safeReload(page);
       await dashboardPage.hideWebpackOverlay();
       await dashboardPage.selectCategory('Temperature');
       await page.waitForTimeout(2000);
@@ -188,7 +190,7 @@ test.describe('Dashboard Error Handling & Network E2E Tests', () => {
       });
 
       await setupLocalStorageWithData(page, MULTI_FILE_TEST_DATA);
-      await page.reload();
+      await safeReload(page);
       await dashboardPage.hideWebpackOverlay();
       await dashboardPage.selectCategory('Temperature');
       await page.waitForTimeout(2000);
@@ -205,7 +207,7 @@ test.describe('Dashboard Error Handling & Network E2E Tests', () => {
       });
 
       await setupLocalStorageWithData(page, MULTI_FILE_TEST_DATA);
-      await page.reload();
+      await safeReload(page);
       await dashboardPage.hideWebpackOverlay();
       await dashboardPage.selectCategory('Temperature');
       await page.waitForTimeout(2000);
@@ -239,7 +241,7 @@ test.describe('Dashboard Error Handling & Network E2E Tests', () => {
       });
 
       await setupLocalStorageWithData(page, MULTI_FILE_TEST_DATA);
-      await page.reload();
+      await safeReload(page);
       await dashboardPage.hideWebpackOverlay();
       await dashboardPage.selectCategory('Temperature');
       await page.waitForTimeout(2000);

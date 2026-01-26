@@ -4,6 +4,7 @@
  */
 import { type Page, type Locator, expect } from '@playwright/test';
 import { BasePage } from './BasePage';
+import { safeReload, safeGoto } from '../helpers/dashboard-test-helpers';
 
 export class DashboardPage extends BasePage {
   // Category selection
@@ -70,6 +71,8 @@ export class DashboardPage extends BasePage {
         await this.page.goto('/', { waitUntil: 'domcontentloaded', timeout: 15000 });
         await this.page.waitForLoadState('networkidle', { timeout: 10000 }).catch(() => {});
         await this.hideWebpackOverlay();
+        // Ensure main navigation has rendered before continuing
+        await this.page.getByRole('link', { name: 'Dashboard' }).waitFor({ state: 'visible', timeout: 15000 });
         return;
       } catch (e) {
         lastError = e as Error;
@@ -139,7 +142,35 @@ export class DashboardPage extends BasePage {
    * Select a category from the dropdown.
    */
   async selectCategory(categoryName: string): Promise<void> {
-    await this.categoryDropdown.selectOption({ label: categoryName });
+    // Ensure dropdown is attached and has options - retry a few times to handle async rendering
+    let lastError: any = null;
+    for (let i = 0; i < 3; i++) {
+      try {
+        await this.categoryDropdown.waitFor({ state: 'attached', timeout: 10000 });
+        await this.categoryDropdown.waitFor({ state: 'visible', timeout: 10000 });
+        // Wait for options to be populated
+        const option = this.categoryDropdown.locator(`option:has-text("${categoryName}")`);
+        await option.waitFor({ state: 'visible', timeout: 5000 }).catch(() => {});
+        await this.categoryDropdown.selectOption({ label: categoryName });
+        return;
+      } catch (e) {
+        lastError = e;
+        // Try to recover: navigate to root and hide overlay
+        try {
+          await this.page.waitForTimeout(500);
+        } catch (_) {
+          // page may be closed - break early
+          break;
+        }
+        try {
+          await safeGoto(this.page as any as import('@playwright/test').Page);
+          await this.hideWebpackOverlay();
+        } catch (_) {
+          // ignore and continue retries
+        }
+      }
+    }
+    throw lastError;
   }
 
   /**

@@ -4,6 +4,7 @@
  */
 import { test, expect } from '@playwright/test';
 import { DashboardPage } from './pages';
+import { safeReload } from './helpers/dashboard-test-helpers';
 
 // Extended mock data with multiple files per category
 // Format: { timestamp: { category: { filename: value } } }
@@ -29,9 +30,8 @@ test.describe('Dashboard Advanced Interactions', () => {
     await dashboardPage.goto();
     // Set up localStorage with test data
     await dashboardPage.setupTestData(MULTI_FILE_DATA);
-    // Reload to pick up localStorage data
-    await page.reload({ waitUntil: 'domcontentloaded' });
-    await page.waitForLoadState('networkidle').catch(() => {});
+    // Reload to pick up localStorage data (use safeReload to avoid intermittent reset)
+    await safeReload(page);
     await dashboardPage.hideWebpackOverlay();
   });
 

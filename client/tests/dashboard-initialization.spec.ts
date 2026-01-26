@@ -19,7 +19,9 @@ import {
   setupLocalStorageWithData,
   setupPluginsMock,
   expectVisibleAfterScroll,
-  clickAfterScroll
+  clickAfterScroll,
+  safeReload,
+  safeGoto
 } from './helpers/dashboard-test-helpers';
 
 test.describe('Dashboard Initialization E2E Tests', () => {
@@ -33,13 +35,13 @@ test.describe('Dashboard Initialization E2E Tests', () => {
   test.describe('Fresh Application State', () => {
     test.beforeEach(async ({ page }) => {
       // Clear storage before each test
-      await page.goto('/');
+      await safeGoto(page);
       await clearAllStorage(page);
     });
 
     test('Empty state on fresh application load', async ({ page }) => {
       // Given: Fresh app state
-      await page.reload();
+      await safeReload(page);
       await page.addStyleTag({ 
         content: '#webpack-dev-server-client-overlay { display: none !important; }' 
       });
@@ -164,7 +166,7 @@ test.describe('Dashboard Initialization E2E Tests', () => {
           });
         }
         
-        await page.reload();
+        await safeReload(page);
         await dashboardPage.hideWebpackOverlay();
         await dashboardPage.selectCategory('Temperature');
 
@@ -249,7 +251,7 @@ test.describe('Dashboard Initialization E2E Tests', () => {
       await page.goto('/');
       await clearAllStorage(page);
       await setupLocalStorageWithData(page, MULTI_FILE_TEST_DATA);
-      await page.reload();
+      await safeReload(page);
       await dashboardPage.hideWebpackOverlay();
 
       // When: Select category to trigger calculations
