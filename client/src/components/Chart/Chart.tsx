@@ -138,7 +138,7 @@ const MyChart: React.FC<MyChartProps> = ({
             pattern: 'independent'
         } : undefined,
 
-legend: isLegendCrowded ? {
+        legend: isLegendCrowded ? {
             orientation: "v",
             y: 1,
             x: 1.15,
