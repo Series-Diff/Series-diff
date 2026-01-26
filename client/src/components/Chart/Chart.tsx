@@ -154,7 +154,6 @@ const MyChart: React.FC<MyChartProps> = ({
             yanchor: 'top',
             bgcolor: 'rgba(255, 255, 255, 0.5)',
             traceorder: "grouped"
-
         },
 
         xaxis: {
