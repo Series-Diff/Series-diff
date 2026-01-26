@@ -323,6 +323,44 @@ export async function setupLocalStorageWithData(page: Page, mockData: Record<str
 }
 
 /**
+ * Safe page reload with retries to handle intermittent dev server connection resets
+ */
+export async function safeReload(page: Page, attempts: number = 3) {
+  let lastError: any = null;
+  for (let i = 0; i < attempts; i++) {
+    try {
+      await page.reload({ waitUntil: 'domcontentloaded', timeout: 20000 });
+      await page.waitForLoadState('networkidle', { timeout: 10000 }).catch(() => {});
+      return;
+    } catch (e) {
+      lastError = e;
+      console.warn(`safeReload attempt ${i + 1} failed:`, e);
+      await page.waitForTimeout(1000 * (i + 1));
+    }
+  }
+  throw lastError;
+}
+
+/**
+ * Safe page navigation with retries to handle intermittent dev server resets
+ */
+export async function safeGoto(page: Page, path: string = '/', attempts: number = 3) {
+  let lastError: any = null;
+  for (let i = 0; i < attempts; i++) {
+    try {
+      await page.goto(path, { waitUntil: 'load', timeout: 20000 });
+      await page.waitForLoadState('networkidle', { timeout: 10000 }).catch(() => {});
+      return;
+    } catch (e) {
+      lastError = e;
+      console.warn(`safeGoto attempt ${i + 1} failed:`, e);
+      await page.waitForTimeout(1000 * (i + 1));
+    }
+  }
+  throw lastError;
+}
+
+/**
  * Setup metric mocks that fail with errors
  */
 export async function setupMetricMocksWithErrors(
@@ -666,6 +704,13 @@ export async function clickAfterScroll(
   locator: Locator,
   options?: Parameters<Locator['click']>[0]
 ): Promise<void> {
+  // Wait for element to be visible/attached before scrolling - reduces flakes
+  try {
+    await locator.waitFor({ state: 'visible', timeout: (options as any)?.timeout || 10000 });
+  } catch (e) {
+    // If not visible, fall back to attached state
+    await locator.waitFor({ state: 'attached', timeout: 5000 }).catch(() => {});
+  }
   await locator.evaluate(element => {
     element.scrollIntoView({ behavior: 'smooth', block: 'center' });
   });

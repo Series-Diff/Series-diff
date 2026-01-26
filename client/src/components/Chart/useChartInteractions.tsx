@@ -2,7 +2,7 @@ import { useEffect, useRef } from "react";
 
 /**
  * Custom hook for handling chart interactions and error prevention.
- * 
+ *
  * Manages:
  * - Legend clicks for toggling visibility.
  * - Native event listeners to intercept unsupported mouse+keyboard combinations.
@@ -17,7 +17,7 @@ export const useChartInteractions = (
     // Legend click handler
     const handleLegendClick = (event: any) => {
         if (!event || !event.data || typeof event.curveNumber !== 'number') return false;
-        const name = event.data[event.curveNumber]?.name;
+        const name = event.data[event.curveNumber]?.uid;
         if (!name) return false;
         setVisibleMap(prev => ({ ...prev, [name]: !(prev[name] ?? true) })); // Toggle visibility
         return false; // Prevents default Plotly behavior

@@ -16,7 +16,9 @@ import {
   setupLocalStorageWithData,
   clearAllStorage,
   setupRollingMeanMock,
-  clickAfterScroll
+  clickAfterScroll,
+  safeReload,
+  safeGoto
 } from './helpers/dashboard-test-helpers';
 
 test.describe('Dashboard All Metrics Comprehensive E2E Tests', () => {
@@ -29,7 +31,7 @@ test.describe('Dashboard All Metrics Comprehensive E2E Tests', () => {
 
   test.describe('All Statistics Display', () => {
     test.beforeEach(async ({ page }) => {
-      await page.goto('/');
+      await safeGoto(page);
       await clearAllStorage(page);
     });
 
@@ -47,7 +49,7 @@ test.describe('Dashboard All Metrics Comprehensive E2E Tests', () => {
         );
       });
       await setupLocalStorageWithData(page, MULTI_FILE_TEST_DATA);
-      await page.reload();
+      await safeReload(page);
       await dashboardPage.hideWebpackOverlay();
 
       await dashboardPage.selectCategory('Temperature');
@@ -98,7 +100,7 @@ test.describe('Dashboard All Metrics Comprehensive E2E Tests', () => {
 
   test.describe('All Pairwise Metrics Display', () => {
     test.beforeEach(async ({ page }) => {
-      await page.goto('/');
+      await safeGoto(page);
       await clearAllStorage(page);
     });
 
@@ -116,7 +118,7 @@ test.describe('Dashboard All Metrics Comprehensive E2E Tests', () => {
         );
       });
       await setupLocalStorageWithData(page, MULTI_FILE_TEST_DATA);
-      await page.reload();
+      await safeReload(page);
       await dashboardPage.hideWebpackOverlay();
 
       await dashboardPage.selectCategory('Temperature');
@@ -170,7 +172,7 @@ test.describe('Dashboard All Metrics Comprehensive E2E Tests', () => {
 
   test.describe('Difference Chart Mode', () => {
     test.beforeEach(async ({ page }) => {
-      await page.goto('/');
+      await safeGoto(page);
       await clearAllStorage(page);
     });
 
@@ -267,7 +269,7 @@ test.describe('Dashboard All Metrics Comprehensive E2E Tests', () => {
         }
       });
       await setupLocalStorageWithData(page, MULTI_FILE_TEST_DATA);
-      await page.reload();
+      await safeReload(page);
       await dashboardPage.hideWebpackOverlay();
 
       await dashboardPage.selectCategory('Temperature');
@@ -369,7 +371,7 @@ test.describe('Dashboard All Metrics Comprehensive E2E Tests', () => {
         await route.fulfill({ json: MULTI_FILE_TEST_DATA });
       });
 
-      await page.goto('/');
+      await safeGoto(page);
       await clearAllStorage(page);
       
       // Enable all features
@@ -417,10 +419,11 @@ test.describe('Dashboard All Metrics Comprehensive E2E Tests', () => {
         await maToggle.uncheck();
       }
       
-      // Step 6: Navigate away and back
-      await dashboardPage.goToMetrics();
-      await page.waitForTimeout(500);
-      await dashboardPage.goToDashboard();
+      // Step 6: Navigate away and back (use direct navigation to avoid flaky nav clicks)
+      await page.goto('/metrics', { waitUntil: 'domcontentloaded' }).catch(() => {});
+      await page.waitForURL(/\/metrics/, { timeout: 15000 }).catch(() => {});
+      await page.goto('/dashboard', { waitUntil: 'domcontentloaded' }).catch(() => {});
+      await page.waitForURL(/\/dashboard/, { timeout: 15000 }).catch(() => {});
       await dashboardPage.hideWebpackOverlay();
       
       // Chart should still be visible

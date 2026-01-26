@@ -17,7 +17,9 @@ import {
   setupLocalStorageWithData,
   setupPluginsMock,
   clearAllStorage,
-  clickAfterScroll
+  clickAfterScroll,
+  safeReload,
+  safeGoto
 } from './helpers/dashboard-test-helpers';
 
 test.describe('Dashboard Custom Metrics E2E Tests', () => {
@@ -44,7 +46,7 @@ test.describe('Dashboard Custom Metrics E2E Tests', () => {
       });
 
       await setupLocalStorageWithData(page, MULTI_FILE_TEST_DATA);
-      await page.reload();
+      await safeReload(page);
       await dashboardPage.hideWebpackOverlay();
 
       // Create a new custom metric on Metrics page
@@ -97,7 +99,7 @@ test.describe('Dashboard Custom Metrics E2E Tests', () => {
       });
 
       await setupLocalStorageWithData(page, MULTI_FILE_TEST_DATA);
-      await page.reload();
+      await safeReload(page);
       
       // Create metric on Metrics page
       await metricsPage.goto();

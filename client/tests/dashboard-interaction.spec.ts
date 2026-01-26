@@ -4,6 +4,7 @@
  */
 import { test, expect } from '@playwright/test';
 import { DashboardPage } from './pages';
+import { safeReload } from './helpers/dashboard-test-helpers';
 
 // Mock data for testing - will be converted to localStorage format
 const MOCK_DATA = {
@@ -28,7 +29,7 @@ test.describe('Dashboard Interaction', () => {
     // Set up test data in localStorage
     await dashboardPage.setupTestData(MOCK_DATA);
     // Reload to pick up localStorage data
-    await page.reload();
+    await safeReload(page);
     await dashboardPage.hideWebpackOverlay();
   });
 
