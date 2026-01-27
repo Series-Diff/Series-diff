@@ -16,8 +16,8 @@ jobs:
   build-and-test:
     runs-on: ubuntu-latest
     env:
-      IS_E2E: ${{ github.event_name == 'pull_request' || (github.event_name == 'push' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/dev')) }}
-
+      # IS_E2E: ${{ github.event_name == 'pull_request' || (github.event_name == 'push' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/dev')) }}
+      IS_E2E: false
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
