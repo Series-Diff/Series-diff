@@ -5,9 +5,16 @@ const colors = ['#1f77b4', '#ff7f0e', '#2ca02c', '#d62728', '#9467bd', '#8c564b'
 
 const MA_Suffix = / \(MA.*\)$/;
 
+export const isMA = (name: string): boolean => {
+    return MA_Suffix.test(name);
+};
+
+const sanitizeUid = (str: string): string => {
+    return str.replace(/[^a-zA-Z0-9_-]/g, '_');
+};
+
 const getBaseKey = (name: string, syncByFile: boolean, syncByGroup: boolean): string => {
     let tempName = name.replace(MA_Suffix, '');
-
     const parts = tempName.split('.');
 
     if (syncByGroup) {
@@ -19,10 +26,6 @@ const getBaseKey = (name: string, syncByFile: boolean, syncByGroup: boolean): st
     }
 
     return tempName;
-};
-
-const isMA = (name: string): boolean => {
-    return MA_Suffix.test(name);
 };
 
 const getGroupName = (key: string) => key.split('.')[0];
@@ -92,17 +95,31 @@ export const buildTraces = (
         const parts = name.split('.');
         const groupName = parts[0];
         const displayName = parts.length > 1 ? parts.slice(1).join('.') : name;
+
         const baseKey = getBaseKey(name, syncColorsByFile, syncColorsByGroup);
         const color = colorMap.get(baseKey) || '#000000';
         const isSeriesMA = isMA(name);
 
+        const visibilityKey = name;
+
+        let isVisible = true;
+
+        if (isSeriesMA) {
+            isVisible = true;
+        } else {
+            isVisible = visibleMap[visibilityKey] !== false;
+        }
+
         return {
+            uid: sanitizeUid(name),
             x: series.map(d => d.x),
             y: series.map(d => d.y),
             type: 'scattergl' as const,
             mode: isManual ? 'markers' : (showMarkers ? 'lines+markers' : 'lines') as 'lines' | 'lines+markers' | 'markers',
+
             name: displayName,
-            uid: name,
+            meta: visibilityKey as any,
+
             legendgroup: groupName,
             legendgrouptitle: {
                 text: `<b>${groupName}</b>`,
@@ -120,9 +137,9 @@ export const buildTraces = (
                 opacity: isManual ? 1 : 1
             },
             yaxis: yaxis,
-            visible: visibleMap[name] === false ? 'legendonly' : true,
-            hovertemplate: `<br>Value: %{y:.2f}`,
-        };
+            visible: isVisible ? true : 'legendonly',
+            hovertemplate: `<br>Value: %{y:.2f}<extra>${displayName}</extra>`,
+        } as unknown as Data;
     };
 
     const primaryTraces: Data[] = Object.entries(primaryData).map(([name, series]) =>
