@@ -2,11 +2,6 @@ import { useEffect, useRef } from "react";
 
 /**
  * Custom hook for handling chart interactions and error prevention.
- *
- * Manages:
- * - Legend clicks for toggling visibility.
- * - Native event listeners to intercept unsupported mouse+keyboard combinations.
- * - Global error handlers to suppress Plotly-specific runtime errors.
  */
 
 export const useChartInteractions = (
@@ -14,16 +9,16 @@ export const useChartInteractions = (
 ) => {
     const containerRef = useRef<HTMLDivElement | null>(null);
 
-    // Legend click handler
+    // Legend click handler (bez zmian z poprzedniego kroku)
     const handleLegendClick = (event: any) => {
         if (!event || !event.data || typeof event.curveNumber !== 'number') return false;
-        const name = event.data[event.curveNumber]?.uid;
-        if (!name) return false;
-        setVisibleMap(prev => ({ ...prev, [name]: !(prev[name] ?? true) })); // Toggle visibility
-        return false; // Prevents default Plotly behavior
+        const fullKey = event.data[event.curveNumber]?.meta;
+        if (!fullKey) return false;
+        setVisibleMap(prev => ({ ...prev, [fullKey]: !(prev[fullKey] ?? true) }));
+        return false;
     };
 
-    // Native listeners for intercepting unsupported interactions
+    // Native listeners (bez zmian)
     useEffect(() => {
         const container = containerRef.current;
         if (!container) return;
@@ -56,23 +51,51 @@ export const useChartInteractions = (
 
     // Global error suppression for Plotly issues
     useEffect(() => {
+        // Lista fraz błędów do ignorowania
+        const IGNORED_ERRORS = [
+            '_hoverlayer',
+            'plotly',
+            'unhover',
+            'unhoverRaw',
+            'selectAll',
+            'select',
+            'Cannot read properties of undefined',
+            '_calcInverseTransform',
+            'calcInverseTransform'
+        ];
+
+        const shouldSuppress = (msg: string, stack: string) => {
+            return IGNORED_ERRORS.some(err =>
+                msg.includes(err) || stack.includes(err) || new RegExp(err, 'i').test(msg)
+            );
+        };
+
         const onUnhandledRejection = (ev: PromiseRejectionEvent) => {
             const reason = ev.reason as any;
             const msg = reason?.message || reason?.toString() || '';
             const stack = reason?.stack || '';
-            if (msg.includes('_hoverlayer') || stack.includes('_hoverlayer') || /plotly/i.test(msg) || /unhover/i.test(msg)) {
+
+            if (shouldSuppress(msg, stack)) {
                 ev.preventDefault();
+                ev.stopImmediatePropagation();
+                // console.warn('Suppressed Plotly Promise Error:', msg); // Opcjonalnie do debugowania
             }
         };
+
         const onWindowError = (ev: ErrorEvent) => {
             const msg = ev.message || '';
             const stack = ev.error?.stack || '';
-            if (msg.includes('_hoverlayer') || stack.includes('_hoverlayer') || /Cannot read properties of undefined/i.test(msg)) {
+
+            if (shouldSuppress(msg, stack)) {
                 ev.preventDefault();
+                ev.stopImmediatePropagation();
+                // console.warn('Suppressed Plotly Runtime Error:', msg); // Opcjonalnie do debugowania
             }
         };
+
         window.addEventListener('unhandledrejection', onUnhandledRejection);
         window.addEventListener('error', onWindowError);
+
         return () => {
             window.removeEventListener('unhandledrejection', onUnhandledRejection);
             window.removeEventListener('error', onWindowError);

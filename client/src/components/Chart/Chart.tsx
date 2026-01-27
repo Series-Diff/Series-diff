@@ -2,7 +2,7 @@ import React, {useMemo} from "react";
 import Plot from "react-plotly.js";
 import {useChartState} from "./useChartState";
 import {useChartInteractions} from "./useChartInteractions";
-import {buildTraces, getColorMap} from "./tracesBuilder";
+import {buildTraces, getColorMap, isMA} from "./tracesBuilder";
 import ChartControls from "./ChartControls";
 import {TimeSeriesEntry} from "@/services/fetchTimeSeries";
 import {Layout} from "plotly.js";
@@ -102,6 +102,8 @@ const MyChart: React.FC<MyChartProps> = ({
     const maxItemsInGroup = useMemo(() => {
         const counts: Record<string, number> = {};
         allKeys.forEach(key => {
+            if (isMA(key)) return;
+
             const group = key.split('.')[0];
             counts[group] = (counts[group] || 0) + 1;
         });
@@ -145,7 +147,8 @@ legend: isLegendCrowded ? {
             xanchor: 'left',
             yanchor: 'top',
             bgcolor: 'rgba(255, 255, 255, 0.5)',
-            traceorder: "grouped"
+            traceorder: "grouped",
+            groupclick: "toggleitem" as any
         } : {
             orientation: "h",
             y: 1.3,
@@ -153,7 +156,8 @@ legend: isLegendCrowded ? {
             xanchor: 'left',
             yanchor: 'top',
             bgcolor: 'rgba(255, 255, 255, 0.5)',
-            traceorder: "grouped"
+            traceorder: "grouped",
+            groupclick: "toggleitem" as any
 
         },
 
@@ -273,6 +277,7 @@ legend: isLegendCrowded ? {
                     flexDirection: 'column'
                 }}
             >                <Plot
+                key={uiRevision}
                 data={traces}
                 layout={chartLayout}
                 useResizeHandler={true}
