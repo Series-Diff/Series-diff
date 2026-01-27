@@ -23,7 +23,9 @@ import {
   setupMetricMocksWithDelays, 
   setupLocalStorageWithData,
   setupPluginsMock,
-  clearAllStorage
+  clearAllStorage,
+  safeReload,
+  safeGoto
 } from './helpers/dashboard-test-helpers';
 
 test.describe('Dashboard Metrics Selection Modal E2E Tests', () => {
@@ -45,10 +47,10 @@ test.describe('Dashboard Metrics Selection Modal E2E Tests', () => {
         await route.fulfill({ json: MULTI_FILE_TEST_DATA });
       });
 
-      await page.goto('/');
+      await safeGoto(page);
       await clearAllStorage(page);
       await setupLocalStorageWithData(page, MULTI_FILE_TEST_DATA);
-      await page.reload();
+      await safeReload(page);
       await dashboardPage.hideWebpackOverlay();
     });
 
@@ -261,10 +263,10 @@ test.describe('Dashboard Metrics Selection Modal E2E Tests', () => {
         await route.fulfill({ json: MULTI_FILE_TEST_DATA });
       });
 
-      await page.goto('/');
+      await safeGoto(page);
       await clearAllStorage(page);
       await setupLocalStorageWithData(page, MULTI_FILE_TEST_DATA);
-      await page.reload();
+      await safeReload(page);
       await dashboardPage.hideWebpackOverlay();
     });
 
